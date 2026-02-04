@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HotsPatchNotes.Api/HotsPatchNotes.Api.csproj" />
+    <Project Path="src/HotsPatchNotes.Shared/HotsPatchNotes.Shared.csproj" />
+    <Project Path="src/HotsPatchNotes.Web/HotsPatchNotes.Web.csproj" />
+  </Folder>
+</Solution>

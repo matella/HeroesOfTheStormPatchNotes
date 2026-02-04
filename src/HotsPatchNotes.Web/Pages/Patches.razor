@@ -1,0 +1,166 @@
+@page "/patches"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IPatchService PatchService
+@inject NavigationManager Navigation
+
+<PageTitle>Patch Notes - HotS Patch Notes</PageTitle>
+
+<div class="patches-page">
+    <div class="page-header">
+        <h1>Patch Notes History</h1>
+        <p class="subtitle">Browse the complete history of Heroes of the Storm patches</p>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>Type:</label>
+            <select @bind="selectedType" @bind:after="LoadPatches">
+                <option value="">All Types</option>
+                @foreach (var type in patchTypes)
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading patches...</p>
+        </div>
+    }
+    else if (patches.Items.Count == 0)
+    {
+        <div class="no-results">
+            <p>No patches found.</p>
+        </div>
+    }
+    else
+    {
+        <div class="patches-list">
+            @foreach (var patch in patches.Items)
+            {
+                <div class="patch-card" @onclick="() => ViewPatch(patch.InternalId)">
+                    <div class="patch-header">
+                        <h3>@(patch.PatchName ?? patch.InternalId)</h3>
+                        <div class="patch-badges">
+                            <span class="patch-type type-@(patch.PatchType?.ToLower().Replace(" ", "-"))">@patch.PatchType</span>
+                            @if (patch.HasContent)
+                            {
+                                <span class="has-content" title="Full patch notes available">📄</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="patch-meta">
+                        @if (!string.IsNullOrEmpty(patch.GameVersion))
+                        {
+                            <span class="version">v@patch.GameVersion</span>
+                        }
+                        @if (patch.LiveDate.HasValue)
+                        {
+                            <span class="date">📅 @patch.LiveDate.Value.ToString("MMMM d, yyyy")</span>
+                        }
+                        @if (!string.IsNullOrEmpty(patch.Source))
+                        {
+                            <span class="source">@patch.Source</span>
+                        }
+                    </div>
+                    <div class="patch-links" @onclick:stopPropagation="true">
+                        @if (!string.IsNullOrEmpty(patch.OfficialLink))
+                        {
+                            <a href="@patch.OfficialLink" target="_blank" rel="noopener" class="link-btn">
+                                📄 Official Notes
+                            </a>
+                        }
+                        @if (!string.IsNullOrEmpty(patch.AlternateLink))
+                        {
+                            <a href="@patch.AlternateLink" target="_blank" rel="noopener" class="link-btn secondary">
+                                🔗 Alternate Source
+                            </a>
+                        }
+                        <button class="link-btn view-btn" @onclick="() => ViewPatch(patch.InternalId)">
+                            View Details →
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (patches.TotalPages > 1)
+        {
+            <div class="pagination">
+                <button @onclick="PreviousPage" disabled="@(!patches.HasPreviousPage)" class="page-btn">
+                    ← Previous
+                </button>
+                <span class="page-info">
+                    Page @patches.Page of @patches.TotalPages (@patches.TotalCount total)
+                </span>
+                <button @onclick="NextPage" disabled="@(!patches.HasNextPage)" class="page-btn">
+                    Next →
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private PagedResultDto<PatchSummaryDto> patches = new();
+    private List<string> patchTypes = new();
+    private bool loading = true;
+    
+    private string selectedType = "";
+    private int currentPage = 1;
+    private const int PageSize = 20;
+
+    protected override async Task OnInitializedAsync()
+    {
+        patchTypes = await PatchService.GetPatchTypesAsync();
+        await LoadPatches();
+    }
+
+    private async Task LoadPatches()
+    {
+        loading = true;
+        try
+        {
+            patches = await PatchService.GetPatchesAsync(
+                string.IsNullOrEmpty(selectedType) ? null : selectedType, 
+                currentPage, 
+                PageSize);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading patches: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ViewPatch(string internalId)
+    {
+        Navigation.NavigateTo($"/patch/{internalId}");
+    }
+
+    private async Task PreviousPage()
+    {
+        if (patches.HasPreviousPage)
+        {
+            currentPage--;
+            await LoadPatches();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (patches.HasNextPage)
+        {
+            currentPage++;
+            await LoadPatches();
+        }
+    }
+}

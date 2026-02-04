@@ -1,0 +1,196 @@
+@page "/patch/{InternalId}"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IPatchService PatchService
+@inject NavigationManager Navigation
+
+<PageTitle>@(patch?.PatchName ?? "Patch Details") - HotS Patch Notes</PageTitle>
+
+<div class="patch-detail-page">
+    @if (isLoading)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading patch notes...</p>
+        </div>
+    }
+    else if (patch == null)
+    {
+        <div class="not-found">
+            <h2>Patch Not Found</h2>
+            <p>The patch you're looking for doesn't exist.</p>
+            <a href="/patches" class="back-link">← Back to Patches</a>
+        </div>
+    }
+    else
+    {
+        <div class="patch-header">
+            <a href="/patches" class="back-link">← Back to Patches</a>
+            
+            <h1>@patch.PatchName</h1>
+            
+            <div class="patch-meta">
+                @if (!string.IsNullOrEmpty(patch.PatchType))
+                {
+                    <span class="patch-type @GetPatchTypeClass(patch.PatchType)">@patch.PatchType</span>
+                }
+                @if (patch.LiveDate.HasValue)
+                {
+                    <span class="patch-date">@patch.LiveDate.Value.ToString("MMMM d, yyyy")</span>
+                }
+                @if (!string.IsNullOrEmpty(patch.GameVersion))
+                {
+                    <span class="patch-version">v@patch.GameVersion</span>
+                }
+                @if (!string.IsNullOrEmpty(patch.Source))
+                {
+                    <span class="patch-source">Source: @patch.Source</span>
+                }
+            </div>
+
+            <div class="patch-links">
+                @if (!string.IsNullOrEmpty(patch.OfficialLink))
+                {
+                    <a href="@patch.OfficialLink" target="_blank" rel="noopener" class="official-link">
+                        Official Patch Notes ↗
+                    </a>
+                }
+                @if (!string.IsNullOrEmpty(patch.AlternateLink))
+                {
+                    <a href="@patch.AlternateLink" target="_blank" rel="noopener" class="alternate-link">
+                        Alternate Source ↗
+                    </a>
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(patch.Content))
+        {
+            <div class="patch-content">
+                <h2>Patch Notes</h2>
+                <div class="content-body">
+                    @((MarkupString)FormatContent(patch.Content))
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(patch.ContentHtml))
+        {
+            <div class="patch-content">
+                <h2>Patch Notes</h2>
+                <div class="content-body html-content">
+                    @((MarkupString)patch.ContentHtml)
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="no-content">
+                <p>Full patch notes content not available.</p>
+                @if (!string.IsNullOrEmpty(patch.OfficialLink))
+                {
+                    <p>
+                        <a href="@patch.OfficialLink" target="_blank" rel="noopener">
+                            View official patch notes on Blizzard's website →
+                        </a>
+                    </p>
+                }
+            </div>
+        }
+
+        <div class="patch-details">
+            <h2>Additional Details</h2>
+            <dl class="details-list">
+                @if (!string.IsNullOrEmpty(patch.FullVersion))
+                {
+                    <dt>Full Version</dt>
+                    <dd>@patch.FullVersion</dd>
+                }
+                @if (!string.IsNullOrEmpty(patch.LiveBuild))
+                {
+                    <dt>Live Build</dt>
+                    <dd>@patch.LiveBuild</dd>
+                }
+                @if (patch.PtrDate.HasValue)
+                {
+                    <dt>PTR Date</dt>
+                    <dd>@patch.PtrDate.Value.ToString("MMMM d, yyyy")</dd>
+                }
+                @if (!string.IsNullOrEmpty(patch.PtrBuild))
+                {
+                    <dt>PTR Build</dt>
+                    <dd>@patch.PtrBuild</dd>
+                }
+            </dl>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string InternalId { get; set; } = string.Empty;
+
+    private PatchDetailDto? patch;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatch();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadPatch();
+    }
+
+    private async Task LoadPatch()
+    {
+        isLoading = true;
+        patch = await PatchService.GetPatchAsync(InternalId);
+        isLoading = false;
+    }
+
+    private string GetPatchTypeClass(string patchType)
+    {
+        return patchType.ToLowerInvariant() switch
+        {
+            "balance update" => "type-balance",
+            "major patch" => "type-major",
+            "hotfix patch" => "type-hotfix",
+            "ptr" => "type-ptr",
+            _ => "type-default"
+        };
+    }
+
+    private string FormatContent(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return string.Empty;
+
+        // Convert markdown-style content to HTML
+        var html = content
+            .Replace("\r\n", "\n")
+            .Replace("\n\n", "</p><p>")
+            .Replace("\n", "<br/>");
+
+        // Convert markdown headers
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^#### (.+)$", "<h4>$1</h4>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^### (.+)$", "<h3>$1</h3>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^## (.+)$", "<h2>$1</h2>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^# (.+)$", "<h1>$1</h1>", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Convert bold
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+
+        // Convert italic
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>");
+
+        // Convert lists
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^- (.+)$", "<li>$1</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Wrap in paragraph if not already wrapped
+        if (!html.StartsWith("<"))
+            html = "<p>" + html + "</p>";
+
+        return html;
+    }
+}

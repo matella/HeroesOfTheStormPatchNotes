@@ -1,0 +1,204 @@
+@page "/hero/{ShortName}"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IHeroService HeroService
+@inject NavigationManager Navigation
+
+<PageTitle>@(hero?.Name ?? "Hero") - HotS Patch Notes</PageTitle>
+
+@if (loading)
+{
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading hero data...</p>
+    </div>
+}
+else if (hero == null)
+{
+    <div class="not-found">
+        <h2>Hero Not Found</h2>
+        <p>The hero "@ShortName" could not be found.</p>
+        <a href="/" class="btn-back">← Back to Heroes</a>
+    </div>
+}
+else
+{
+    <div class="hero-detail">
+        <a href="/" class="back-link">← Back to Heroes</a>
+        
+        <div class="hero-header">
+            <div class="hero-portrait">
+                <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? hero.ShortName + ".png")" 
+                     alt="@hero.Name" />
+            </div>
+            <div class="hero-title">
+                <h1>@hero.Name</h1>
+                <div class="hero-meta">
+                    <span class="role role-@(hero.ExpandedRole?.ToLower().Replace(" ", "-"))">@hero.ExpandedRole</span>
+                    <span class="type">@hero.Type</span>
+                    @if (hero.ReleaseDate.HasValue)
+                    {
+                        <span class="release">Released @hero.ReleaseDate.Value.ToString("MMM d, yyyy")</span>
+                    }
+                </div>
+                @if (hero.Tags.Any())
+                {
+                    <div class="hero-tags">
+                        @foreach (var tag in hero.Tags)
+                        {
+                            <span class="tag">@FormatTag(tag)</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Abilities</h2>
+            @foreach (var (formName, abilities) in hero.Abilities)
+            {
+                @if (hero.Abilities.Count > 1)
+                {
+                    <h3 class="form-name">@FormatFormName(formName)</h3>
+                }
+                <div class="abilities-grid">
+                    @foreach (var ability in abilities.OrderBy(a => GetAbilityOrder(a)))
+                    {
+                        <div class="ability-card">
+                            <div class="ability-header">
+                                <div class="ability-icon">
+                                    <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@ability.Icon" 
+                                         alt="@ability.Name"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div class="ability-info">
+                                    <h4>
+                                        @if (!string.IsNullOrEmpty(ability.Hotkey))
+                                        {
+                                            <span class="hotkey">@ability.Hotkey</span>
+                                        }
+                                        @ability.Name
+                                    </h4>
+                                    <div class="ability-meta">
+                                        @if (ability.Cooldown.HasValue)
+                                        {
+                                            <span>⏱ @ability.Cooldown s</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(ability.ManaCost))
+                                        {
+                                            <span>💧 @ability.ManaCost</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="ability-desc">@((MarkupString)FormatDescription(ability.Description ?? ""))</p>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="section">
+            <h2>Talents</h2>
+            <div class="talent-tree">
+                @foreach (var (level, talents) in hero.Talents.OrderBy(t => t.Key))
+                {
+                    <div class="talent-tier">
+                        <div class="tier-level">
+                            <span class="level-number">@level</span>
+                        </div>
+                        <div class="tier-talents">
+                            @foreach (var talent in talents)
+                            {
+                                <div class="talent-card">
+                                    <div class="talent-icon">
+                                        <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@talent.Icon" 
+                                             alt="@talent.Name"
+                                             onerror="this.style.display='none'" />
+                                    </div>
+                                    <div class="talent-info">
+                                        <h4>@talent.Name</h4>
+                                        @if (!string.IsNullOrEmpty(talent.Type))
+                                        {
+                                            <span class="talent-type">@talent.Type</span>
+                                        }
+                                        <p class="talent-desc">@((MarkupString)FormatDescription(talent.Description ?? ""))</p>
+                                        @if (talent.Cooldown.HasValue)
+                                        {
+                                            <span class="talent-cooldown">⏱ @talent.Cooldown s cooldown</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string ShortName { get; set; } = "";
+
+    private HeroDetailDto? hero;
+    private bool loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        try
+        {
+            hero = await HeroService.GetHeroAsync(ShortName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading hero: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string FormatTag(string tag)
+    {
+        // Convert camelCase to Title Case with spaces
+        return string.Concat(tag.Select((c, i) => 
+            i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+    }
+
+    private string FormatFormName(string formName)
+    {
+        if (formName == hero?.Name) return "Base Abilities";
+        return formName + " Abilities";
+    }
+
+    private int GetAbilityOrder(AbilityDto ability)
+    {
+        return ability.Type?.ToLower() switch
+        {
+            "trait" => 0,
+            "basic" => ability.Hotkey switch
+            {
+                "Q" => 1,
+                "W" => 2,
+                "E" => 3,
+                _ => 4
+            },
+            "heroic" => 5,
+            "mount" => 6,
+            _ => 7
+        };
+    }
+
+    private string FormatDescription(string description)
+    {
+        // Convert game text formatting to HTML
+        return description
+            .Replace("<n/>", "<br/>")
+            .Replace("<s val=\"StandardTooltipHeader\">", "<strong>")
+            .Replace("</s>", "</strong>");
+    }
+}

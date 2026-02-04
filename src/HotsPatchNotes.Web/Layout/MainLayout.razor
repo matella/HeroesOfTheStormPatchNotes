@@ -1,0 +1,29 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <header class="top-header">
+        <div class="container">
+            <a href="/" class="brand">
+                <span class="brand-icon">⚔️</span>
+                <span class="brand-text">HotS Patch Notes</span>
+            </a>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">Heroes</a>
+                <a href="/patches" class="nav-link">Patch Notes</a>
+                <a href="/about" class="nav-link">About</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            @Body
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Data from <a href="https://github.com/heroespatchnotes" target="_blank">heroespatchnotes</a> repositories. Not affiliated with Blizzard Entertainment.</p>
+        </div>
+    </footer>
+</div>

@@ -1,0 +1,6 @@
+@HotsPatchNotes.Api_HostAddress = http://localhost:5223
+
+GET {{HotsPatchNotes.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

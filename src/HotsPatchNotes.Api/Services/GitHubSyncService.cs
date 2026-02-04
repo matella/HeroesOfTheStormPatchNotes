@@ -243,6 +243,8 @@ public class GitHubSyncService : IGitHubSyncService
                     // Parse content into hero/map sections if we got content
                     if (!string.IsNullOrEmpty(existingPatch.Content))
                     {
+                        // Save the patch first to get its ID (needed for section FK)
+                        await _dbContext.SaveChangesAsync(cancellationToken);
                         await ParsePatchSectionsAsync(existingPatch, cancellationToken);
                     }
                 }
@@ -593,7 +595,7 @@ public class GitHubSyncService : IGitHubSyncService
 
             var heroNameMap = heroes.ToDictionary(h => h.Name.ToLowerInvariant(), h => h.Id);
             
-            // Also add common variations
+            // Also add common variations (ShortName like "Zuljin" for "Zul'jin")
             foreach (var hero in heroes)
             {
                 var shortLower = hero.ShortName.ToLowerInvariant();
@@ -607,94 +609,27 @@ public class GitHubSyncService : IGitHubSyncService
                 .ToListAsync(cancellationToken);
             _dbContext.PatchSections.RemoveRange(existingSections);
 
-            // Parse the HTML content to find hero sections
-            if (!string.IsNullOrEmpty(patch.ContentHtml))
+            // Parse markdown content (prefer Content over ContentHtml)
+            var markdownContent = patch.Content;
+            if (string.IsNullOrEmpty(markdownContent))
             {
-                var doc = new HtmlDocument();
-                doc.LoadHtml(patch.ContentHtml);
+                _logger.LogDebug("No markdown content for patch {PatchName}", patch.PatchName);
+                return;
+            }
 
-                // Find all headings that might be hero names
-                var headings = doc.DocumentNode.SelectNodes("//h2 | //h3 | //h4 | //strong");
-                if (headings != null)
-                {
-                    var currentSection = new PatchSection();
-                    var sectionContent = new System.Text.StringBuilder();
-                    string? currentHeroName = null;
-                    int? currentHeroId = null;
-                    bool inHeroSection = false;
+            // Clean up the content first
+            markdownContent = CleanupMarkdownContent(markdownContent);
 
-                    foreach (var heading in headings)
-                    {
-                        var headingText = heading.InnerText.Trim();
-                        var headingLower = headingText.ToLowerInvariant();
+            // Parse sections from markdown
+            var sections = ParseMarkdownSections(markdownContent, heroNameMap, patch.Id);
 
-                        // Check if this heading matches a hero name
-                        if (heroNameMap.TryGetValue(headingLower, out var heroId))
-                        {
-                            // Save previous section if we were in one
-                            if (inHeroSection && !string.IsNullOrWhiteSpace(sectionContent.ToString()))
-                            {
-                                var section = new PatchSection
-                                {
-                                    PatchId = patch.Id,
-                                    SectionType = "Hero",
-                                    EntityName = currentHeroName!,
-                                    HeroId = currentHeroId,
-                                    Content = sectionContent.ToString().Trim(),
-                                    ContentHtml = GetSectionHtml(doc, currentHeroName!)
-                                };
-                                _dbContext.PatchSections.Add(section);
-                            }
-
-                            // Start new hero section
-                            currentHeroName = headingText;
-                            currentHeroId = heroId;
-                            inHeroSection = true;
-                            sectionContent.Clear();
-
-                            // Get the content following this heading
-                            var nextSibling = heading.NextSibling;
-                            while (nextSibling != null)
-                            {
-                                if (nextSibling.Name == "h2" || nextSibling.Name == "h3" || nextSibling.Name == "h4")
-                                {
-                                    var siblingText = nextSibling.InnerText.Trim().ToLowerInvariant();
-                                    if (heroNameMap.ContainsKey(siblingText))
-                                        break; // Next hero section
-                                }
-                                
-                                if (nextSibling.NodeType == HtmlAgilityPack.HtmlNodeType.Element ||
-                                    nextSibling.NodeType == HtmlAgilityPack.HtmlNodeType.Text)
-                                {
-                                    var text = nextSibling.InnerText.Trim();
-                                    if (!string.IsNullOrEmpty(text))
-                                        sectionContent.AppendLine(text);
-                                }
-                                
-                                nextSibling = nextSibling.NextSibling;
-                            }
-                        }
-                    }
-
-                    // Save the last section
-                    if (inHeroSection && !string.IsNullOrWhiteSpace(sectionContent.ToString()))
-                    {
-                        var section = new PatchSection
-                        {
-                            PatchId = patch.Id,
-                            SectionType = "Hero",
-                            EntityName = currentHeroName!,
-                            HeroId = currentHeroId,
-                            Content = sectionContent.ToString().Trim(),
-                            ContentHtml = GetSectionHtml(doc, currentHeroName!)
-                        };
-                        _dbContext.PatchSections.Add(section);
-                    }
-                }
+            foreach (var section in sections)
+            {
+                _dbContext.PatchSections.Add(section);
             }
 
             _logger.LogInformation("Parsed {Count} sections from patch {PatchName}", 
-                _dbContext.ChangeTracker.Entries<PatchSection>().Count(e => e.State == EntityState.Added),
+                sections.Count,
                 patch.PatchName);
         }
         catch (Exception ex)
@@ -703,26 +638,166 @@ public class GitHubSyncService : IGitHubSyncService
         }
     }
 
-    private static string? GetSectionHtml(HtmlDocument doc, string heroName)
+    private static string CleanupMarkdownContent(string content)
     {
-        // Try to find the section HTML for this hero
-        var headings = doc.DocumentNode.SelectNodes($"//h2[contains(text(), '{heroName}')] | //h3[contains(text(), '{heroName}')] | //h4[contains(text(), '{heroName}')]");
-        if (headings == null || headings.Count == 0) return null;
+        // Remove "Quick Navigation" section (from "## Quick Navigation" to next "---")
+        content = Regex.Replace(content, 
+            @"^##\s*Quick Navigation:?[\s\S]*?(?=^---|\z)", 
+            "", 
+            RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-        var heading = headings.First();
-        var sb = new System.Text.StringBuilder();
-        sb.Append(heading.OuterHtml);
+        // Remove [Return to Top](#return) links
+        content = Regex.Replace(content, 
+            @"\[Return to Top\]\(#return\)\s*", 
+            "", 
+            RegexOptions.IgnoreCase);
 
-        var nextSibling = heading.NextSibling;
-        while (nextSibling != null)
+        // Remove empty anchor links like []() or [](url)
+        content = Regex.Replace(content, 
+            @"\[\]\([^)]*\)\s*\n?", 
+            "");
+
+        // Remove "Click here to discuss" type links
+        content = Regex.Replace(content, 
+            @"\[Click here to discuss.*?\]\([^)]*\)\s*", 
+            "", 
+            RegexOptions.IgnoreCase);
+
+        // Clean up excessive blank lines (more than 2 consecutive)
+        content = Regex.Replace(content, @"\n{3,}", "\n\n");
+
+        return content.Trim();
+    }
+
+    private static List<PatchSection> ParseMarkdownSections(
+        string content, 
+        Dictionary<string, int> heroNameMap, 
+        int patchId)
+    {
+        var sections = new List<PatchSection>();
+        var headingPattern = new Regex(@"^(#{1,4})\s+(.+?)(?:\s*\{#\w+\})?\s*$", RegexOptions.Multiline);
+        var matches = headingPattern.Matches(content);
+
+        if (matches.Count == 0)
         {
-            if (nextSibling.Name == "h2" || nextSibling.Name == "h3" || nextSibling.Name == "h4")
-                break;
-            sb.Append(nextSibling.OuterHtml);
-            nextSibling = nextSibling.NextSibling;
+            return sections;
         }
 
-        return sb.ToString();
+        // Track parent sections for hierarchy
+        var parentStack = new Stack<(int Id, int Level, string Type)>();
+        int order = 0;
+
+        for (int i = 0; i < matches.Count; i++)
+        {
+            var match = matches[i];
+            var headingLevel = match.Groups[1].Value.Length;
+            var headingText = match.Groups[2].Value.Trim();
+            var headingLower = headingText.ToLowerInvariant();
+
+            // Extract content between this heading and the next (or end of document)
+            var contentStart = match.Index + match.Length;
+            var contentEnd = (i + 1 < matches.Count) ? matches[i + 1].Index : content.Length;
+            var sectionContent = content.Substring(contentStart, contentEnd - contentStart).Trim();
+
+            // Remove leading --- separators from content
+            sectionContent = Regex.Replace(sectionContent, @"^---\s*\n?", "").Trim();
+
+            // Determine section type
+            var sectionType = DetermineSectionType(headingText, headingLevel);
+
+            // Check if this is a hero section
+            int? heroId = null;
+            if (heroNameMap.TryGetValue(headingLower, out var matchedHeroId))
+            {
+                heroId = matchedHeroId;
+                sectionType = "Hero";
+            }
+
+            // Update parent stack (pop parents at same or higher level)
+            while (parentStack.Count > 0 && parentStack.Peek().Level >= headingLevel)
+            {
+                parentStack.Pop();
+            }
+
+            // Determine parent section ID
+            int? parentSectionId = null;
+            if (parentStack.Count > 0)
+            {
+                parentSectionId = parentStack.Peek().Id;
+            }
+
+            // Create the section
+            var section = new PatchSection
+            {
+                PatchId = patchId,
+                Order = order++,
+                HeadingLevel = headingLevel,
+                ParentSectionId = parentSectionId,
+                SectionType = sectionType,
+                EntityName = headingText,
+                HeroId = heroId,
+                Content = sectionContent
+            };
+
+            sections.Add(section);
+
+            // Push this section onto the stack as a potential parent
+            // We'll set the actual ID after saving, so use a temporary placeholder
+            parentStack.Push((sections.Count, headingLevel, sectionType));
+        }
+
+        // Second pass: Set parent section IDs using indices
+        // Since we're using Add() and the IDs are assigned by DB, we need to use indices
+        // We'll fix parent references to use the section order instead
+        var sectionsByOrder = sections.OrderBy(s => s.Order).ToList();
+        for (int i = 0; i < sectionsByOrder.Count; i++)
+        {
+            var section = sectionsByOrder[i];
+            if (section.ParentSectionId.HasValue)
+            {
+                // Find the parent by looking backwards for a section with lower heading level
+                for (int j = i - 1; j >= 0; j--)
+                {
+                    if (sectionsByOrder[j].HeadingLevel < section.HeadingLevel)
+                    {
+                        // We can't set FK before save, so we'll leave ParentSectionId null
+                        // and establish hierarchy through HeadingLevel and Order
+                        break;
+                    }
+                }
+            }
+            // Clear the temporary parent ID - will be set properly after save if needed
+            section.ParentSectionId = null;
+        }
+
+        return sections;
+    }
+
+    private static string DetermineSectionType(string headingText, int headingLevel)
+    {
+        var lower = headingText.ToLowerInvariant();
+
+        // Check for known section types
+        if (lower.Contains("general"))
+            return "General";
+        if (lower.Contains("map") || lower.Contains("battleground"))
+            return "Map";
+        if (lower.Contains("balance"))
+            return "Balance";
+        if (lower.Contains("bug") || lower.Contains("fix"))
+            return "BugFix";
+        if (lower.Contains("hero"))
+            return "HeroList";
+
+        // Default based on level
+        return headingLevel switch
+        {
+            1 => "Title",
+            2 => "Section",
+            3 => "Subsection",
+            4 => "Entity",
+            _ => "Content"
+        };
     }
 
     #endregion

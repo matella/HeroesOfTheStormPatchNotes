@@ -22,10 +22,11 @@ public class HeroesController : ControllerBase
     /// </summary>
     [HttpGet]
     [ResponseCache(Duration = 3600)]
-    public async Task<ActionResult<List<HeroSummaryDto>>> GetHeroes(
+    public async Task<ActionResult<List<HeroSummaryDto>>> GetHeroesAsync(
         [FromQuery] string? role = null,
         [FromQuery] string? type = null,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Heroes.AsQueryable();
 
@@ -46,7 +47,7 @@ public class HeroesController : ControllerBase
 
         var heroEntities = await query
             .OrderBy(h => h.Name)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         var heroes = heroEntities.Select(h => new HeroSummaryDto
         {
@@ -58,9 +59,9 @@ public class HeroesController : ControllerBase
             ExpandedRole = h.ExpandedRole,
             Type = h.Type,
             ReleaseDate = h.ReleaseDate,
-            Tags = h.TagsJson != null 
-                ? JsonSerializer.Deserialize<List<string>>(h.TagsJson) ?? new List<string>() 
-                : new List<string>()
+            Tags = h.TagsJson is not null
+                ? JsonSerializer.Deserialize<List<string>>(h.TagsJson) ?? []
+                : []
         }).ToList();
 
         return Ok(heroes);
@@ -71,14 +72,16 @@ public class HeroesController : ControllerBase
     /// </summary>
     [HttpGet("{shortName}")]
     [ResponseCache(Duration = 3600)]
-    public async Task<ActionResult<HeroDetailDto>> GetHero(string shortName)
+    public async Task<ActionResult<HeroDetailDto>> GetHeroAsync(
+        string shortName,
+        CancellationToken cancellationToken = default)
     {
         var hero = await _dbContext.Heroes
             .Include(h => h.Abilities)
             .Include(h => h.Talents)
-            .FirstOrDefaultAsync(h => h.ShortName == shortName.ToLowerInvariant());
+            .FirstOrDefaultAsync(h => h.ShortName == shortName.ToLowerInvariant(), cancellationToken);
 
-        if (hero == null)
+        if (hero is null)
         {
             return NotFound(new ErrorResponseDto
             {
@@ -101,12 +104,11 @@ public class HeroesController : ControllerBase
             Type = hero.Type,
             ReleaseDate = hero.ReleaseDate,
             ReleasePatch = hero.ReleasePatch,
-            Tags = hero.TagsJson != null
-                ? JsonSerializer.Deserialize<List<string>>(hero.TagsJson) ?? new List<string>()
-                : new List<string>()
+            Tags = hero.TagsJson is not null
+                ? JsonSerializer.Deserialize<List<string>>(hero.TagsJson) ?? []
+                : []
         };
 
-        // Group abilities by form
         dto.Abilities = hero.Abilities
             .GroupBy(a => a.FormName ?? hero.Name)
             .ToDictionary(
@@ -126,7 +128,6 @@ public class HeroesController : ControllerBase
                 }).ToList()
             );
 
-        // Group talents by level
         dto.Talents = hero.Talents
             .GroupBy(t => t.Level)
             .OrderBy(g => g.Key)
@@ -143,9 +144,9 @@ public class HeroesController : ControllerBase
                     Sort = t.Sort,
                     Cooldown = t.Cooldown,
                     AbilityId = t.AbilityId,
-                    AbilityLinks = t.AbilityLinksJson != null
-                        ? JsonSerializer.Deserialize<List<string>>(t.AbilityLinksJson) ?? new List<string>()
-                        : new List<string>()
+                    AbilityLinks = t.AbilityLinksJson is not null
+                        ? JsonSerializer.Deserialize<List<string>>(t.AbilityLinksJson) ?? []
+                        : []
                 }).ToList()
             );
 
@@ -157,14 +158,14 @@ public class HeroesController : ControllerBase
     /// </summary>
     [HttpGet("roles")]
     [ResponseCache(Duration = 3600)]
-    public async Task<ActionResult<List<string>>> GetRoles()
+    public async Task<ActionResult<List<string>>> GetRolesAsync(CancellationToken cancellationToken = default)
     {
         var roles = await _dbContext.Heroes
             .Where(h => h.ExpandedRole != null)
             .Select(h => h.ExpandedRole!)
             .Distinct()
             .OrderBy(r => r)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return Ok(roles);
     }
@@ -174,12 +175,14 @@ public class HeroesController : ControllerBase
     /// </summary>
     [HttpGet("{shortName}/patches")]
     [ResponseCache(Duration = 3600)]
-    public async Task<ActionResult<List<HeroPatchDto>>> GetHeroPatches(string shortName)
+    public async Task<ActionResult<List<HeroPatchDto>>> GetHeroPatchesAsync(
+        string shortName,
+        CancellationToken cancellationToken = default)
     {
         var hero = await _dbContext.Heroes
-            .FirstOrDefaultAsync(h => h.ShortName == shortName.ToLowerInvariant());
+            .FirstOrDefaultAsync(h => h.ShortName == shortName.ToLowerInvariant(), cancellationToken);
 
-        if (hero == null)
+        if (hero is null)
         {
             return NotFound(new ErrorResponseDto
             {
@@ -191,9 +194,11 @@ public class HeroesController : ControllerBase
 
         var sections = await _dbContext.PatchSections
             .Include(s => s.Patch)
-            .Where(s => s.HeroId == hero.Id || 
+            .Where(s => s.HeroId == hero.Id ||
                         s.EntityName.Equals(hero.Name, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(s => s.Patch.LiveDate)
+            .OrderByDescending(s => s.Patch.LiveDate ?? DateTime.MinValue)
+            .ThenByDescending(s => s.PatchId)
+            .ThenBy(s => s.Order)
             .Select(s => new HeroPatchDto
             {
                 PatchId = s.PatchId,
@@ -202,10 +207,11 @@ public class HeroesController : ControllerBase
                 LiveDate = s.Patch.LiveDate,
                 OfficialLink = s.Patch.OfficialLink,
                 Content = s.Content,
-                ContentHtml = s.ContentHtml,
-                SectionType = s.SectionType
+                SectionType = s.SectionType,
+                HeadingLevel = s.HeadingLevel,
+                Order = s.Order
             })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return Ok(sections);
     }

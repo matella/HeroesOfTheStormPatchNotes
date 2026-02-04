@@ -6,7 +6,7 @@ namespace HotsPatchNotes.Web.Services;
 public interface IPatchService
 {
     Task<PagedResultDto<PatchSummaryDto>> GetPatchesAsync(string? patchType = null, int page = 1, int pageSize = 20);
-    Task<PatchDetailDto?> GetPatchAsync(string internalId);
+    Task<ReconstructedPatchDto?> GetPatchAsync(string internalId);
     Task<List<string>> GetPatchTypesAsync();
 }
 
@@ -22,21 +22,23 @@ public class PatchService : IPatchService
     public async Task<PagedResultDto<PatchSummaryDto>> GetPatchesAsync(string? patchType = null, int page = 1, int pageSize = 20)
     {
         var queryParams = new List<string> { $"page={page}", $"pageSize={pageSize}" };
-        
+
         if (!string.IsNullOrWhiteSpace(patchType))
+        {
             queryParams.Add($"patchType={Uri.EscapeDataString(patchType)}");
+        }
 
-        var url = "api/patches?" + string.Join("&", queryParams);
+        var url = $"api/patches?{string.Join("&", queryParams)}";
 
-        return await _httpClient.GetFromJsonAsync<PagedResultDto<PatchSummaryDto>>(url) 
+        return await _httpClient.GetFromJsonAsync<PagedResultDto<PatchSummaryDto>>(url)
             ?? new PagedResultDto<PatchSummaryDto>();
     }
 
-    public async Task<PatchDetailDto?> GetPatchAsync(string internalId)
+    public async Task<ReconstructedPatchDto?> GetPatchAsync(string internalId)
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<PatchDetailDto>($"api/patches/{internalId}");
+            return await _httpClient.GetFromJsonAsync<ReconstructedPatchDto>($"api/patches/{internalId}");
         }
         catch (HttpRequestException)
         {
@@ -46,6 +48,7 @@ public class PatchService : IPatchService
 
     public async Task<List<string>> GetPatchTypesAsync()
     {
-        return await _httpClient.GetFromJsonAsync<List<string>>("api/patches/types") ?? new List<string>();
+        return await _httpClient.GetFromJsonAsync<List<string>>("api/patches/types")
+            ?? [];
     }
 }

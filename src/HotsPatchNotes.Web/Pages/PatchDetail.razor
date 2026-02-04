@@ -27,7 +27,7 @@
         <div class="patch-header">
             <a href="/patches" class="back-link">← Back to Patches</a>
             
-            <h1>@patch.PatchName</h1>
+            <h1 id="return">@patch.PatchName</h1>
             
             <div class="patch-meta">
                 @if (!string.IsNullOrEmpty(patch.PatchType))
@@ -38,89 +38,90 @@
                 {
                     <span class="patch-date">@patch.LiveDate.Value.ToString("MMMM d, yyyy")</span>
                 }
-                @if (!string.IsNullOrEmpty(patch.GameVersion))
-                {
-                    <span class="patch-version">v@patch.GameVersion</span>
-                }
-                @if (!string.IsNullOrEmpty(patch.Source))
-                {
-                    <span class="patch-source">Source: @patch.Source</span>
-                }
-            </div>
-
-            <div class="patch-links">
                 @if (!string.IsNullOrEmpty(patch.OfficialLink))
                 {
                     <a href="@patch.OfficialLink" target="_blank" rel="noopener" class="official-link">
                         Official Patch Notes ↗
                     </a>
                 }
-                @if (!string.IsNullOrEmpty(patch.AlternateLink))
-                {
-                    <a href="@patch.AlternateLink" target="_blank" rel="noopener" class="alternate-link">
-                        Alternate Source ↗
-                    </a>
-                }
             </div>
         </div>
 
-        @if (!string.IsNullOrEmpty(patch.Content))
-        {
-            <div class="patch-content">
-                <h2>Patch Notes</h2>
-                <div class="content-body">
-                    @((MarkupString)FormatContent(patch.Content))
-                </div>
-            </div>
-        }
-        else if (!string.IsNullOrEmpty(patch.ContentHtml))
-        {
-            <div class="patch-content">
-                <h2>Patch Notes</h2>
-                <div class="content-body html-content">
-                    @((MarkupString)patch.ContentHtml)
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="no-content">
-                <p>Full patch notes content not available.</p>
-                @if (!string.IsNullOrEmpty(patch.OfficialLink))
-                {
-                    <p>
-                        <a href="@patch.OfficialLink" target="_blank" rel="noopener">
-                            View official patch notes on Blizzard's website →
-                        </a>
-                    </p>
-                }
-            </div>
-        }
+        <div class="patch-layout">
+            @if (patch.TableOfContents.Count > 0)
+            {
+                <aside class="toc-sidebar">
+                    <h3>Navigation</h3>
+                    <nav class="toc">
+                        @foreach (var item in patch.TableOfContents.Where(t => t.HeadingLevel <= 2))
+                        {
+                            <a href="#@item.Anchor" class="toc-item level-@item.HeadingLevel @GetTocTypeClass(item.SectionType)">
+                                @item.Title
+                            </a>
+                        }
+                    </nav>
+                </aside>
+            }
 
-        <div class="patch-details">
-            <h2>Additional Details</h2>
-            <dl class="details-list">
-                @if (!string.IsNullOrEmpty(patch.FullVersion))
+            <div class="patch-content">
+                @if (patch.Sections.Count > 0)
                 {
-                    <dt>Full Version</dt>
-                    <dd>@patch.FullVersion</dd>
+                    @foreach (var sec in patch.Sections)
+                    {
+                        var anchor = GenerateAnchor(sec.EntityName, sec.Order);
+                        <div class="patch-section level-@sec.HeadingLevel type-@sec.SectionType.ToLower()">
+                            @switch (sec.HeadingLevel)
+                            {
+                                case 1:
+                                    <h1 id="@anchor">@sec.EntityName</h1>
+                                    break;
+                                case 2:
+                                    <h2 id="@anchor">@sec.EntityName</h2>
+                                    break;
+                                case 3:
+                                    <h3 id="@anchor">@sec.EntityName</h3>
+                                    break;
+                                case 4:
+                                    <h4 id="@anchor">@sec.EntityName</h4>
+                                    break;
+                                default:
+                                    <h5 id="@anchor">@sec.EntityName</h5>
+                                    break;
+                            }
+                            @if (!string.IsNullOrWhiteSpace(sec.Content))
+                            {
+                                <div class="section-content">
+                                    @((MarkupString)FormatMarkdown(sec.Content))
+                                </div>
+                            }
+                            @if (sec.HeadingLevel >= 2)
+                            {
+                                <a href="#return" class="return-link">↑ Return to Top</a>
+                            }
+                        </div>
+                    }
                 }
-                @if (!string.IsNullOrEmpty(patch.LiveBuild))
+                else if (!string.IsNullOrEmpty(patch.Content))
                 {
-                    <dt>Live Build</dt>
-                    <dd>@patch.LiveBuild</dd>
+                    <div class="content-body">
+                        @((MarkupString)FormatMarkdown(patch.Content))
+                    </div>
                 }
-                @if (patch.PtrDate.HasValue)
+                else
                 {
-                    <dt>PTR Date</dt>
-                    <dd>@patch.PtrDate.Value.ToString("MMMM d, yyyy")</dd>
+                    <div class="no-content">
+                        <p>Full patch notes content not available.</p>
+                        @if (!string.IsNullOrEmpty(patch.OfficialLink))
+                        {
+                            <p>
+                                <a href="@patch.OfficialLink" target="_blank" rel="noopener">
+                                    View official patch notes on Blizzard's website →
+                                </a>
+                            </p>
+                        }
+                    </div>
                 }
-                @if (!string.IsNullOrEmpty(patch.PtrBuild))
-                {
-                    <dt>PTR Build</dt>
-                    <dd>@patch.PtrBuild</dd>
-                }
-            </dl>
+            </div>
         </div>
     }
 </div>
@@ -129,7 +130,7 @@
     [Parameter]
     public string InternalId { get; set; } = string.Empty;
 
-    private PatchDetailDto? patch;
+    private ReconstructedPatchDto? patch;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -161,18 +162,40 @@
         };
     }
 
-    private string FormatContent(string content)
+    private string GetTocTypeClass(string sectionType)
+    {
+        return sectionType.ToLowerInvariant() switch
+        {
+            "general" => "toc-general",
+            "map" => "toc-map",
+            "balance" => "toc-balance",
+            "bugfix" => "toc-bugfix",
+            "hero" => "toc-hero",
+            _ => ""
+        };
+    }
+
+    private static string GenerateAnchor(string title, int order)
+    {
+        var anchor = title.ToLowerInvariant();
+        anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"[^a-z0-9\s-]", "");
+        anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"\s+", "-");
+        anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"-+", "-");
+        anchor = anchor.Trim('-');
+        return $"{anchor}-{order}";
+    }
+
+    private string FormatMarkdown(string content)
     {
         if (string.IsNullOrEmpty(content))
             return string.Empty;
 
-        // Convert markdown-style content to HTML
-        var html = content
-            .Replace("\r\n", "\n")
-            .Replace("\n\n", "</p><p>")
-            .Replace("\n", "<br/>");
+        var html = System.Web.HttpUtility.HtmlEncode(content);
 
-        // Convert markdown headers
+        // Convert line breaks
+        html = html.Replace("\r\n", "\n");
+
+        // Convert markdown headers (process longer patterns first)
         html = System.Text.RegularExpressions.Regex.Replace(html, @"^#### (.+)$", "<h4>$1</h4>", System.Text.RegularExpressions.RegexOptions.Multiline);
         html = System.Text.RegularExpressions.Regex.Replace(html, @"^### (.+)$", "<h3>$1</h3>", System.Text.RegularExpressions.RegexOptions.Multiline);
         html = System.Text.RegularExpressions.Regex.Replace(html, @"^## (.+)$", "<h2>$1</h2>", System.Text.RegularExpressions.RegexOptions.Multiline);
@@ -184,12 +207,29 @@
         // Convert italic
         html = System.Text.RegularExpressions.Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>");
 
-        // Convert lists
+        // Convert lists - wrap consecutive list items
         html = System.Text.RegularExpressions.Regex.Replace(html, @"^- (.+)$", "<li>$1</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"((?:<li>.*?</li>\n?)+)", "<ul>$1</ul>");
 
-        // Wrap in paragraph if not already wrapped
-        if (!html.StartsWith("<"))
-            html = "<p>" + html + "</p>";
+        // Convert image links: [](url) or ![alt](url)
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"!\[([^\]]*)\]\(([^)]+)\)", "<img src=\"$2\" alt=\"$1\" class=\"patch-image\" />");
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\[([^\]]*)\]\(([^)]+)\)", "<a href=\"$2\" target=\"_blank\">$1</a>");
+
+        // Convert paragraphs (double newlines)
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\n\n+", "</p><p>");
+        
+        // Convert remaining single newlines to <br>
+        html = html.Replace("\n", "<br/>");
+
+        // Wrap in paragraph
+        html = "<p>" + html + "</p>";
+
+        // Clean up empty paragraphs
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"<p>\s*</p>", "");
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"<p>(<h[1-4]>)", "$1");
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"(</h[1-4]>)</p>", "$1");
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"<p>(<ul>)", "$1");
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"(</ul>)</p>", "$1");
 
         return html;
     }

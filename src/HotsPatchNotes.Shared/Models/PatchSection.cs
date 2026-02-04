@@ -19,7 +19,32 @@ public class PatchSection
     public virtual Patch Patch { get; set; } = null!;
 
     /// <summary>
-    /// Type of section: "Hero", "Map", "General", "BugFix".
+    /// Order of this section within the patch for proper reconstruction.
+    /// </summary>
+    public int Order { get; set; }
+
+    /// <summary>
+    /// Heading level (1-4 for #, ##, ###, ####).
+    /// </summary>
+    public int HeadingLevel { get; set; }
+
+    /// <summary>
+    /// Optional parent section ID for hierarchy tracking.
+    /// </summary>
+    public int? ParentSectionId { get; set; }
+
+    /// <summary>
+    /// Navigation property to parent section.
+    /// </summary>
+    public virtual PatchSection? ParentSection { get; set; }
+
+    /// <summary>
+    /// Child sections (e.g., heroes under Balance).
+    /// </summary>
+    public virtual ICollection<PatchSection> ChildSections { get; set; } = new List<PatchSection>();
+
+    /// <summary>
+    /// Type of section: "Hero", "Map", "General", "Balance", "BugFix".
     /// </summary>
     public string SectionType { get; set; } = string.Empty;
 
@@ -39,12 +64,7 @@ public class PatchSection
     public virtual Hero? Hero { get; set; }
 
     /// <summary>
-    /// Patch notes content for this section as markdown/plain text.
+    /// Patch notes content for this section as markdown (without the heading line).
     /// </summary>
     public string Content { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Original HTML content for this section.
-    /// </summary>
-    public string? ContentHtml { get; set; }
 }

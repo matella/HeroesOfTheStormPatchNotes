@@ -95,6 +95,7 @@ public class HotsDbContext : DbContext
         modelBuilder.Entity<PatchSection>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.PatchId, e.Order });
             entity.HasIndex(e => new { e.PatchId, e.SectionType, e.EntityName });
             entity.HasIndex(e => e.HeroId);
             entity.Property(e => e.SectionType).IsRequired().HasMaxLength(50);
@@ -109,6 +110,11 @@ public class HotsDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.HeroId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.ParentSection)
+                .WithMany(e => e.ChildSections)
+                .HasForeignKey(e => e.ParentSectionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

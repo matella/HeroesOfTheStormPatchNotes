@@ -46,6 +46,8 @@ Data is sourced from the [heroespatchnotes GitHub organization](https://github.c
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
 - A modern web browser
 
+> **Note for macOS users:** The Web app uses port 5100 (HTTP) instead of 5000 to avoid conflicts with macOS Control Center (AirPlay Receiver).
+
 ### First-Time Setup
 
 1. **Clone the repository**
@@ -109,7 +111,7 @@ The easiest way to run the entire application stack:
    This fetches all heroes and patches from GitHub (~30 seconds).
 
 3. **Access the application**
-   - Web App: `http://localhost:5000`
+   - Web App: `http://localhost:5100`
    - API: `http://localhost:5001`
    - API Swagger: `http://localhost:5001/swagger`
 

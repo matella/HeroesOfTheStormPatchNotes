@@ -93,42 +93,29 @@ Data is sourced from the [heroespatchnotes GitHub organization](https://github.c
 
 ### Running with Docker
 
-The easiest way to run the entire application stack with **HTTPS support**:
+The easiest way to run the entire application stack:
 
-1. **Generate SSL certificates** (first time only)
-   ```bash
-   # On Windows (PowerShell)
-   .\generate-certs.ps1
-   
-   # On macOS/Linux
-   chmod +x generate-certs.sh
-   ./generate-certs.sh
-   ```
-   This creates self-signed certificates for both API and Web containers.
-
-2. **Build and start all services**
+1. **Build and start all services**
    ```bash
    docker-compose up -d
    ```
 
-3. **Trigger initial data sync**
+2. **Trigger initial data sync**
    ```bash
    # Using PowerShell
-   Invoke-RestMethod -Uri "https://localhost:7001/api/sync" -Method Post -SkipCertificateCheck
+   Invoke-RestMethod -Uri "http://localhost:5001/api/sync" -Method Post
    
    # Using curl
-   curl -k -X POST https://localhost:7001/api/sync
+   curl -X POST http://localhost:5001/api/sync
    ```
    This fetches all heroes and patches from GitHub (~30 seconds).
 
-4. **Access the application**
-   - Web App (HTTPS): `https://localhost:7000` ⭐ Recommended
-   - Web App (HTTP): `http://localhost:5100` (redirects to HTTPS)
-   - API (HTTPS): `https://localhost:7001`
-   - API (HTTP): `http://localhost:5001`
-   - API Swagger: `https://localhost:7001/swagger`
+3. **Access the application**
+   - Web App: `http://localhost:5100`
+   - API: `http://localhost:5001`
+   - API Swagger: `http://localhost:5001/swagger`
 
-5. **View logs**
+4. **View logs**
    ```bash
    # All services
    docker-compose logs -f
@@ -138,12 +125,12 @@ The easiest way to run the entire application stack with **HTTPS support**:
    docker-compose logs -f web
    ```
 
-6. **Stop services**
+5. **Stop services**
    ```bash
    docker-compose down
    ```
 
-7. **Remove data and rebuild**
+6. **Remove data and rebuild**
    ```bash
    docker-compose down -v
    docker-compose up -d --build

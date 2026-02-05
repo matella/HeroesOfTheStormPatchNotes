@@ -9,6 +9,3 @@
 **/obj
 **/Dockerfile*
 **/docker-compose*
-**/certs
-**/.aspnet
-**/generate-certs.*

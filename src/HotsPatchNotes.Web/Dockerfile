@@ -4,6 +4,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+# Accept build argument for API URL
+ARG API_BASE_URL=http://api:5001
+
 # Copy project files
 COPY ["HotsPatchNotes.Web/HotsPatchNotes.Web.csproj", "HotsPatchNotes.Web/"]
 COPY ["HotsPatchNotes.Shared/HotsPatchNotes.Shared.csproj", "HotsPatchNotes.Shared/"]
@@ -23,6 +26,9 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
     -o /app/publish \
     --no-restore \
     /p:UseAppHost=false
+
+# Update appsettings.json with API URL
+RUN echo "{\"ApiBaseAddress\": \"${API_BASE_URL}\"}" > /app/publish/wwwroot/appsettings.Production.json
 
 # Runtime stage with nginx
 FROM nginx:alpine AS final
@@ -46,7 +52,7 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 
 USER nginx
 
-EXPOSE 80 443
+EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \

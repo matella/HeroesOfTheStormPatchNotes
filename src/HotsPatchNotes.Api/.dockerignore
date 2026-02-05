@@ -15,6 +15,3 @@
 **/*.db
 **/*.db-shm
 **/*.db-wal
-**/certs
-**/.aspnet
-**/generate-certs.*

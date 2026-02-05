@@ -24,7 +24,6 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet publish "HotsPatchNotes.Web.csproj" \
     -c Release \
     -o /app/publish \
-    --no-restore \
     /p:UseAppHost=false
 
 # Update appsettings.json with API URL

@@ -15,13 +15,12 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 # Copy all source files
 COPY . .
 
-# Publish directly (skip separate build step)
+# Build and publish the application
 WORKDIR "/src/HotsPatchNotes.Api"
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet publish "HotsPatchNotes.Api.csproj" \
     -c Release \
     -o /app/publish \
-    --no-restore \
     /p:UseAppHost=false
 
 # Runtime stage

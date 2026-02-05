@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./src
+      dockerfile: HotsPatchNotes.Api/Dockerfile
+    container_name: hotspatchnotes-api
+    ports:
+      - "5001:5001"
+      - "7001:7001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/hots.db
+    volumes:
+      - hots-data:/app/data
+    networks:
+      - hotspatchnotes-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/heroes/roles"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./src
+      dockerfile: HotsPatchNotes.Web/Dockerfile
+    container_name: hotspatchnotes-web
+    ports:
+      - "5000:80"
+    depends_on:
+      - api
+    networks:
+      - hotspatchnotes-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+networks:
+  hotspatchnotes-network:
+    driver: bridge
+
+volumes:
+  hots-data:
+    driver: local

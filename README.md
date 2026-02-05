@@ -89,6 +89,53 @@ Data is sourced from the [heroespatchnotes GitHub organization](https://github.c
    
    Navigate to `https://localhost:7000` to use the application.
 
+### Running with Docker
+
+The easiest way to run the entire application stack:
+
+1. **Build and start all services**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Trigger initial data sync**
+   ```bash
+   # Using PowerShell
+   Invoke-RestMethod -Uri "http://localhost:5001/api/sync" -Method Post
+   
+   # Using curl
+   curl -X POST http://localhost:5001/api/sync
+   ```
+   This fetches all heroes and patches from GitHub (~30 seconds).
+
+3. **Access the application**
+   - Web App: `http://localhost:5000`
+   - API: `http://localhost:5001`
+   - API Swagger: `http://localhost:5001/swagger`
+
+4. **View logs**
+   ```bash
+   # All services
+   docker-compose logs -f
+   
+   # Specific service
+   docker-compose logs -f api
+   docker-compose logs -f web
+   ```
+
+5. **Stop services**
+   ```bash
+   docker-compose down
+   ```
+
+6. **Remove data and rebuild**
+   ```bash
+   docker-compose down -v
+   docker-compose up -d --build
+   ```
+
+**Note**: The database is persisted in a Docker volume. To reset data, use `docker-compose down -v`.
+
 ## 📖 API Documentation
 
 The API includes Swagger documentation at `https://localhost:7001/swagger`

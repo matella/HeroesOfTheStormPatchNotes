@@ -44,16 +44,18 @@ COPY --from=build --chown=appuser:appuser /app/publish .
 USER appuser
 
 # Expose ports
-EXPOSE 5001
+EXPOSE 5001 7001
 
 # Environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_URLS=http://+:5001 \
+    ASPNETCORE_URLS=https://+:7001;http://+:5001 \
+    ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx \
+    ASPNETCORE_Kestrel__Certificates__Default__Password=password \
     ConnectionStrings__DefaultConnection="Data Source=/app/data/hots.db" \
     DOTNET_EnableDiagnostics=0
 
-# Health check
+# Health check (use HTTPS)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:5001/api/heroes/roles || exit 1
+    CMD curl -k -f https://localhost:7001/api/heroes/roles || exit 1
 
 ENTRYPOINT ["dotnet", "HotsPatchNotes.Api.dll"]

@@ -77,3 +77,10 @@ coverage*/
 # Local settings
 appsettings.Development.json
 appsettings.Local.json
+
+# SSL Certificates
+certs/
+*.pfx
+*.pem
+*.key
+*.crt

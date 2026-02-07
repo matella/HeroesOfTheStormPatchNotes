@@ -65,7 +65,9 @@ Desktop.ini
 
 # Publish output
 publish/
-wwwroot/
+wwwroot/*
+!wwwroot/
+!src/**/wwwroot/
 
 # Test results
 [Tt]est[Rr]esult*/

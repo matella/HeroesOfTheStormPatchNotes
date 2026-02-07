@@ -29,22 +29,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient", policy =>
     {
-        if (builder.Environment.IsDevelopment())
-        {
-            policy.WithOrigins(
-                    "https://localhost:7000",
-                    "http://localhost:5100"
-                  )
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        }
-        else
-        {
-            // For Docker/Production - allow all origins since web container makes requests
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        }
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 

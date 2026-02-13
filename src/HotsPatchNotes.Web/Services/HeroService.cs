@@ -14,7 +14,7 @@ public interface IHeroService
     Task<List<HeroPatchDto>> GetHeroPatchesAsync(string shortName);
 }
 
-public class HeroService(HttpClient httpClient) : IHeroService
+public sealed class HeroService(HttpClient httpClient) : IHeroService
 {
     private const string BaseRoute = Constants.ApiRoutes.Heroes;
 
@@ -37,7 +37,7 @@ public class HeroService(HttpClient httpClient) : IHeroService
 
             return await httpClient.GetFromJsonAsync<List<HeroSummaryDto>>(url) ?? [];
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return [];
         }
@@ -49,7 +49,7 @@ public class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<HeroDetailDto>($"{BaseRoute}/{shortName}");
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return null;
         }
@@ -61,7 +61,7 @@ public class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<List<string>>($"{BaseRoute}/roles") ?? [];
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return [];
         }
@@ -73,7 +73,7 @@ public class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<List<HeroBuildDto>>($"{BaseRoute}/{shortName}/builds") ?? [];
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return [];
         }
@@ -90,7 +90,7 @@ public class HeroService(HttpClient httpClient) : IHeroService
             }
             return null;
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return null;
         }
@@ -102,7 +102,7 @@ public class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<List<HeroPatchDto>>($"{BaseRoute}/{shortName}/patches") ?? [];
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return [];
         }

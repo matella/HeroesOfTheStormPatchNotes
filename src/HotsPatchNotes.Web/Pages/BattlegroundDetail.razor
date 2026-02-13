@@ -179,7 +179,7 @@ else
                     result.Append("<ul>");
                     inList = true;
                 }
-                result.Append($"<li>{trimmed.Substring(2)}</li>");
+                result.Append($"<li>{System.Net.WebUtility.HtmlEncode(trimmed.Substring(2))}</li>");
             }
             else
             {
@@ -188,7 +188,7 @@ else
                     result.Append("</ul>");
                     inList = false;
                 }
-                result.Append($"<p>{trimmed}</p>");
+                result.Append($"<p>{System.Net.WebUtility.HtmlEncode(trimmed)}</p>");
             }
         }
 

@@ -152,7 +152,7 @@ public class HeroesController(IHeroService heroService) : ControllerBase
     [HttpGet("builds/parse")]
     public ActionResult<object> ParseBuildCode([FromQuery] string code)
     {
-        if (string.IsNullOrWhiteSpace(code))
+        if (string.IsNullOrWhiteSpace(code) || code.Length > 100)
         {
             return BadRequest(new ErrorResponseDto
             {

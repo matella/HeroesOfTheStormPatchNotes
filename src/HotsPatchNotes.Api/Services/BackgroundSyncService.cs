@@ -1,20 +1,12 @@
 namespace HotsPatchNotes.Api.Services;
 
-public class BackgroundSyncService : BackgroundService
+public sealed class BackgroundSyncService(IServiceProvider serviceProvider, ILogger<BackgroundSyncService> logger) : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<BackgroundSyncService> _logger;
     private readonly TimeSpan _syncInterval = TimeSpan.FromHours(6);
-
-    public BackgroundSyncService(IServiceProvider serviceProvider, ILogger<BackgroundSyncService> logger)
-    {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Background sync service started. Sync interval: {Interval}", _syncInterval);
+        logger.LogInformation("Background sync service started. Sync interval: {Interval}", _syncInterval);
 
         // Initial sync on startup (with a small delay to let the app start)
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
@@ -35,18 +27,18 @@ public class BackgroundSyncService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during periodic sync");
+                logger.LogError(ex, "Error during periodic sync");
             }
         }
 
-        _logger.LogInformation("Background sync service stopped");
+        logger.LogInformation("Background sync service stopped");
     }
 
     private async Task PerformSyncAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting scheduled data sync...");
+        logger.LogInformation("Starting scheduled data sync...");
 
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = serviceProvider.CreateScope();
         var syncService = scope.ServiceProvider.GetRequiredService<IGitHubSyncService>();
 
         try
@@ -55,20 +47,20 @@ public class BackgroundSyncService : BackgroundService
 
             if (result.Success)
             {
-                _logger.LogInformation(
+                logger.LogInformation(
                     "Scheduled sync completed successfully. Heroes: {Heroes}, Patches: {Patches}",
                     result.HeroesUpdated, result.PatchesUpdated);
             }
             else
             {
-                _logger.LogWarning(
+                logger.LogWarning(
                     "Scheduled sync completed with errors. Heroes: {Heroes}, Patches: {Patches}, Errors: {ErrorCount}",
                     result.HeroesUpdated, result.PatchesUpdated, result.Errors.Count);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to perform scheduled sync");
+            logger.LogError(ex, "Failed to perform scheduled sync");
         }
     }
 }

@@ -219,7 +219,7 @@ else
                 ? (char)('0' + choice)
                 : '0';
         }
-        return $"[T{new string(code)},{hero?.Name ?? ""}]";
+        return $"[T{new string(code)},{hero?.ShortName ?? ""}]";
     }
 
     private async Task CopyBuildCode()

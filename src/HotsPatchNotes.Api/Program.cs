@@ -22,7 +22,7 @@ builder.Services.AddDbContext<HotsDbContext>(options =>
     if (databaseProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
     {
         var pgConnectionString = connectionString ??
-            "Host=localhost;Database=hots;Username=postgres;Password=postgres";
+            throw new InvalidOperationException("PostgreSQL connection string must be configured in ConnectionStrings:DefaultConnection");
         options.UseNpgsql(pgConnectionString);
     }
     else
@@ -47,8 +47,15 @@ builder.Services.AddScoped<IBattlegroundService, BattlegroundService>();
 builder.Services.AddSingleton(HtmlContentService.CreateSanitizer());
 builder.Services.AddScoped<IHtmlContentService, HtmlContentService>();
 
-// HttpClient for GitHub API
-builder.Services.AddHttpClient<IGitHubSyncService, GitHubSyncService>();
+// HttpClient for GitHub API and BattlegroundScraper
+builder.Services.AddHttpClient<BattlegroundScraper>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+});
+builder.Services.AddHttpClient<IGitHubSyncService, GitHubSyncService>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+});
 
 // Background sync service
 builder.Services.AddHostedService<BackgroundSyncService>();

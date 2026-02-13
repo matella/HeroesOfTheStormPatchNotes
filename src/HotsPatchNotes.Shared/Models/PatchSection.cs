@@ -41,7 +41,7 @@ public class PatchSection
     /// <summary>
     /// Child sections (e.g., heroes under Balance).
     /// </summary>
-    public virtual ICollection<PatchSection> ChildSections { get; set; } = new List<PatchSection>();
+    public virtual ICollection<PatchSection> ChildSections { get; set; } = [];
 
     /// <summary>
     /// Type of section: "Hero", "Map", "General", "Balance", "BugFix".

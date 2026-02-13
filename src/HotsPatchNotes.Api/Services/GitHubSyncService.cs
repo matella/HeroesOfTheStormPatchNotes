@@ -55,14 +55,13 @@ public interface IGitHubSyncService
 /// <summary>
 /// Service for syncing Heroes of the Storm data from GitHub repositories and web sources.
 /// </summary>
-public class GitHubSyncService : IGitHubSyncService
+public sealed partial class GitHubSyncService(
+    HotsDbContext dbContext,
+    HttpClient httpClient,
+    ILogger<GitHubSyncService> logger,
+    IHtmlContentService htmlContentService,
+    BattlegroundScraper battlegroundScraper) : IGitHubSyncService
 {
-    private readonly HotsDbContext _dbContext;
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<GitHubSyncService> _logger;
-    private readonly IHtmlContentService _htmlContentService;
-    private readonly BattlegroundScraper _battlegroundScraper;
-
     private const string HeroesBaseUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/hero/";
     private const string HeroListUrl = "https://api.github.com/repos/heroespatchnotes/heroes-talents/contents/hero";
     private const string PatchesUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-patch-data/master/patchversions.json";
@@ -76,31 +75,10 @@ public class GitHubSyncService : IGitHubSyncService
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
-    public GitHubSyncService(
-        HotsDbContext dbContext,
-        HttpClient httpClient,
-        ILogger<GitHubSyncService> logger,
-        IHtmlContentService htmlContentService)
-    {
-        _dbContext = dbContext;
-        _httpClient = httpClient;
-        _logger = logger;
-        _htmlContentService = htmlContentService;
-        _battlegroundScraper = new BattlegroundScraper(httpClient, 
-            logger as ILogger<BattlegroundScraper> ?? 
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<BattlegroundScraper>.Instance);
-
-        // Set User-Agent for API requests
-        if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
-        {
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
-        }
-    }
-
     public async Task<SyncResultDto> SyncAllAsync(CancellationToken cancellationToken = default)
     {
-        var isInitialSync = !await _dbContext.Patches.AnyAsync(cancellationToken);
-        _logger.LogInformation("Starting {SyncType} sync", isInitialSync ? "initial" : "subsequent");
+        var isInitialSync = !await dbContext.Patches.AnyAsync(cancellationToken);
+        logger.LogInformation("Starting {SyncType} sync", isInitialSync ? "initial" : "subsequent");
 
         if (isInitialSync)
         {
@@ -112,7 +90,7 @@ public class GitHubSyncService : IGitHubSyncService
 
             return new SyncResultDto
             {
-                Success = heroResult.Success && patchResult.Success && battlegroundResult.Success,
+                Success = heroResult.Success && patchResult.Success && webPatchResult.Success && battlegroundResult.Success,
                 Message = $"Initial sync complete: {heroResult.HeroesUpdated} heroes, {patchResult.PatchesUpdated + webPatchResult.PatchesUpdated} patches, {battlegroundResult.HeroesUpdated} battlegrounds",
                 HeroesUpdated = heroResult.HeroesUpdated,
                 PatchesUpdated = patchResult.PatchesUpdated + webPatchResult.PatchesUpdated,
@@ -146,7 +124,7 @@ public class GitHubSyncService : IGitHubSyncService
         {
             // Get list of hero files from GitHub API
             var heroFiles = await GetHeroFileListAsync(cancellationToken);
-            _logger.LogInformation("Found {Count} hero files to sync", heroFiles.Count);
+            logger.LogInformation("Found {Count} hero files to sync", heroFiles.Count);
 
             foreach (var heroFile in heroFiles)
             {
@@ -157,7 +135,7 @@ public class GitHubSyncService : IGitHubSyncService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to sync hero: {HeroFile}", heroFile);
+                    logger.LogError(ex, "Failed to sync hero: {HeroFile}", heroFile);
                     result.Errors.Add($"Failed to sync {heroFile}: {ex.Message}");
                 }
             }
@@ -167,7 +145,7 @@ public class GitHubSyncService : IGitHubSyncService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to sync heroes");
+            logger.LogError(ex, "Failed to sync heroes");
             result.Errors.Add($"Failed to sync heroes: {ex.Message}");
         }
 
@@ -180,7 +158,7 @@ public class GitHubSyncService : IGitHubSyncService
 
         try
         {
-            var response = await _httpClient.GetStringAsync(PatchesUrl, cancellationToken);
+            var response = await httpClient.GetStringAsync(PatchesUrl, cancellationToken);
             var patchData = JsonSerializer.Deserialize<List<GitHubPatchData>>(response, JsonOptions);
 
             if (patchData == null)
@@ -198,14 +176,14 @@ public class GitHubSyncService : IGitHubSyncService
 
             foreach (var patch in uniquePatches)
             {
-                var existingPatch = await _dbContext.Patches
+                var existingPatch = await dbContext.Patches
                     .FirstOrDefaultAsync(p => p.InternalId == patch.InternalId, cancellationToken);
 
                 if (existingPatch == null)
                 {
                     // Only create new patches from GitHub (tertiary source)
                     existingPatch = new Patch { InternalId = patch.InternalId, Source = "github" };
-                    _dbContext.Patches.Add(existingPatch);
+                    dbContext.Patches.Add(existingPatch);
                     MapPatchData(patch, existingPatch);
                     result.PatchesUpdated++;
                 }
@@ -218,13 +196,13 @@ public class GitHubSyncService : IGitHubSyncService
                 // Skip patches from Blizzard or BlueTracker - they have better/more recent data
             }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
             result.Success = true;
             result.Message = $"Synced {result.PatchesUpdated} patches from GitHub";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to sync patches from GitHub");
+            logger.LogError(ex, "Failed to sync patches from GitHub");
             result.Errors.Add($"Failed to sync patches: {ex.Message}");
         }
 
@@ -240,11 +218,11 @@ public class GitHubSyncService : IGitHubSyncService
         {
             var blueTrackerCount = await SyncBlueTrackerPatchesAsync(isInitialSync, cancellationToken);
             result.PatchesUpdated += blueTrackerCount;
-            _logger.LogInformation("Synced {Count} patches from BlueTracker (isInitialSync: {IsInitial})", blueTrackerCount, isInitialSync);
+            logger.LogInformation("Synced {Count} patches from BlueTracker (isInitialSync: {IsInitial})", blueTrackerCount, isInitialSync);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to sync patches from BlueTracker");
+            logger.LogError(ex, "Failed to sync patches from BlueTracker");
             result.Errors.Add($"BlueTracker sync failed: {ex.Message}");
         }
 
@@ -271,13 +249,13 @@ public class GitHubSyncService : IGitHubSyncService
             try
             {
                 // Check if patch already exists
-                var existingPatch = await _dbContext.Patches
+                var existingPatch = await dbContext.Patches
                     .FirstOrDefaultAsync(p => p.InternalId == patchInfo.InternalId, cancellationToken);
 
                 if (existingPatch == null)
                 {
                     existingPatch = new Patch { InternalId = patchInfo.InternalId, Source = "bluetracker" };
-                    _dbContext.Patches.Add(existingPatch);
+                    dbContext.Patches.Add(existingPatch);
                 }
 
                 // Don't overwrite Blizzard source data (Blizzard is authoritative)
@@ -298,7 +276,7 @@ public class GitHubSyncService : IGitHubSyncService
                     if (!string.IsNullOrEmpty(existingPatch.Content))
                     {
                         // Save the patch first to get its ID (needed for section FK)
-                        await _dbContext.SaveChangesAsync(cancellationToken);
+                        await dbContext.SaveChangesAsync(cancellationToken);
                         await ExtractAndSaveHeroSectionsFromPatchAsync(existingPatch, cancellationToken);
                     }
                 }
@@ -316,11 +294,11 @@ public class GitHubSyncService : IGitHubSyncService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to sync BlueTracker patch: {Title}", patchInfo.Title);
+                logger.LogWarning(ex, "Failed to sync BlueTracker patch: {Title}", patchInfo.Title);
             }
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
         return count;
     }
 
@@ -339,11 +317,11 @@ public class GitHubSyncService : IGitHubSyncService
         while (hasMorePages)
         {
             var pageUrl = page == 1 ? BlueTrackerUrl : $"{BlueTrackerUrl}?page={page}";
-            _logger.LogInformation("Scanning BlueTracker page {Page}: {Url}", page, pageUrl);
+            logger.LogInformation("Scanning BlueTracker page {Page}: {Url}", page, pageUrl);
 
             try
             {
-                var html = await _httpClient.GetStringAsync(pageUrl, cancellationToken);
+                var html = await httpClient.GetStringAsync(pageUrl, cancellationToken);
                 var doc = new HtmlDocument();
                 doc.LoadHtml(html);
 
@@ -383,14 +361,14 @@ public class GitHubSyncService : IGitHubSyncService
                     // Safety limit
                     if (page > 50)
                     {
-                        _logger.LogWarning("Reached page limit of 50, stopping pagination");
+                        logger.LogWarning("Reached page limit of 50, stopping pagination");
                         hasMorePages = false;
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to fetch BlueTracker page {Page}", page);
+                logger.LogWarning(ex, "Failed to fetch BlueTracker page {Page}", page);
                 hasMorePages = false;
             }
         }
@@ -530,7 +508,7 @@ public class GitHubSyncService : IGitHubSyncService
     {
         try
         {
-            var html = await _httpClient.GetStringAsync(patchInfo.Url, cancellationToken);
+            var html = await httpClient.GetStringAsync(patchInfo.Url, cancellationToken);
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -553,7 +531,7 @@ public class GitHubSyncService : IGitHubSyncService
                         var fullArticleUrl = viewFullArticleLink.GetAttributeValue("href", "");
                         if (!string.IsNullOrEmpty(fullArticleUrl))
                         {
-                            _logger.LogInformation("Found 'View Full Article' link for {Title}: {Url}", patchInfo.Title, fullArticleUrl);
+                            logger.LogInformation("Found 'View Full Article' link for {Title}: {Url}", patchInfo.Title, fullArticleUrl);
 
                             // Store the official link
                             patch.OfficialLink = fullArticleUrl;
@@ -573,7 +551,7 @@ public class GitHubSyncService : IGitHubSyncService
                     // If "View Full Article" failed, try the Blogs version as fallback
                     if (!string.IsNullOrEmpty(patchInfo.BlogsUrl))
                     {
-                        _logger.LogInformation("Falling back to Blogs version for {Title}", patchInfo.Title);
+                        logger.LogInformation("Falling back to Blogs version for {Title}", patchInfo.Title);
                         await ExtractContentFromBlogsPostAsync(patchInfo.BlogsUrl, patch, cancellationToken);
                         if (!string.IsNullOrEmpty(patch.Content))
                         {
@@ -584,12 +562,12 @@ public class GitHubSyncService : IGitHubSyncService
 
                 // For Blogs topics or as final fallback: extract content directly from post-content
                 patch.ContentHtml = contentNode.InnerHtml;
-                patch.Content = _htmlContentService.SanitizeHtml(contentNode.InnerHtml);
+                patch.Content = htmlContentService.SanitizeHtml(contentNode.InnerHtml);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch content for {Title}", patchInfo.Title);
+            logger.LogWarning(ex, "Failed to fetch content for {Title}", patchInfo.Title);
         }
     }
 
@@ -603,7 +581,7 @@ public class GitHubSyncService : IGitHubSyncService
     {
         try
         {
-            var html = await _httpClient.GetStringAsync(blogsUrl, cancellationToken);
+            var html = await httpClient.GetStringAsync(blogsUrl, cancellationToken);
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -612,13 +590,13 @@ public class GitHubSyncService : IGitHubSyncService
             if (contentNode != null)
             {
                 patch.ContentHtml = contentNode.InnerHtml;
-                patch.Content = _htmlContentService.SanitizeHtml(contentNode.InnerHtml);
+                patch.Content = htmlContentService.SanitizeHtml(contentNode.InnerHtml);
                 patch.Source = "bluetracker";
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch Blogs content from {Url}", blogsUrl);
+            logger.LogWarning(ex, "Failed to fetch Blogs content from {Url}", blogsUrl);
         }
     }
 
@@ -636,7 +614,7 @@ public class GitHubSyncService : IGitHubSyncService
     {
         try
         {
-            var html = await _httpClient.GetStringAsync(url, cancellationToken);
+            var html = await httpClient.GetStringAsync(url, cancellationToken);
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -656,17 +634,17 @@ public class GitHubSyncService : IGitHubSyncService
                     text.Length > 500)
                 {
                     patch.ContentHtml = contentNode.InnerHtml;
-                    patch.Content = _htmlContentService.SanitizeHtml(contentNode.InnerHtml);
+                    patch.Content = htmlContentService.SanitizeHtml(contentNode.InnerHtml);
                 }
                 else
                 {
-                    _logger.LogWarning("Content from {Url} doesn't appear to be valid patch notes", url);
+                    logger.LogWarning("Content from {Url} doesn't appear to be valid patch notes", url);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch Blizzard content for {Url}", url);
+            logger.LogWarning(ex, "Failed to fetch Blizzard content for {Url}", url);
         }
     }
 
@@ -684,33 +662,33 @@ public class GitHubSyncService : IGitHubSyncService
     {
         try
         {
-            _logger.LogDebug("Extracting sections from patch {PatchId}: {PatchName}", patch.Id, patch.PatchName);
+            logger.LogDebug("Extracting sections from patch {PatchId}: {PatchName}", patch.Id, patch.PatchName);
 
             // Get all hero names for matching
-            var heroes = await _dbContext.Heroes
+            var heroes = await dbContext.Heroes
                 .Select(h => new { h.Id, h.Name, h.ShortName })
                 .ToListAsync(cancellationToken);
 
             var heroNameMap = BuildHeroNameLookup(heroes);
 
             // Clear existing sections for this patch
-            var existingSections = await _dbContext.PatchSections
+            var existingSections = await dbContext.PatchSections
                 .Where(s => s.PatchId == patch.Id)
                 .ToListAsync(cancellationToken);
             
             if (existingSections.Any())
             {
-                _logger.LogDebug("Removing {Count} existing sections for patch {PatchName}", 
+                logger.LogDebug("Removing {Count} existing sections for patch {PatchName}", 
                     existingSections.Count, patch.PatchName);
-                _dbContext.PatchSections.RemoveRange(existingSections);
-                await _dbContext.SaveChangesAsync(cancellationToken);
+                dbContext.PatchSections.RemoveRange(existingSections);
+                await dbContext.SaveChangesAsync(cancellationToken);
             }
 
             // Parse HTML content (now stored as sanitized HTML)
             var htmlContent = patch.Content;
             if (string.IsNullOrEmpty(htmlContent))
             {
-                _logger.LogDebug("No content for patch {PatchName}", patch.PatchName);
+                logger.LogDebug("No content for patch {PatchName}", patch.PatchName);
                 return;
             }
 
@@ -719,7 +697,7 @@ public class GitHubSyncService : IGitHubSyncService
 
             if (!sections.Any())
             {
-                _logger.LogDebug("No sections extracted from patch {PatchName}", patch.PatchName);
+                logger.LogDebug("No sections extracted from patch {PatchName}", patch.PatchName);
                 return;
             }
 
@@ -739,10 +717,10 @@ public class GitHubSyncService : IGitHubSyncService
 
             foreach (var section in sectionsWithoutParents)
             {
-                _dbContext.PatchSections.Add(section);
+                dbContext.PatchSections.Add(section);
             }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             // Phase 2: Update ParentSectionId with real database IDs
             for (int i = 0; i < sections.Count; i++)
@@ -765,15 +743,15 @@ public class GitHubSyncService : IGitHubSyncService
                 }
             }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Saved {Count} sections for patch {PatchName}",
+            logger.LogInformation("Saved {Count} sections for patch {PatchName}",
                 sections.Count,
                 patch.PatchName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to extract and save sections for patch {PatchId}: {PatchName}", 
+            logger.LogError(ex, "Failed to extract and save sections for patch {PatchId}: {PatchName}", 
                 patch.Id, patch.PatchName);
             throw;
         }
@@ -829,7 +807,7 @@ public class GitHubSyncService : IGitHubSyncService
             return string.Empty;
 
         // Remove apostrophes, periods, spaces, dashes, and convert to lowercase
-        return Regex.Replace(name, @"['.\-\s]", "").ToLowerInvariant();
+        return SpecialCharactersRegex().Replace(name, "").ToLowerInvariant();
     }
 
     /// <summary>
@@ -895,7 +873,7 @@ public class GitHubSyncService : IGitHubSyncService
 
             // Build HTML content from collected nodes
             var sectionContent = string.Join("", contentNodes.Select(n => n.OuterHtml));
-            sectionContent = _htmlContentService.SanitizeHtml(sectionContent);
+            sectionContent = htmlContentService.SanitizeHtml(sectionContent);
 
             // Determine section type
             var sectionType = ClassifySectionTypeFromHeading(headingText, headingLevel);
@@ -910,7 +888,7 @@ public class GitHubSyncService : IGitHubSyncService
             else if (sectionType == "Hero")
             {
                 // Section seems like it should be a hero but we couldn't match it
-                _logger.LogWarning(
+                logger.LogWarning(
                     "Could not match hero name '{HeroName}' in patch '{PatchName}' to any hero in database",
                     headingText, patchName);
                 unmatchedHeroCount++;
@@ -935,7 +913,7 @@ public class GitHubSyncService : IGitHubSyncService
 
         if (unmatchedHeroCount > 0)
         {
-            _logger.LogWarning("Patch '{PatchName}' had {Count} unmatched hero names", 
+            logger.LogWarning("Patch '{PatchName}' had {Count} unmatched hero names", 
                 patchName, unmatchedHeroCount);
         }
 
@@ -984,30 +962,19 @@ public class GitHubSyncService : IGitHubSyncService
     private static string RemoveNavigationLinksFromMarkdown(string content)
     {
         // Remove "Quick Navigation" section (from "## Quick Navigation" to next "---")
-        content = Regex.Replace(content,
-            @"^##\s*Quick Navigation:?[\s\S]*?(?=^---|\z)",
-            "",
-            RegexOptions.Multiline | RegexOptions.IgnoreCase);
+        content = QuickNavigationRegex().Replace(content, "");
 
         // Remove [Return to Top](#return) links
-        content = Regex.Replace(content,
-            @"\[Return to Top\]\(#return\)\s*",
-            "",
-            RegexOptions.IgnoreCase);
+        content = ReturnToTopRegex().Replace(content, "");
 
         // Remove empty anchor links like []() or [](url)
-        content = Regex.Replace(content,
-            @"\[\]\([^)]*\)\s*\n?",
-            "");
+        content = EmptyAnchorRegex().Replace(content, "");
 
         // Remove "Click here to discuss" type links
-        content = Regex.Replace(content,
-            @"\[Click here to discuss.*?\]\([^)]*\)\s*",
-            "",
-            RegexOptions.IgnoreCase);
+        content = ClickHereToDiscussRegex().Replace(content, "");
 
         // Clean up excessive blank lines (more than 2 consecutive)
-        content = Regex.Replace(content, @"\n{3,}", "\n\n");
+        content = ExcessiveNewlinesRegex().Replace(content, "\n\n");
 
         return content.Trim();
     }
@@ -1025,8 +992,7 @@ public class GitHubSyncService : IGitHubSyncService
         int patchId)
     {
         var sections = new List<PatchSection>();
-        var headingPattern = new Regex(@"^(#{1,4})\s+(.+?)(?:\s*\{#\w+\})?\s*$", RegexOptions.Multiline);
-        var matches = headingPattern.Matches(content);
+        var matches = MarkdownHeadingRegex().Matches(content);
 
         if (matches.Count == 0)
         {
@@ -1047,7 +1013,7 @@ public class GitHubSyncService : IGitHubSyncService
             var sectionContent = content.Substring(contentStart, contentEnd - contentStart).Trim();
 
             // Remove leading --- separators from content
-            sectionContent = Regex.Replace(sectionContent, @"^---\s*\n?", "").Trim();
+            sectionContent = LeadingSeparatorRegex().Replace(sectionContent, "").Trim();
 
             // Determine section type
             var sectionType = ClassifySectionTypeFromHeading(headingText, headingLevel);
@@ -1139,9 +1105,9 @@ public class GitHubSyncService : IGitHubSyncService
             .Trim();
 
         // Remove special characters and replace spaces with hyphens
-        normalized = Regex.Replace(normalized, @"[^a-z0-9\s-]", "");
-        normalized = Regex.Replace(normalized, @"\s+", "-");
-        normalized = Regex.Replace(normalized, @"-+", "-");
+        normalized = SlugNonAlphanumericRegex().Replace(normalized, "");
+        normalized = SlugWhitespaceRegex().Replace(normalized, "-");
+        normalized = SlugMultipleDashRegex().Replace(normalized, "-");
         normalized = normalized.Trim('-');
 
         return normalized;
@@ -1176,16 +1142,11 @@ public class GitHubSyncService : IGitHubSyncService
     private static DateTime? ParseDateFromPatchTitle(string title)
     {
         // Try to extract date patterns like "January 14, 2026" or "December 12, 2025"
-        var patterns = new[]
-        {
-            @"(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})",
-            @"(\d{1,2})[/-](\d{1,2})[/-](\d{4})",
-            @"(\d{4})[/-](\d{1,2})[/-](\d{1,2})"
-        };
+        Regex[] dateRegexes = [MonthNameDateRegex(), NumericDateSlashRegex(), IsoDateRegex()];
 
-        foreach (var pattern in patterns)
+        foreach (var regex in dateRegexes)
         {
-            var match = Regex.Match(title, pattern, RegexOptions.IgnoreCase);
+            var match = regex.Match(title);
             if (match.Success)
             {
                 if (DateTime.TryParse(match.Value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
@@ -1352,7 +1313,7 @@ public class GitHubSyncService : IGitHubSyncService
                     // Check for color styles (PTR notes often have orange/colored text)
                     var spanStyle = child.GetAttributeValue("style", "");
                     var spanClass = child.GetAttributeValue("class", "");
-                    var colorMatch = Regex.Match(spanStyle, @"color:\s*([^;]+)", RegexOptions.IgnoreCase);
+                    var colorMatch = CssColorRegex().Match(spanStyle);
 
                     if (colorMatch.Success || spanClass.Contains("ptr", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1386,7 +1347,7 @@ public class GitHubSyncService : IGitHubSyncService
 
     private async Task<List<string>> GetHeroFileListAsync(CancellationToken cancellationToken)
     {
-        var response = await _httpClient.GetStringAsync(HeroListUrl, cancellationToken);
+        var response = await httpClient.GetStringAsync(HeroListUrl, cancellationToken);
         var files = JsonSerializer.Deserialize<List<GitHubFileInfo>>(response, JsonOptions);
 
         return files?
@@ -1398,7 +1359,7 @@ public class GitHubSyncService : IGitHubSyncService
     private async Task SyncHeroAsync(string heroShortName, CancellationToken cancellationToken)
     {
         var url = $"{HeroesBaseUrl}{heroShortName}.json";
-        var response = await _httpClient.GetStringAsync(url, cancellationToken);
+        var response = await httpClient.GetStringAsync(url, cancellationToken);
         var heroData = JsonSerializer.Deserialize<GitHubHeroData>(response, JsonOptions);
 
         if (heroData == null)
@@ -1406,7 +1367,7 @@ public class GitHubSyncService : IGitHubSyncService
             throw new InvalidOperationException($"Failed to parse hero data for {heroShortName}");
         }
 
-        var existingHero = await _dbContext.Heroes
+        var existingHero = await dbContext.Heroes
             .Include(h => h.Abilities)
             .Include(h => h.Talents)
             .FirstOrDefaultAsync(h => h.ShortName == heroShortName, cancellationToken);
@@ -1414,19 +1375,19 @@ public class GitHubSyncService : IGitHubSyncService
         if (existingHero == null)
         {
             existingHero = new Hero { ShortName = heroShortName };
-            _dbContext.Heroes.Add(existingHero);
+            dbContext.Heroes.Add(existingHero);
         }
         else
         {
             // Clear existing abilities and talents for update
-            _dbContext.Abilities.RemoveRange(existingHero.Abilities);
-            _dbContext.Talents.RemoveRange(existingHero.Talents);
+            dbContext.Abilities.RemoveRange(existingHero.Abilities);
+            dbContext.Talents.RemoveRange(existingHero.Talents);
         }
 
         MapHeroData(heroData, existingHero);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogDebug("Synced hero: {HeroName}", existingHero.Name);
+        logger.LogDebug("Synced hero: {HeroName}", existingHero.Name);
     }
 
     private void MapHeroData(GitHubHeroData data, Hero hero)
@@ -1643,11 +1604,11 @@ public class GitHubSyncService : IGitHubSyncService
 
         try
         {
-            _logger.LogInformation("Starting battleground sync from Fandom wiki");
+            logger.LogInformation("Starting battleground sync from Fandom wiki");
 
             // Get list of battlegrounds
-            var battlegroundList = await _battlegroundScraper.GetBattlegroundListAsync(cancellationToken);
-            _logger.LogInformation("Found {Count} battlegrounds to sync", battlegroundList.Count);
+            var battlegroundList = await battlegroundScraper.GetBattlegroundListAsync(cancellationToken);
+            logger.LogInformation("Found {Count} battlegrounds to sync", battlegroundList.Count);
 
             var syncedCount = 0;
 
@@ -1656,11 +1617,11 @@ public class GitHubSyncService : IGitHubSyncService
                 try
                 {
                     // Check if battleground already exists
-                    var existing = await _dbContext.Battlegrounds
+                    var existing = await dbContext.Battlegrounds
                         .FirstOrDefaultAsync(b => b.ShortName == bgInfo.ShortName, cancellationToken);
 
                     // Get detailed info
-                    var details = await _battlegroundScraper.GetBattlegroundDetailsAsync(bgInfo.WikiUrl, cancellationToken);
+                    var details = await battlegroundScraper.GetBattlegroundDetailsAsync(bgInfo.WikiUrl, cancellationToken);
 
                     if (existing == null)
                     {
@@ -1670,37 +1631,37 @@ public class GitHubSyncService : IGitHubSyncService
                             ShortName = bgInfo.ShortName,
                             Name = bgInfo.Name,
                             MapType = bgInfo.Lanes + "-Lane",
-                            Description = _htmlContentService.SanitizeHtml(details.Description ?? bgInfo.ObjectiveSummary),
-                            Objective = _htmlContentService.SanitizeHtml(details.ObjectiveDetails ?? bgInfo.ObjectiveSummary),
+                            Description = htmlContentService.SanitizeHtml(details.Description ?? bgInfo.ObjectiveSummary),
+                            Objective = htmlContentService.SanitizeHtml(details.ObjectiveDetails ?? bgInfo.ObjectiveSummary),
                             ObjectiveTiming = details.ObjectiveTiming,
-                            MercCamps = _htmlContentService.SanitizeHtml(details.MercCamps ?? ""),
-                            BossInfo = _htmlContentService.SanitizeHtml(details.BossInfo ?? ""),
-                            Tips = _htmlContentService.SanitizeHtml(details.Tips ?? ""),
+                            MercCamps = htmlContentService.SanitizeHtml(details.MercCamps ?? ""),
+                            BossInfo = htmlContentService.SanitizeHtml(details.BossInfo ?? ""),
+                            Tips = htmlContentService.SanitizeHtml(details.Tips ?? ""),
                             ImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl,
                             Universe = bgInfo.Universe,
                             ReleaseDate = bgInfo.ReleaseDate,
                             IsInRotation = true
                         };
 
-                        _dbContext.Battlegrounds.Add(battleground);
-                        _logger.LogInformation("Added new battleground: {Name}", bgInfo.Name);
+                        dbContext.Battlegrounds.Add(battleground);
+                        logger.LogInformation("Added new battleground: {Name}", bgInfo.Name);
                     }
                     else
                     {
                         // Update existing battleground
                         existing.Name = bgInfo.Name;
                         existing.MapType = bgInfo.Lanes + "-Lane";
-                        existing.Description = _htmlContentService.SanitizeHtml(details.Description ?? bgInfo.ObjectiveSummary);
-                        existing.Objective = _htmlContentService.SanitizeHtml(details.ObjectiveDetails ?? bgInfo.ObjectiveSummary);
+                        existing.Description = htmlContentService.SanitizeHtml(details.Description ?? bgInfo.ObjectiveSummary);
+                        existing.Objective = htmlContentService.SanitizeHtml(details.ObjectiveDetails ?? bgInfo.ObjectiveSummary);
                         existing.ObjectiveTiming = details.ObjectiveTiming;
-                        existing.MercCamps = _htmlContentService.SanitizeHtml(details.MercCamps ?? "");
-                        existing.BossInfo = _htmlContentService.SanitizeHtml(details.BossInfo ?? "");
-                        existing.Tips = _htmlContentService.SanitizeHtml(details.Tips ?? "");
+                        existing.MercCamps = htmlContentService.SanitizeHtml(details.MercCamps ?? "");
+                        existing.BossInfo = htmlContentService.SanitizeHtml(details.BossInfo ?? "");
+                        existing.Tips = htmlContentService.SanitizeHtml(details.Tips ?? "");
                         existing.ImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl ?? existing.ImageUrl;
                         existing.Universe = bgInfo.Universe;
                         existing.ReleaseDate = bgInfo.ReleaseDate ?? existing.ReleaseDate;
 
-                        _logger.LogInformation("Updated battleground: {Name}", bgInfo.Name);
+                        logger.LogInformation("Updated battleground: {Name}", bgInfo.Name);
                     }
 
                     syncedCount++;
@@ -1710,27 +1671,76 @@ public class GitHubSyncService : IGitHubSyncService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to sync battleground: {Name}", bgInfo.Name);
+                    logger.LogWarning(ex, "Failed to sync battleground: {Name}", bgInfo.Name);
                     result.Errors.Add($"Failed to sync {bgInfo.Name}: {ex.Message}");
                 }
             }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             result.Success = true;
             result.HeroesUpdated = syncedCount; // Reuse counter
             result.Message = $"Synced {syncedCount} of {battlegroundList.Count} battlegrounds";
-            _logger.LogInformation("Battleground sync complete: {Count} synced", syncedCount);
+            logger.LogInformation("Battleground sync complete: {Count} synced", syncedCount);
         }
         catch (Exception ex)
         {
             result.Success = false;
             result.Errors.Add($"Battleground sync failed: {ex.Message}");
-            _logger.LogError(ex, "Battleground sync failed");
+            logger.LogError(ex, "Battleground sync failed");
         }
 
         return result;
     }
+
+    #endregion
+
+    #region Generated Regex
+
+    [GeneratedRegex(@"['.\-\s]")]
+    private static partial Regex SpecialCharactersRegex();
+
+    [GeneratedRegex(@"^##\s*Quick Navigation:?[\s\S]*?(?=^---|\z)", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+    private static partial Regex QuickNavigationRegex();
+
+    [GeneratedRegex(@"\[Return to Top\]\(#return\)\s*", RegexOptions.IgnoreCase)]
+    private static partial Regex ReturnToTopRegex();
+
+    [GeneratedRegex(@"\[\]\([^)]*\)\s*\n?")]
+    private static partial Regex EmptyAnchorRegex();
+
+    [GeneratedRegex(@"\[Click here to discuss.*?\]\([^)]*\)\s*", RegexOptions.IgnoreCase)]
+    private static partial Regex ClickHereToDiscussRegex();
+
+    [GeneratedRegex(@"\n{3,}")]
+    private static partial Regex ExcessiveNewlinesRegex();
+
+    [GeneratedRegex(@"^(#{1,4})\s+(.+?)(?:\s*\{#\w+\})?\s*$", RegexOptions.Multiline)]
+    private static partial Regex MarkdownHeadingRegex();
+
+    [GeneratedRegex(@"^---\s*\n?")]
+    private static partial Regex LeadingSeparatorRegex();
+
+    [GeneratedRegex(@"[^a-z0-9\s-]")]
+    private static partial Regex SlugNonAlphanumericRegex();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex SlugWhitespaceRegex();
+
+    [GeneratedRegex(@"-+")]
+    private static partial Regex SlugMultipleDashRegex();
+
+    [GeneratedRegex(@"(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})", RegexOptions.IgnoreCase)]
+    private static partial Regex MonthNameDateRegex();
+
+    [GeneratedRegex(@"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", RegexOptions.IgnoreCase)]
+    private static partial Regex NumericDateSlashRegex();
+
+    [GeneratedRegex(@"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", RegexOptions.IgnoreCase)]
+    private static partial Regex IsoDateRegex();
+
+    [GeneratedRegex(@"color:\s*([^;]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex CssColorRegex();
 
     #endregion
 }

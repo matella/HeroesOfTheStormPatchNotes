@@ -10,7 +10,7 @@ public interface IBattlegroundService
     Task<BattlegroundDetailDto?> GetBattlegroundAsync(string shortName);
 }
 
-public class BattlegroundService(HttpClient httpClient) : IBattlegroundService
+public sealed class BattlegroundService(HttpClient httpClient) : IBattlegroundService
 {
     private const string BaseRoute = Constants.ApiRoutes.Battlegrounds;
 
@@ -27,7 +27,7 @@ public class BattlegroundService(HttpClient httpClient) : IBattlegroundService
             var query = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
             return await httpClient.GetFromJsonAsync<List<BattlegroundSummaryDto>>($"{BaseRoute}{query}") ?? [];
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return [];
         }
@@ -39,7 +39,7 @@ public class BattlegroundService(HttpClient httpClient) : IBattlegroundService
         {
             return await httpClient.GetFromJsonAsync<BattlegroundDetailDto>($"{BaseRoute}/{shortName}");
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
         {
             return null;
         }

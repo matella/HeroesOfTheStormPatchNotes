@@ -48,7 +48,7 @@ builder.Services.AddSingleton(HtmlContentService.CreateSanitizer());
 builder.Services.AddScoped<IHtmlContentService, HtmlContentService>();
 
 // HttpClient for GitHub API and BattlegroundScraper
-builder.Services.AddHttpClient<BattlegroundScraper>(client =>
+builder.Services.AddHttpClient<IBattlegroundScraper, BattlegroundScraper>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
 });

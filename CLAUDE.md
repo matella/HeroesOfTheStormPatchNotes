@@ -93,6 +93,14 @@ Strictly follow these principles in all code:
 - **Collection expressions** for empty collections (`return [];` not `return new List<T>()`)
 - **Pattern matching for null checks** (`if (hero is null)` not `if (hero == null)`)
 
+### File Organization
+- **One class per file** — Each public class, record, or struct should be in its own file named after the class
+  - **Applies to**: Services, repositories, controllers, models, background workers
+  - **File naming**: File name must match the class name exactly (e.g., `HeroService.cs` contains `HeroService` class)
+  - **Exception: DTOs grouped by domain** — API DTOs may be grouped by related functionality in files like `HeroDtos.cs`, `PatchDtos.cs`, `BattlegroundDtos.cs`, `CommonDtos.cs` (aligns with Microsoft's documented DTO patterns)
+  - **Exception: Nested classes** — Nested classes within a parent class are acceptable
+  - **Rationale**: This follows industry best practices (StyleCop SA1402) while maintaining practical exceptions that align with Microsoft's official guidance for DTOs
+
 ### Async Conventions
 - All async methods take `CancellationToken cancellationToken = default` as final parameter
 - All async methods suffixed with `Async`

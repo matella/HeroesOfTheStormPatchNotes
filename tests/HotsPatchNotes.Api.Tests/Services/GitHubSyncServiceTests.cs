@@ -21,7 +21,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient(); // Would need MockHttpMessageHandler for full test
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         mockHtmlService
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
@@ -73,7 +73,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var service = new GitHubSyncService(
             context,
@@ -98,7 +98,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var service = new GitHubSyncService(
             context,
@@ -122,7 +122,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         mockBattlegroundScraper
             .Setup(s => s.GetBattlegroundListAsync(It.IsAny<CancellationToken>()))
@@ -159,7 +159,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var battlegroundInfo = new BattlegroundBasicInfo
         {
@@ -235,7 +235,7 @@ public sealed class GitHubSyncServiceTests : TestBase
 
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var battlegroundInfo = new BattlegroundBasicInfo
         {
@@ -291,7 +291,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var battlegroundInfo = new BattlegroundBasicInfo
         {
@@ -337,7 +337,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var service = new GitHubSyncService(
             context,
@@ -361,7 +361,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockHttpClient = new HttpClient();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockBattlegroundScraper = new Mock<BattlegroundScraper>(mockHttpClient);
+        var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
         var service = new GitHubSyncService(
             context,

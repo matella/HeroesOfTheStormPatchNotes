@@ -25,7 +25,11 @@ public sealed class BackgroundSyncServiceTests
             .ReturnsAsync(syncResult);
 
         var serviceProvider = CreateServiceProvider(mockSyncService.Object);
-        var backgroundService = new BackgroundSyncService(serviceProvider, NullLogger<BackgroundSyncService>.Instance);
+        var backgroundService = new BackgroundSyncService(
+            serviceProvider,
+            NullLogger<BackgroundSyncService>.Instance,
+            syncInterval: TimeSpan.FromHours(1),
+            initialDelay: TimeSpan.FromMilliseconds(10));
 
         using var cts = new CancellationTokenSource();
 
@@ -54,7 +58,11 @@ public sealed class BackgroundSyncServiceTests
             .ReturnsAsync(syncResult);
 
         var serviceProvider = CreateServiceProvider(mockSyncService.Object);
-        var backgroundService = new BackgroundSyncService(serviceProvider, NullLogger<BackgroundSyncService>.Instance);
+        var backgroundService = new BackgroundSyncService(
+            serviceProvider,
+            NullLogger<BackgroundSyncService>.Instance,
+            syncInterval: TimeSpan.FromHours(1),
+            initialDelay: TimeSpan.FromMilliseconds(10));
 
         using var cts = new CancellationTokenSource();
 
@@ -87,7 +95,11 @@ public sealed class BackgroundSyncServiceTests
             });
 
         var serviceProvider = CreateServiceProvider(mockSyncService.Object);
-        var backgroundService = new BackgroundSyncService(serviceProvider, NullLogger<BackgroundSyncService>.Instance);
+        var backgroundService = new BackgroundSyncService(
+            serviceProvider,
+            NullLogger<BackgroundSyncService>.Instance,
+            syncInterval: TimeSpan.FromHours(1),
+            initialDelay: TimeSpan.FromMilliseconds(10));
 
         using var cts = new CancellationTokenSource();
 
@@ -121,7 +133,11 @@ public sealed class BackgroundSyncServiceTests
             .ReturnsAsync(syncResult);
 
         var serviceProvider = CreateServiceProvider(mockSyncService.Object);
-        var backgroundService = new BackgroundSyncService(serviceProvider, NullLogger<BackgroundSyncService>.Instance);
+        var backgroundService = new BackgroundSyncService(
+            serviceProvider,
+            NullLogger<BackgroundSyncService>.Instance,
+            syncInterval: TimeSpan.FromHours(1),
+            initialDelay: TimeSpan.FromMilliseconds(10));
 
         using var cts = new CancellationTokenSource();
 
@@ -155,7 +171,11 @@ public sealed class BackgroundSyncServiceTests
 
         var serviceProvider = CreateServiceProvider(mockSyncService.Object);
         var mockLogger = new Mock<ILogger<BackgroundSyncService>>();
-        var backgroundService = new BackgroundSyncService(serviceProvider, mockLogger.Object);
+        var backgroundService = new BackgroundSyncService(
+            serviceProvider,
+            mockLogger.Object,
+            syncInterval: TimeSpan.FromHours(1),
+            initialDelay: TimeSpan.FromMilliseconds(10));
 
         using var cts = new CancellationTokenSource();
 
@@ -188,7 +208,11 @@ public sealed class BackgroundSyncServiceTests
             .ReturnsAsync(syncResult);
 
         var serviceProvider = CreateServiceProvider(mockSyncService.Object);
-        var backgroundService = new BackgroundSyncService(serviceProvider, NullLogger<BackgroundSyncService>.Instance);
+        var backgroundService = new BackgroundSyncService(
+            serviceProvider,
+            NullLogger<BackgroundSyncService>.Instance,
+            syncInterval: TimeSpan.FromHours(1),
+            initialDelay: TimeSpan.FromMilliseconds(10));
 
         using var cts = new CancellationTokenSource();
 

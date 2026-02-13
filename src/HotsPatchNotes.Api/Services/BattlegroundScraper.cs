@@ -6,7 +6,7 @@ namespace HotsPatchNotes.Api.Services;
 /// <summary>
 /// Helper class for scraping battleground data from Heroes of the Storm Fandom Wiki.
 /// </summary>
-public class BattlegroundScraper(HttpClient httpClient, ILogger<BattlegroundScraper> logger)
+public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<BattlegroundScraper> logger) : IBattlegroundScraper
 {
     private const string FandomBaseUrl = "https://heroesofthestorm.fandom.com";
     private const string BattlegroundListUrl = "https://heroesofthestorm.fandom.com/wiki/Battleground";
@@ -271,34 +271,4 @@ public class BattlegroundScraper(HttpClient httpClient, ILogger<BattlegroundScra
             .Replace("[citation needed]", "")
             .Trim();
     }
-}
-
-/// <summary>
-/// Basic battleground info from the main wiki table.
-/// </summary>
-public class BattlegroundBasicInfo
-{
-    public string Name { get; set; } = string.Empty;
-    public string ShortName { get; set; } = string.Empty;
-    public string WikiUrl { get; set; } = string.Empty;
-    public string ObjectiveSummary { get; set; } = string.Empty;
-    public string Lanes { get; set; } = "3";
-    public string Realm { get; set; } = string.Empty;
-    public string Universe { get; set; } = string.Empty;
-    public DateTime? ReleaseDate { get; set; }
-    public string? ThumbnailUrl { get; set; }
-}
-
-/// <summary>
-/// Detailed battleground info from individual wiki pages.
-/// </summary>
-public class BattlegroundDetailInfo
-{
-    public string? Description { get; set; }
-    public string? ObjectiveDetails { get; set; }
-    public string? ObjectiveTiming { get; set; }
-    public string? MercCamps { get; set; }
-    public string? BossInfo { get; set; }
-    public string? Tips { get; set; }
-    public string? FullImageUrl { get; set; }
 }

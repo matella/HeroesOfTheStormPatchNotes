@@ -60,7 +60,7 @@ public sealed partial class GitHubSyncService(
     HttpClient httpClient,
     ILogger<GitHubSyncService> logger,
     IHtmlContentService htmlContentService,
-    BattlegroundScraper battlegroundScraper) : IGitHubSyncService
+    IBattlegroundScraper battlegroundScraper) : IGitHubSyncService
 {
     private const string HeroesBaseUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/hero/";
     private const string HeroListUrl = "https://api.github.com/repos/heroespatchnotes/heroes-talents/contents/hero";

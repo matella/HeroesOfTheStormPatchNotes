@@ -1,15 +1,30 @@
 namespace HotsPatchNotes.Api.Services;
 
-public sealed class BackgroundSyncService(IServiceProvider serviceProvider, ILogger<BackgroundSyncService> logger) : BackgroundService
+public sealed class BackgroundSyncService : BackgroundService
 {
-    private readonly TimeSpan _syncInterval = TimeSpan.FromHours(6);
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<BackgroundSyncService> _logger;
+    private readonly TimeSpan _syncInterval;
+    private readonly TimeSpan _initialDelay;
+
+    public BackgroundSyncService(
+        IServiceProvider serviceProvider,
+        ILogger<BackgroundSyncService> logger,
+        TimeSpan? syncInterval = null,
+        TimeSpan? initialDelay = null)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+        _syncInterval = syncInterval ?? TimeSpan.FromHours(6);
+        _initialDelay = initialDelay ?? TimeSpan.FromSeconds(10);
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Background sync service started. Sync interval: {Interval}", _syncInterval);
+        _logger.LogInformation("Background sync service started. Sync interval: {Interval}", _syncInterval);
 
         // Initial sync on startup (with a small delay to let the app start)
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        await Task.Delay(_initialDelay, stoppingToken);
         await PerformSyncAsync(stoppingToken);
 
         // Periodic sync
@@ -27,18 +42,18 @@ public sealed class BackgroundSyncService(IServiceProvider serviceProvider, ILog
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during periodic sync");
+                _logger.LogError(ex, "Error during periodic sync");
             }
         }
 
-        logger.LogInformation("Background sync service stopped");
+        _logger.LogInformation("Background sync service stopped");
     }
 
     private async Task PerformSyncAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Starting scheduled data sync...");
+        _logger.LogInformation("Starting scheduled data sync...");
 
-        using var scope = serviceProvider.CreateScope();
+        using var scope = _serviceProvider.CreateScope();
         var syncService = scope.ServiceProvider.GetRequiredService<IGitHubSyncService>();
 
         try
@@ -47,20 +62,20 @@ public sealed class BackgroundSyncService(IServiceProvider serviceProvider, ILog
 
             if (result.Success)
             {
-                logger.LogInformation(
+                _logger.LogInformation(
                     "Scheduled sync completed successfully. Heroes: {Heroes}, Patches: {Patches}",
                     result.HeroesUpdated, result.PatchesUpdated);
             }
             else
             {
-                logger.LogWarning(
+                _logger.LogWarning(
                     "Scheduled sync completed with errors. Heroes: {Heroes}, Patches: {Patches}, Errors: {ErrorCount}",
                     result.HeroesUpdated, result.PatchesUpdated, result.Errors.Count);
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to perform scheduled sync");
+            _logger.LogError(ex, "Failed to perform scheduled sync");
         }
     }
 }

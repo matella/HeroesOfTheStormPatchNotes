@@ -14,5 +14,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseA
 // Register services
 builder.Services.AddScoped<IHeroService, HeroService>();
 builder.Services.AddScoped<IPatchService, PatchService>();
+builder.Services.AddScoped<IBattlegroundService, BattlegroundService>();
 
 await builder.Build().RunAsync();

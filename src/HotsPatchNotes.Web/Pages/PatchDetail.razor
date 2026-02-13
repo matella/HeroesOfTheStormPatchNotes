@@ -1,3 +1,4 @@
+@using System.Globalization
 @page "/patch/{InternalId}"
 @using HotsPatchNotes.Shared.DTOs
 @using HotsPatchNotes.Web.Services
@@ -32,11 +33,14 @@
             <div class="patch-meta">
                 @if (!string.IsNullOrEmpty(patch.PatchType))
                 {
-                    <span class="patch-type @GetPatchTypeClass(patch.PatchType)">@patch.PatchType</span>
+                    <span class="patch-type @GetPatchTypeClass(patch.PatchType)">
+                        <span class="patch-type-icon">@GetPatchTypeIcon(patch.PatchType)</span>
+                        @patch.PatchType
+                    </span>
                 }
                 @if (patch.LiveDate.HasValue)
                 {
-                    <span class="patch-date">@patch.LiveDate.Value.ToString("MMMM d, yyyy")</span>
+                    <span class="patch-date">@patch.LiveDate.Value.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</span>
                 }
                 @if (!string.IsNullOrEmpty(patch.OfficialLink))
                 {
@@ -91,7 +95,7 @@
                             @if (!string.IsNullOrWhiteSpace(sec.Content))
                             {
                                 <div class="section-content">
-                                    @((MarkupString)FormatMarkdown(sec.Content))
+                                    @((MarkupString)sec.Content)
                                 </div>
                             }
                             @if (sec.HeadingLevel >= 2)
@@ -104,7 +108,7 @@
                 else if (!string.IsNullOrEmpty(patch.Content))
                 {
                     <div class="content-body">
-                        @((MarkupString)FormatMarkdown(patch.Content))
+                        @((MarkupString)patch.Content)
                     </div>
                 }
                 else
@@ -162,6 +166,19 @@
         };
     }
 
+    private string GetPatchTypeIcon(string patchType)
+    {
+        return patchType.ToLowerInvariant() switch
+        {
+            "balance update" => "⚖️",
+            "major patch" => "🎮",
+            "hotfix patch" => "🔧",
+            "ptr" => "🧪",
+            "patch notes" => "📋",
+            _ => "📝"
+        };
+    }
+
     private string GetTocTypeClass(string sectionType)
     {
         return sectionType.ToLowerInvariant() switch
@@ -183,54 +200,5 @@
         anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"-+", "-");
         anchor = anchor.Trim('-');
         return $"{anchor}-{order}";
-    }
-
-    private string FormatMarkdown(string content)
-    {
-        if (string.IsNullOrEmpty(content))
-            return string.Empty;
-
-        var html = System.Web.HttpUtility.HtmlEncode(content);
-
-        // Convert line breaks
-        html = html.Replace("\r\n", "\n");
-
-        // Convert markdown headers (process longer patterns first)
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"^#### (.+)$", "<h4>$1</h4>", System.Text.RegularExpressions.RegexOptions.Multiline);
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"^### (.+)$", "<h3>$1</h3>", System.Text.RegularExpressions.RegexOptions.Multiline);
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"^## (.+)$", "<h2>$1</h2>", System.Text.RegularExpressions.RegexOptions.Multiline);
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"^# (.+)$", "<h1>$1</h1>", System.Text.RegularExpressions.RegexOptions.Multiline);
-
-        // Convert bold
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
-
-        // Convert italic
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>");
-
-        // Convert lists - wrap consecutive list items
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"^- (.+)$", "<li>$1</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"((?:<li>.*?</li>\n?)+)", "<ul>$1</ul>");
-
-        // Convert image links: [](url) or ![alt](url)
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"!\[([^\]]*)\]\(([^)]+)\)", "<img src=\"$2\" alt=\"$1\" class=\"patch-image\" />");
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"\[([^\]]*)\]\(([^)]+)\)", "<a href=\"$2\" target=\"_blank\">$1</a>");
-
-        // Convert paragraphs (double newlines)
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"\n\n+", "</p><p>");
-        
-        // Convert remaining single newlines to <br>
-        html = html.Replace("\n", "<br/>");
-
-        // Wrap in paragraph
-        html = "<p>" + html + "</p>";
-
-        // Clean up empty paragraphs
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"<p>\s*</p>", "");
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"<p>(<h[1-4]>)", "$1");
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"(</h[1-4]>)</p>", "$1");
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"<p>(<ul>)", "$1");
-        html = System.Text.RegularExpressions.Regex.Replace(html, @"(</ul>)</p>", "$1");
-
-        return html;
     }
 }

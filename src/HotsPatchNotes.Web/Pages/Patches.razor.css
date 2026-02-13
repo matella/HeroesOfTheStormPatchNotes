@@ -130,6 +130,13 @@
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.patch-type-icon {
+    font-size: 0.9rem;
 }
 
 .type-patch-notes,

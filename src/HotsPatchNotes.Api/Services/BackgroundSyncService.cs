@@ -1,5 +1,3 @@
-using HotsPatchNotes.Api.Services;
-
 namespace HotsPatchNotes.Api.Services;
 
 public class BackgroundSyncService : BackgroundService
@@ -54,7 +52,7 @@ public class BackgroundSyncService : BackgroundService
         try
         {
             var result = await syncService.SyncAllAsync(cancellationToken);
-            
+
             if (result.Success)
             {
                 _logger.LogInformation(

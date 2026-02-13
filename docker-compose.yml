@@ -1,4 +1,26 @@
 services:
+  # PostgreSQL Database (optional - use for production)
+  # Uncomment postgres service and update api environment to use PostgreSQL
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: hotspatchnotes-postgres
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: hots
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - hotspatchnotes-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+
   api:
     build:
       context: ./src
@@ -9,11 +31,20 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5001
+      # SQLite configuration (default)
+      DatabaseProvider: SQLite
       ConnectionStrings__DefaultConnection: Data Source=/app/data/hots.db
+      # PostgreSQL configuration (uncomment to use PostgreSQL)
+      # DatabaseProvider: PostgreSQL
+      # ConnectionStrings__DefaultConnection: Host=postgres;Database=hots;Username=postgres;Password=postgres
     volumes:
       - hots-data:/app/data
     networks:
       - hotspatchnotes-network
+    # For PostgreSQL, add:
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5001/api/heroes/roles || exit 1"]
       interval: 30s
@@ -58,3 +89,4 @@ networks:
 
 volumes:
   hots-data:
+  # postgres-data:

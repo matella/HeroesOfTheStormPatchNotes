@@ -52,25 +52,25 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// Trigger a sync of patch data from GitHub only.
+    /// Trigger a sync of patch data from GitHub archive repository only.
     /// </summary>
-    [HttpPost("patches")]
-    public async Task<ActionResult<SyncResultDto>> SyncPatchesAsync(CancellationToken cancellationToken)
+    [HttpPost("patches/github")]
+    public async Task<ActionResult<SyncResultDto>> SyncPatchesFromGitHubAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting patches sync from GitHub...");
-        var result = await _syncService.SyncPatchesAsync(cancellationToken);
+        _logger.LogInformation("Starting patches sync from GitHub archive...");
+        var result = await _syncService.SyncPatchesFromGitHubAsync(cancellationToken);
 
         return result.Success ? Ok(result) : StatusCode(207, result);
     }
 
     /// <summary>
-    /// Trigger a sync of patch data from web sources (BlueTracker).
+    /// Trigger a sync of patch data from BlueTracker web scraping.
     /// </summary>
-    [HttpPost("patches/web")]
-    public async Task<ActionResult<SyncResultDto>> SyncWebPatchesAsync(CancellationToken cancellationToken)
+    [HttpPost("patches/bluetracker")]
+    public async Task<ActionResult<SyncResultDto>> SyncPatchesFromBlueTrackerAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting patches sync from web sources...");
-        var result = await _syncService.SyncWebPatchesAsync(isInitialSync: false, cancellationToken);
+        _logger.LogInformation("Starting patches sync from BlueTracker...");
+        var result = await _syncService.SyncPatchesFromBlueTrackerAsync(isInitialSync: false, cancellationToken);
 
         return result.Success ? Ok(result) : StatusCode(207, result);
     }

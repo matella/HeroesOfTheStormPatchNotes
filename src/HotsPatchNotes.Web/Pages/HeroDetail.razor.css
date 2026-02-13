@@ -123,6 +123,68 @@
     border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
+.talents-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.talents-header h2 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.build-code-display {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    border-radius: 8px;
+}
+
+.build-code {
+    font-family: monospace;
+    font-size: 0.95rem;
+    color: #00ff88;
+    font-weight: 600;
+}
+
+.copy-btn, .clear-btn {
+    padding: 0.35rem 0.75rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.copy-btn {
+    background: rgba(0, 212, 255, 0.2);
+    color: #00d4ff;
+}
+
+.copy-btn:hover {
+    background: rgba(0, 212, 255, 0.3);
+}
+
+.clear-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #888;
+}
+
+.clear-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
 .form-name {
     font-size: 1.25rem;
     color: #00d4ff;
@@ -243,21 +305,37 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
 }
 
-.talent-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: rgba(0, 0, 0, 0.3);
-    flex-shrink: 0;
+.talent-card:hover {
+    border-color: rgba(0, 212, 255, 0.4);
+    background: rgba(255, 255, 255, 0.08);
 }
 
-.talent-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.talent-card.selected {
+    border-color: #00ff88;
+    background: rgba(0, 255, 136, 0.15);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.selected-indicator {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    background: #00ff88;
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: bold;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .talent-info {
@@ -325,4 +403,91 @@
     .tier-talents {
         grid-template-columns: 1fr;
     }
+}
+
+/* Patch History Section */
+.patch-history-section {
+    margin-top: 2rem;
+}
+
+.loading-text, .no-patches {
+    color: #888;
+    font-style: italic;
+    padding: 1rem 0;
+}
+
+.patch-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.patch-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+}
+
+.patch-item:hover {
+    border-color: rgba(0, 212, 255, 0.3);
+}
+
+.patch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.patch-name {
+    color: #00d4ff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+
+.patch-name:hover {
+    text-decoration: underline;
+}
+
+.patch-date {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.patch-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.patch-content ul {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.patch-content li {
+    margin-bottom: 0.25rem;
+}
+
+.patch-content li.nested {
+    margin-left: 1.5rem;
+}
+
+.btn-show-more {
+    margin-top: 1rem;
+    padding: 0.5rem 1.25rem;
+    background: rgba(0, 212, 255, 0.15);
+    color: #00d4ff;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-show-more:hover {
+    background: rgba(0, 212, 255, 0.25);
 }

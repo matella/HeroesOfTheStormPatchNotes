@@ -14,7 +14,7 @@ This project provides a REST API that:
 
 ### Prerequisites
 
-- .NET 8 SDK or later
+- .NET 10 SDK or later
 
 ### Running the API
 
@@ -184,16 +184,20 @@ rm hots.db
 
 ### CORS
 
-CORS is configured to allow requests from:
-- `http://localhost:5000`
-- `https://localhost:7000`
+CORS is currently configured to allow any origin for development:
 
-To add additional origins, modify `Program.cs`:
+```csharp
+policy.AllowAnyOrigin()
+      .AllowAnyHeader()
+      .AllowAnyMethod();
+```
+
+**For production**, you should restrict CORS to specific origins by modifying `Program.cs`:
 
 ```csharp
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AllowBlazorClient", policy =>
     {
         policy.WithOrigins(
             "http://localhost:5000",

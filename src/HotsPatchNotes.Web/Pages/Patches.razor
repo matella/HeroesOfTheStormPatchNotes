@@ -1,4 +1,5 @@
 @page "/patches"
+@using System.Globalization
 @using HotsPatchNotes.Shared.DTOs
 @using HotsPatchNotes.Web.Services
 @inject IPatchService PatchService
@@ -47,7 +48,10 @@
                     <div class="patch-header">
                         <h3>@(patch.PatchName ?? patch.InternalId)</h3>
                         <div class="patch-badges">
-                            <span class="patch-type type-@(patch.PatchType?.ToLower().Replace(" ", "-"))">@patch.PatchType</span>
+                            <span class="patch-type type-@(patch.PatchType?.ToLower().Replace(" ", "-"))">
+                                <span class="patch-type-icon">@GetPatchTypeIcon(patch.PatchType)</span>
+                                @patch.PatchType
+                            </span>
                             @if (patch.HasContent)
                             {
                                 <span class="has-content" title="Full patch notes available">📄</span>
@@ -61,7 +65,7 @@
                         }
                         @if (patch.LiveDate.HasValue)
                         {
-                            <span class="date">📅 @patch.LiveDate.Value.ToString("MMMM d, yyyy")</span>
+                            <span class="date">📅 @patch.LiveDate.Value.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</span>
                         }
                         @if (!string.IsNullOrEmpty(patch.Source))
                         {
@@ -162,5 +166,18 @@
             currentPage++;
             await LoadPatches();
         }
+    }
+
+    private string GetPatchTypeIcon(string? patchType)
+    {
+        return (patchType?.ToLowerInvariant()) switch
+        {
+            "balance update" => "⚖️",
+            "major patch" => "🎮",
+            "hotfix patch" => "🔧",
+            "ptr" => "🧪",
+            "patch notes" => "📋",
+            _ => "📝"
+        };
     }
 }

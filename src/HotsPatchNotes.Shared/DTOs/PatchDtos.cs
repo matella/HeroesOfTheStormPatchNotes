@@ -23,6 +23,7 @@ public class PatchSummaryDto
 public class HeroPatchDto
 {
     public int PatchId { get; set; }
+    public string InternalId { get; set; } = string.Empty;
     public string? PatchName { get; set; }
     public string? PatchType { get; set; }
     public DateTime? LiveDate { get; set; }

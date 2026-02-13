@@ -90,5 +90,5 @@ public class Patch
     /// <summary>
     /// Navigation property for patch sections (hero/map-specific changes).
     /// </summary>
-    public virtual ICollection<PatchSection> Sections { get; set; } = new List<PatchSection>();
+    public virtual ICollection<PatchSection> Sections { get; set; } = [];
 }

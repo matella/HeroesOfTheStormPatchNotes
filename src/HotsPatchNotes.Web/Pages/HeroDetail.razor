@@ -99,7 +99,21 @@ else
         </div>
 
         <div class="section">
-            <h2>Talents</h2>
+            <div class="talents-header">
+                <h2>Talents</h2>
+                @if (HasBuildSelected())
+                {
+                    <div class="build-code-display sticky">
+                        <span class="build-code">@GetBuildCode()</span>
+                        <button class="copy-btn" @onclick="CopyBuildCode" title="Copy build code">
+                            @(copied ? "✓ Copied!" : "📋 Copy")
+                        </button>
+                        <button class="clear-btn" @onclick="ClearBuild" title="Clear selection">
+                            ✕ Clear
+                        </button>
+                    </div>
+                }
+            </div>
             <div class="talent-tree">
                 @foreach (var (level, talents) in hero.Talents.OrderBy(t => t.Key))
                 {
@@ -108,9 +122,19 @@ else
                             <span class="level-number">@level</span>
                         </div>
                         <div class="tier-talents">
-                            @foreach (var talent in talents)
+                            @{
+                                var sortedTalents = talents.OrderBy(t => t.Sort).ToList();
+                            }
+                            @foreach (var talent in sortedTalents)
                             {
-                                <div class="talent-card">
+                                var talentIndex = sortedTalents.IndexOf(talent) + 1;
+                                var isSelected = selectedTalents.ContainsKey(level) && selectedTalents[level] == talentIndex;
+                                <div class="talent-card @(isSelected ? "selected" : "")" 
+                                     @onclick="() => SelectTalent(level, talentIndex)">
+                                    @if (isSelected)
+                                    {
+                                        <span class="selected-indicator">✓</span>
+                                    }
                                     <div class="talent-icon">
                                         <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@talent.Icon" 
                                              alt="@talent.Name"
@@ -142,8 +166,14 @@ else
     [Parameter]
     public string ShortName { get; set; } = "";
 
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = default!;
+
     private HeroDetailDto? hero;
     private bool loading = true;
+    private Dictionary<int, int> selectedTalents = new();
+    private bool copied = false;
+    private static readonly int[] TalentTiers = { 1, 4, 7, 10, 13, 16, 20 };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -160,6 +190,51 @@ else
         {
             loading = false;
         }
+    }
+
+    private void SelectTalent(int level, int choice)
+    {
+        if (selectedTalents.ContainsKey(level) && selectedTalents[level] == choice)
+        {
+            // Deselect if clicking the same talent
+            selectedTalents.Remove(level);
+        }
+        else
+        {
+            selectedTalents[level] = choice;
+        }
+        copied = false;
+    }
+
+    private bool HasBuildSelected() => selectedTalents.Any();
+
+    private string GetBuildCode()
+    {
+        if (!selectedTalents.Any()) return "";
+
+        var code = new char[7];
+        for (int i = 0; i < TalentTiers.Length; i++)
+        {
+            code[i] = selectedTalents.TryGetValue(TalentTiers[i], out var choice)
+                ? (char)('0' + choice)
+                : '0';
+        }
+        return $"[T{new string(code)},{hero?.Name ?? ""}]";
+    }
+
+    private async Task CopyBuildCode()
+    {
+        var code = GetBuildCode();
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", code);
+        copied = true;
+        await Task.Delay(2000);
+        copied = false;
+    }
+
+    private void ClearBuild()
+    {
+        selectedTalents.Clear();
+        copied = false;
     }
 
     private string FormatTag(string tag)

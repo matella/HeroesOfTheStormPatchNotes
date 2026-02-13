@@ -1,0 +1,38 @@
+@namespace HotsPatchNotes.Web.Components
+
+<div class="collapsible-section @(IsExpanded ? "expanded" : "collapsed")">
+    <div class="collapsible-header" @onclick="Toggle">
+        <h2>@Title</h2>
+        <button class="toggle-btn" aria-label="@(IsExpanded ? "Collapse" : "Expand")">
+            <span class="toggle-icon">@(IsExpanded ? "▼" : "▶")</span>
+        </button>
+    </div>
+    <div class="collapsible-content">
+        <div class="collapsible-body">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public bool InitiallyExpanded { get; set; } = true;
+
+    private bool IsExpanded { get; set; }
+
+    protected override void OnInitialized()
+    {
+        IsExpanded = InitiallyExpanded;
+    }
+
+    private void Toggle()
+    {
+        IsExpanded = !IsExpanded;
+    }
+}

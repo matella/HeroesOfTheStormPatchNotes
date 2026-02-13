@@ -14,6 +14,8 @@ public class HotsDbContext : DbContext
     public DbSet<Talent> Talents => Set<Talent>();
     public DbSet<Patch> Patches => Set<Patch>();
     public DbSet<PatchSection> PatchSections => Set<PatchSection>();
+    public DbSet<HeroBuild> HeroBuilds => Set<HeroBuild>();
+    public DbSet<Battleground> Battlegrounds => Set<Battleground>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +35,12 @@ public class HotsDbContext : DbContext
             entity.Property(e => e.HyperlinkId).HasMaxLength(100);
             entity.Property(e => e.AttributeId).HasMaxLength(10);
             entity.Property(e => e.ReleasePatch).HasMaxLength(50);
+            // Enriched fields
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Universe).HasMaxLength(50);
+            entity.Property(e => e.Difficulty).HasMaxLength(50);
+            entity.Property(e => e.WikiUrl).HasMaxLength(500);
+            entity.Property(e => e.SplashArtUrl).HasMaxLength(500);
         });
 
         // Ability configuration
@@ -115,6 +123,34 @@ public class HotsDbContext : DbContext
                 .WithMany(e => e.ChildSections)
                 .HasForeignKey(e => e.ParentSectionId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // HeroBuild configuration
+        modelBuilder.Entity<HeroBuild>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.HeroId, e.TalentCode });
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.TalentCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Source).HasMaxLength(50);
+
+            entity.HasOne(e => e.Hero)
+                .WithMany()
+                .HasForeignKey(e => e.HeroId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Battleground configuration
+        modelBuilder.Entity<Battleground>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ShortName).IsUnique();
+            entity.Property(e => e.ShortName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.MapType).HasMaxLength(50);
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.Event).HasMaxLength(200);
+            entity.Property(e => e.Universe).HasMaxLength(100);
         });
     }
 }

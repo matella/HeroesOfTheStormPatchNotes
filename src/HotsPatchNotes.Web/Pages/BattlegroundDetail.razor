@@ -1,0 +1,202 @@
+@page "/battleground/{ShortName}"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IBattlegroundService BattlegroundService
+@inject NavigationManager Navigation
+
+<PageTitle>@(battleground?.Name ?? "Battleground") - HotS Patch Notes</PageTitle>
+
+@if (loading)
+{
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading battleground...</p>
+    </div>
+}
+else if (battleground == null)
+{
+    <div class="not-found">
+        <h2>Battleground Not Found</h2>
+        <p>The battleground "@ShortName" could not be found.</p>
+        <a href="/battlegrounds" class="btn-back">← Back to Battlegrounds</a>
+    </div>
+}
+else
+{
+    <div class="battleground-detail">
+        <a href="/battlegrounds" class="back-link">← Back to Battlegrounds</a>
+        
+        <div class="battleground-header">
+            <div class="header-content">
+                <h1>@battleground.Name</h1>
+                <div class="meta">
+                    @if (!string.IsNullOrEmpty(battleground.MapType))
+                    {
+                        <span class="map-type">@battleground.MapType</span>
+                    }
+                    @if (!string.IsNullOrEmpty(battleground.Universe))
+                    {
+                        <span class="universe universe-@(battleground.Universe?.ToLower())">@battleground.Universe</span>
+                    }
+                    @if (!battleground.IsInRotation)
+                    {
+                        <span class="rotation-status out">Out of Rotation</span>
+                    }
+                    else
+                    {
+                        <span class="rotation-status in">In Rotation</span>
+                    }
+                    @if (battleground.ReleaseDate.HasValue)
+                    {
+                        <span class="release-date">Released @battleground.ReleaseDate.Value.ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</span>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(battleground.Description))
+                {
+                    <p class="description">@battleground.Description</p>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(battleground.ImageUrl))
+            {
+                <div class="header-image">
+                    <img src="@battleground.ImageUrl" alt="@battleground.Name" />
+                </div>
+            }
+        </div>
+
+        <div class="content-sections">
+            @if (!string.IsNullOrEmpty(battleground.Objective))
+            {
+                <div class="section">
+                    <h2>🎯 Objective</h2>
+                    <p>@battleground.Objective</p>
+                    @if (!string.IsNullOrEmpty(battleground.ObjectiveTiming))
+                    {
+                        <p class="timing"><strong>Timing:</strong> @battleground.ObjectiveTiming</p>
+                    }
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(battleground.MercCamps))
+            {
+                <div class="section">
+                    <h2>⚔️ Mercenary Camps</h2>
+                    <div class="formatted-content">@((MarkupString)FormatContent(battleground.MercCamps))</div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(battleground.BossInfo))
+            {
+                <div class="section">
+                    <h2>👹 Boss</h2>
+                    <div class="formatted-content">@((MarkupString)FormatContent(battleground.BossInfo))</div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(battleground.Tips))
+            {
+                <div class="section">
+                    <h2>💡 Tips & Strategy</h2>
+                    <div class="formatted-content">@((MarkupString)FormatContent(battleground.Tips))</div>
+                </div>
+            }
+
+            @if (battleground.RecentPatches.Any())
+            {
+                <div class="section patch-history">
+                    <h2>📋 Patch History</h2>
+                    <div class="patches-list">
+                        @foreach (var patch in battleground.RecentPatches)
+                        {
+                            <div class="patch-item">
+                                <div class="patch-header">
+                                    <a href="/patch/@patch.PatchId" class="patch-name">@(patch.PatchName ?? $"Patch #{patch.PatchId}")</a>
+                                    @if (patch.LiveDate.HasValue)
+                                    {
+                                        <span class="patch-date">@patch.LiveDate.Value.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    }
+                                </div>
+                                <div class="patch-content">@((MarkupString)FormatContent(patch.Content))</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string ShortName { get; set; } = "";
+
+    private BattlegroundDetailDto? battleground;
+    private bool loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        try
+        {
+            battleground = await BattlegroundService.GetBattlegroundAsync(ShortName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading battleground: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string FormatContent(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return "";
+
+        var lines = content.Split('\n');
+        var result = new System.Text.StringBuilder();
+        bool inList = false;
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                if (inList)
+                {
+                    result.Append("</ul>");
+                    inList = false;
+                }
+                continue;
+            }
+
+            if (trimmed.StartsWith("- ") || trimmed.StartsWith("* "))
+            {
+                if (!inList)
+                {
+                    result.Append("<ul>");
+                    inList = true;
+                }
+                result.Append($"<li>{trimmed.Substring(2)}</li>");
+            }
+            else
+            {
+                if (inList)
+                {
+                    result.Append("</ul>");
+                    inList = false;
+                }
+                result.Append($"<p>{trimmed}</p>");
+            }
+        }
+
+        if (inList)
+        {
+            result.Append("</ul>");
+        }
+
+        return result.ToString();
+    }
+}

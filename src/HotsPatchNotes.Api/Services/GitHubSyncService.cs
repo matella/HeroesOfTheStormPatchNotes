@@ -10,19 +10,58 @@ using HotsPatchNotes.Shared.DTOs;
 
 namespace HotsPatchNotes.Api.Services;
 
+/// <summary>
+/// Service interface for syncing Heroes of the Storm data from various sources.
+/// </summary>
 public interface IGitHubSyncService
 {
+    /// <summary>
+    /// Syncs all data (heroes, patches, battlegrounds) from all available sources.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Sync result with counts and any errors.</returns>
     Task<SyncResultDto> SyncAllAsync(CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Syncs hero data from the heroespatchnotes/heroes-talents GitHub repository.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Sync result with hero count and any errors.</returns>
     Task<SyncResultDto> SyncHeroesAsync(CancellationToken cancellationToken = default);
-    Task<SyncResultDto> SyncPatchesAsync(CancellationToken cancellationToken = default);
-    Task<SyncResultDto> SyncWebPatchesAsync(bool isInitialSync = false, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Syncs patch data from the heroespatchnotes/heroes-patch-data GitHub archive.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Sync result with patch count and any errors.</returns>
+    Task<SyncResultDto> SyncPatchesFromGitHubAsync(CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Syncs patch data by scraping the BlueTracker website.
+    /// </summary>
+    /// <param name="isInitialSync">If true, scans all pages; if false, only scans the first page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Sync result with patch count and any errors.</returns>
+    Task<SyncResultDto> SyncPatchesFromBlueTrackerAsync(bool isInitialSync = false, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Syncs battleground data from the Heroes of the Storm Fandom wiki.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Sync result with battleground count and any errors.</returns>
+    Task<SyncResultDto> SyncBattlegroundsAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Service for syncing Heroes of the Storm data from GitHub repositories and web sources.
+/// </summary>
 public class GitHubSyncService : IGitHubSyncService
 {
     private readonly HotsDbContext _dbContext;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubSyncService> _logger;
+    private readonly IHtmlContentService _htmlContentService;
+    private readonly BattlegroundScraper _battlegroundScraper;
 
     private const string HeroesBaseUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/hero/";
     private const string HeroListUrl = "https://api.github.com/repos/heroespatchnotes/heroes-talents/contents/hero";
@@ -37,11 +76,19 @@ public class GitHubSyncService : IGitHubSyncService
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
-    public GitHubSyncService(HotsDbContext dbContext, HttpClient httpClient, ILogger<GitHubSyncService> logger)
+    public GitHubSyncService(
+        HotsDbContext dbContext,
+        HttpClient httpClient,
+        ILogger<GitHubSyncService> logger,
+        IHtmlContentService htmlContentService)
     {
         _dbContext = dbContext;
         _httpClient = httpClient;
         _logger = logger;
+        _htmlContentService = htmlContentService;
+        _battlegroundScraper = new BattlegroundScraper(httpClient, 
+            logger as ILogger<BattlegroundScraper> ?? 
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<BattlegroundScraper>.Instance);
 
         // Set User-Agent for API requests
         if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
@@ -57,31 +104,32 @@ public class GitHubSyncService : IGitHubSyncService
 
         if (isInitialSync)
         {
-            // Initial sync: GitHub (archive) → BlueTracker (all pages)
+            // Initial sync: GitHub (archive) → BlueTracker (all pages) → Battlegrounds
             var heroResult = await SyncHeroesAsync(cancellationToken);
-            var patchResult = await SyncPatchesAsync(cancellationToken);
-            var webPatchResult = await SyncWebPatchesAsync(isInitialSync: true, cancellationToken);
+            var patchResult = await SyncPatchesFromGitHubAsync(cancellationToken);
+            var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: true, cancellationToken);
+            var battlegroundResult = await SyncBattlegroundsAsync(cancellationToken);
 
             return new SyncResultDto
             {
-                Success = heroResult.Success && patchResult.Success,
-                Message = "Initial sync completed",
+                Success = heroResult.Success && patchResult.Success && battlegroundResult.Success,
+                Message = $"Initial sync complete: {heroResult.HeroesUpdated} heroes, {patchResult.PatchesUpdated + webPatchResult.PatchesUpdated} patches, {battlegroundResult.HeroesUpdated} battlegrounds",
                 HeroesUpdated = heroResult.HeroesUpdated,
                 PatchesUpdated = patchResult.PatchesUpdated + webPatchResult.PatchesUpdated,
                 SyncedAt = DateTime.UtcNow,
-                Errors = heroResult.Errors.Concat(patchResult.Errors).Concat(webPatchResult.Errors).ToList()
+                Errors = heroResult.Errors.Concat(patchResult.Errors).Concat(webPatchResult.Errors).Concat(battlegroundResult.Errors).ToList()
             };
         }
         else
         {
             // Subsequent sync: BlueTracker (page 1 only) - no GitHub needed
             var heroResult = await SyncHeroesAsync(cancellationToken);
-            var webPatchResult = await SyncWebPatchesAsync(isInitialSync: false, cancellationToken);
+            var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: false, cancellationToken);
 
             return new SyncResultDto
             {
                 Success = heroResult.Success && webPatchResult.Success,
-                Message = "Sync completed",
+                Message = $"Sync complete: {heroResult.HeroesUpdated} heroes, {webPatchResult.PatchesUpdated} patches updated",
                 HeroesUpdated = heroResult.HeroesUpdated,
                 PatchesUpdated = webPatchResult.PatchesUpdated,
                 SyncedAt = DateTime.UtcNow,
@@ -126,7 +174,7 @@ public class GitHubSyncService : IGitHubSyncService
         return result;
     }
 
-    public async Task<SyncResultDto> SyncPatchesAsync(CancellationToken cancellationToken = default)
+    public async Task<SyncResultDto> SyncPatchesFromGitHubAsync(CancellationToken cancellationToken = default)
     {
         var result = new SyncResultDto { SyncedAt = DateTime.UtcNow };
 
@@ -183,7 +231,7 @@ public class GitHubSyncService : IGitHubSyncService
         return result;
     }
 
-    public async Task<SyncResultDto> SyncWebPatchesAsync(bool isInitialSync = false, CancellationToken cancellationToken = default)
+    public async Task<SyncResultDto> SyncPatchesFromBlueTrackerAsync(bool isInitialSync = false, CancellationToken cancellationToken = default)
     {
         var result = new SyncResultDto { SyncedAt = DateTime.UtcNow };
 
@@ -207,10 +255,16 @@ public class GitHubSyncService : IGitHubSyncService
 
     #region BlueTracker Scraping
 
+    /// <summary>
+    /// Syncs patches from BlueTracker by scraping their patch notes listings.
+    /// </summary>
+    /// <param name="scanAllPages">If true, scans all available pages; if false, only scans the first page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of patches synced.</returns>
     private async Task<int> SyncBlueTrackerPatchesAsync(bool scanAllPages, CancellationToken cancellationToken)
     {
         var count = 0;
-        var patchLinks = await GetBlueTrackerPatchLinksAsync(scanAllPages, cancellationToken);
+        var patchLinks = await ScrapeBlueTrackerPatchListingsAsync(scanAllPages, cancellationToken);
 
         foreach (var patchInfo in patchLinks)
         {
@@ -238,20 +292,20 @@ public class GitHubSyncService : IGitHubSyncService
                 // Fetch content if we don't have it yet (may follow "View Full Article" link)
                 if (string.IsNullOrEmpty(existingPatch.Content))
                 {
-                    await FetchBlueTrackerPatchContentAsync(patchInfo, existingPatch, cancellationToken);
-                    
+                    await FetchAndParseBlueTrackerArticleAsync(patchInfo, existingPatch, cancellationToken);
+
                     // Parse content into hero/map sections if we got content
                     if (!string.IsNullOrEmpty(existingPatch.Content))
                     {
                         // Save the patch first to get its ID (needed for section FK)
                         await _dbContext.SaveChangesAsync(cancellationToken);
-                        await ParsePatchSectionsAsync(existingPatch, cancellationToken);
+                        await ExtractAndSaveHeroSectionsFromPatchAsync(existingPatch, cancellationToken);
                     }
                 }
 
                 existingPatch.PatchName = patchInfo.Title;
                 existingPatch.LiveDate = patchInfo.Date;
-                existingPatch.PatchType = DeterminePatchType(patchInfo.Title);
+                existingPatch.PatchType = InferPatchTypeFromTitle(patchInfo.Title);
                 existingPatch.AlternateLink = patchInfo.Url;
                 existingPatch.LastSyncedAt = DateTime.UtcNow;
 
@@ -270,7 +324,13 @@ public class GitHubSyncService : IGitHubSyncService
         return count;
     }
 
-    private async Task<List<BlueTrackerPatchInfo>> GetBlueTrackerPatchLinksAsync(bool scanAllPages, CancellationToken cancellationToken)
+    /// <summary>
+    /// Scrapes the BlueTracker website for patch note listings.
+    /// </summary>
+    /// <param name="scanAllPages">If true, paginates through all pages; if false, only scans page 1.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of patch information scraped from BlueTracker.</returns>
+    private async Task<List<BlueTrackerPatchInfo>> ScrapeBlueTrackerPatchListingsAsync(bool scanAllPages, CancellationToken cancellationToken)
     {
         var allTopics = new List<BlueTrackerTopicInfo>();
         var page = 1;
@@ -287,7 +347,7 @@ public class GitHubSyncService : IGitHubSyncService
                 var doc = new HtmlDocument();
                 doc.LoadHtml(html);
 
-                var topicsFound = ParseBlueTrackerTopics(doc);
+                var topicsFound = ExtractTopicsFromTableRows(doc);
 
                 if (topicsFound.Count == 0)
                 {
@@ -336,12 +396,17 @@ public class GitHubSyncService : IGitHubSyncService
         }
 
         // Apply EU preference and forum type preference
-        var selectedPatches = SelectPreferredTopics(allTopics);
+        var selectedPatches = DeduplicateTopicsByRegionPreference(allTopics);
 
         return selectedPatches;
     }
 
-    private List<BlueTrackerTopicInfo> ParseBlueTrackerTopics(HtmlDocument doc)
+    /// <summary>
+    /// Extracts topic information from BlueTracker HTML table rows.
+    /// </summary>
+    /// <param name="doc">The HTML document to parse.</param>
+    /// <returns>List of topic information extracted from the table.</returns>
+    private List<BlueTrackerTopicInfo> ExtractTopicsFromTableRows(HtmlDocument doc)
     {
         var topics = new List<BlueTrackerTopicInfo>();
 
@@ -394,14 +459,20 @@ public class GitHubSyncService : IGitHubSyncService
                 IsUs = isUs,
                 IsGeneralDiscussion = isGeneralDiscussion,
                 IsBlogs = isBlogs,
-                Date = date ?? ExtractDateFromTitle(title)
+                Date = date ?? ParseDateFromPatchTitle(title)
             });
         }
 
         return topics;
     }
 
-    private List<BlueTrackerPatchInfo> SelectPreferredTopics(List<BlueTrackerTopicInfo> topics)
+    /// <summary>
+    /// Deduplicates topics that appear in multiple regions/forums and selects the preferred version.
+    /// Preference: EU General Discussion > EU Blogs > US General Discussion > US Blogs.
+    /// </summary>
+    /// <param name="topics">List of topics to deduplicate.</param>
+    /// <returns>Deduplicated list with preferred topic versions.</returns>
+    private List<BlueTrackerPatchInfo> DeduplicateTopicsByRegionPreference(List<BlueTrackerTopicInfo> topics)
     {
         var result = new List<BlueTrackerPatchInfo>();
 
@@ -431,7 +502,7 @@ public class GitHubSyncService : IGitHubSyncService
                 .Where(t => t.IsBlogs && t.IsEu)
                 .FirstOrDefault() ?? group.Where(t => t.IsBlogs).FirstOrDefault();
 
-            var internalId = GenerateInternalId(selected.Title);
+            var internalId = ConvertTitleToUrlSlug(selected.Title);
 
             result.Add(new BlueTrackerPatchInfo
             {
@@ -448,7 +519,14 @@ public class GitHubSyncService : IGitHubSyncService
         return result.DistinctBy(p => p.InternalId).ToList();
     }
 
-    private async Task FetchBlueTrackerPatchContentAsync(BlueTrackerPatchInfo patchInfo, Patch patch, CancellationToken cancellationToken)
+    /// <summary>
+    /// Fetches and parses patch content from a BlueTracker article.
+    /// May follow "View Full Article" links to get content from official Blizzard sources.
+    /// </summary>
+    /// <param name="patchInfo">Information about the patch to fetch.</param>
+    /// <param name="patch">The patch entity to populate with content.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task FetchAndParseBlueTrackerArticleAsync(BlueTrackerPatchInfo patchInfo, Patch patch, CancellationToken cancellationToken)
     {
         try
         {
@@ -481,7 +559,7 @@ public class GitHubSyncService : IGitHubSyncService
                             patch.OfficialLink = fullArticleUrl;
 
                             // Fetch the full content from the linked page (Blizzard News)
-                            await FetchBlizzardPatchContentAsync(fullArticleUrl, patch, cancellationToken);
+                            await ExtractContentFromBlizzardForumPostAsync(fullArticleUrl, patch, cancellationToken);
 
                             // If we successfully got content from Blizzard, update source
                             if (!string.IsNullOrEmpty(patch.Content))
@@ -496,7 +574,7 @@ public class GitHubSyncService : IGitHubSyncService
                     if (!string.IsNullOrEmpty(patchInfo.BlogsUrl))
                     {
                         _logger.LogInformation("Falling back to Blogs version for {Title}", patchInfo.Title);
-                        await FetchBlogsContentAsync(patchInfo.BlogsUrl, patch, cancellationToken);
+                        await ExtractContentFromBlogsPostAsync(patchInfo.BlogsUrl, patch, cancellationToken);
                         if (!string.IsNullOrEmpty(patch.Content))
                         {
                             return;
@@ -506,7 +584,7 @@ public class GitHubSyncService : IGitHubSyncService
 
                 // For Blogs topics or as final fallback: extract content directly from post-content
                 patch.ContentHtml = contentNode.InnerHtml;
-                patch.Content = ConvertHtmlToMarkdown(contentNode);
+                patch.Content = _htmlContentService.SanitizeHtml(contentNode.InnerHtml);
             }
         }
         catch (Exception ex)
@@ -515,7 +593,13 @@ public class GitHubSyncService : IGitHubSyncService
         }
     }
 
-    private async Task FetchBlogsContentAsync(string blogsUrl, Patch patch, CancellationToken cancellationToken)
+    /// <summary>
+    /// Extracts patch content from a BlueTracker Blogs post.
+    /// </summary>
+    /// <param name="blogsUrl">URL of the Blogs post.</param>
+    /// <param name="patch">The patch entity to populate with content.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task ExtractContentFromBlogsPostAsync(string blogsUrl, Patch patch, CancellationToken cancellationToken)
     {
         try
         {
@@ -528,7 +612,7 @@ public class GitHubSyncService : IGitHubSyncService
             if (contentNode != null)
             {
                 patch.ContentHtml = contentNode.InnerHtml;
-                patch.Content = ConvertHtmlToMarkdown(contentNode);
+                patch.Content = _htmlContentService.SanitizeHtml(contentNode.InnerHtml);
                 patch.Source = "bluetracker";
             }
         }
@@ -542,7 +626,13 @@ public class GitHubSyncService : IGitHubSyncService
 
     #region Blizzard Content Fetching
 
-    private async Task FetchBlizzardPatchContentAsync(string url, Patch patch, CancellationToken cancellationToken)
+    /// <summary>
+    /// Extracts patch content from an official Blizzard forum post or news article.
+    /// </summary>
+    /// <param name="url">URL of the Blizzard content.</param>
+    /// <param name="patch">The patch entity to populate with content.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task ExtractContentFromBlizzardForumPostAsync(string url, Patch patch, CancellationToken cancellationToken)
     {
         try
         {
@@ -566,7 +656,7 @@ public class GitHubSyncService : IGitHubSyncService
                     text.Length > 500)
                 {
                     patch.ContentHtml = contentNode.InnerHtml;
-                    patch.Content = ConvertHtmlToMarkdown(contentNode);
+                    patch.Content = _htmlContentService.SanitizeHtml(contentNode.InnerHtml);
                 }
                 else
                 {
@@ -584,83 +674,336 @@ public class GitHubSyncService : IGitHubSyncService
 
     #region Patch Section Parsing
 
-    private async Task ParsePatchSectionsAsync(Patch patch, CancellationToken cancellationToken)
+    /// <summary>
+    /// Extracts hero-specific sections from patch content and saves them to the database.
+    /// Uses a two-phase save to properly handle parent-child section relationships.
+    /// </summary>
+    /// <param name="patch">The patch to extract sections from.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task ExtractAndSaveHeroSectionsFromPatchAsync(Patch patch, CancellationToken cancellationToken)
     {
         try
         {
+            _logger.LogDebug("Extracting sections from patch {PatchId}: {PatchName}", patch.Id, patch.PatchName);
+
             // Get all hero names for matching
             var heroes = await _dbContext.Heroes
                 .Select(h => new { h.Id, h.Name, h.ShortName })
                 .ToListAsync(cancellationToken);
 
-            var heroNameMap = heroes.ToDictionary(h => h.Name.ToLowerInvariant(), h => h.Id);
-            
-            // Also add common variations (ShortName like "Zuljin" for "Zul'jin")
-            foreach (var hero in heroes)
-            {
-                var shortLower = hero.ShortName.ToLowerInvariant();
-                if (!heroNameMap.ContainsKey(shortLower))
-                    heroNameMap[shortLower] = hero.Id;
-            }
+            var heroNameMap = BuildHeroNameLookup(heroes);
 
             // Clear existing sections for this patch
             var existingSections = await _dbContext.PatchSections
                 .Where(s => s.PatchId == patch.Id)
                 .ToListAsync(cancellationToken);
-            _dbContext.PatchSections.RemoveRange(existingSections);
-
-            // Parse markdown content (prefer Content over ContentHtml)
-            var markdownContent = patch.Content;
-            if (string.IsNullOrEmpty(markdownContent))
+            
+            if (existingSections.Any())
             {
-                _logger.LogDebug("No markdown content for patch {PatchName}", patch.PatchName);
+                _logger.LogDebug("Removing {Count} existing sections for patch {PatchName}", 
+                    existingSections.Count, patch.PatchName);
+                _dbContext.PatchSections.RemoveRange(existingSections);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            // Parse HTML content (now stored as sanitized HTML)
+            var htmlContent = patch.Content;
+            if (string.IsNullOrEmpty(htmlContent))
+            {
+                _logger.LogDebug("No content for patch {PatchName}", patch.PatchName);
                 return;
             }
 
-            // Clean up the content first
-            markdownContent = CleanupMarkdownContent(markdownContent);
+            // Parse sections from HTML
+            var sections = ExtractSectionsFromHtmlDocument(htmlContent, heroNameMap, patch.Id, patch.PatchName ?? "Unknown");
 
-            // Parse sections from markdown
-            var sections = ParseMarkdownSections(markdownContent, heroNameMap, patch.Id);
+            if (!sections.Any())
+            {
+                _logger.LogDebug("No sections extracted from patch {PatchName}", patch.PatchName);
+                return;
+            }
 
-            foreach (var section in sections)
+            // Save sections in two phases to handle parent-child relationships
+            // Phase 1: Add all sections without ParentSectionId
+            var sectionsWithoutParents = sections.Select(s => new PatchSection
+            {
+                PatchId = s.PatchId,
+                Order = s.Order,
+                HeadingLevel = s.HeadingLevel,
+                ParentSectionId = null, // Will be set in phase 2
+                SectionType = s.SectionType,
+                EntityName = s.EntityName,
+                HeroId = s.HeroId,
+                Content = s.Content
+            }).ToList();
+
+            foreach (var section in sectionsWithoutParents)
             {
                 _dbContext.PatchSections.Add(section);
             }
 
-            _logger.LogInformation("Parsed {Count} sections from patch {PatchName}", 
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            // Phase 2: Update ParentSectionId with real database IDs
+            for (int i = 0; i < sections.Count; i++)
+            {
+                var originalSection = sections[i];
+                var savedSection = sectionsWithoutParents[i];
+
+                // Find parent based on heading hierarchy
+                if (originalSection.HeadingLevel > 1)
+                {
+                    // Look backwards for a section with lower heading level
+                    for (int j = i - 1; j >= 0; j--)
+                    {
+                        if (sections[j].HeadingLevel < originalSection.HeadingLevel)
+                        {
+                            savedSection.ParentSectionId = sectionsWithoutParents[j].Id;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Saved {Count} sections for patch {PatchName}",
                 sections.Count,
                 patch.PatchName);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse sections for patch {PatchName}", patch.PatchName);
+            _logger.LogError(ex, "Failed to extract and save sections for patch {PatchId}: {PatchName}", 
+                patch.Id, patch.PatchName);
+            throw;
         }
     }
 
-    private static string CleanupMarkdownContent(string content)
+    /// <summary>
+    /// Builds a comprehensive hero name lookup dictionary for matching hero names in patch notes.
+    /// Includes exact names, short names, and normalized versions (without special characters).
+    /// </summary>
+    /// <typeparam name="T">The type of hero data objects.</typeparam>
+    /// <param name="heroes">List of hero data with Id, Name, and ShortName properties.</param>
+    /// <returns>Dictionary mapping hero names (and variations) to hero IDs.</returns>
+    private Dictionary<string, int> BuildHeroNameLookup<T>(List<T> heroes) where T : class
+    {
+        var heroNameMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (dynamic hero in heroes)
+        {
+            int heroId = hero.Id;
+            string heroName = hero.Name;
+            string shortName = hero.ShortName;
+
+            // Add exact name
+            if (!string.IsNullOrEmpty(heroName))
+                heroNameMap.TryAdd(heroName.ToLowerInvariant(), heroId);
+
+            // Add short name
+            if (!string.IsNullOrEmpty(shortName))
+                heroNameMap.TryAdd(shortName.ToLowerInvariant(), heroId);
+
+            // Add normalized versions (remove special characters)
+            var normalizedName = NormalizeHeroName(heroName);
+            if (!string.IsNullOrEmpty(normalizedName))
+                heroNameMap.TryAdd(normalizedName, heroId);
+
+            var normalizedShort = NormalizeHeroName(shortName);
+            if (!string.IsNullOrEmpty(normalizedShort))
+                heroNameMap.TryAdd(normalizedShort, heroId);
+        }
+
+        return heroNameMap;
+    }
+
+    /// <summary>
+    /// Normalizes a hero name by removing special characters (apostrophes, periods, spaces, dashes).
+    /// This helps match hero names like "Zul'jin" with "Zuljin" in patch notes.
+    /// </summary>
+    /// <param name="name">The hero name to normalize.</param>
+    /// <returns>Normalized hero name in lowercase, or empty string if input is null/empty.</returns>
+    private static string NormalizeHeroName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return string.Empty;
+
+        // Remove apostrophes, periods, spaces, dashes, and convert to lowercase
+        return Regex.Replace(name, @"['.\-\s]", "").ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Extracts structured sections from HTML patch content.
+    /// Identifies headings, content, section types, and attempts to match hero names.
+    /// </summary>
+    /// <param name="htmlContent">The HTML content to parse.</param>
+    /// <param name="heroNameMap">Dictionary mapping hero names to IDs.</param>
+    /// <param name="patchId">The ID of the patch these sections belong to.</param>
+    /// <param name="patchName">The name of the patch (for logging).</param>
+    /// <returns>List of patch sections with hero associations where found.</returns>
+    private List<PatchSection> ExtractSectionsFromHtmlDocument(
+        string htmlContent,
+        Dictionary<string, int> heroNameMap,
+        int patchId,
+        string patchName)
+    {
+        var sections = new List<PatchSection>();
+        var doc = new HtmlDocument();
+        doc.LoadHtml(htmlContent);
+
+        var allNodes = doc.DocumentNode.ChildNodes;
+        int order = 0;
+        int unmatchedHeroCount = 0;
+
+        for (int i = 0; i < allNodes.Count; i++)
+        {
+            var node = allNodes[i];
+
+            // Check if this is a heading
+            if (!node.Name.StartsWith("h", StringComparison.OrdinalIgnoreCase) ||
+                node.Name.Length != 2 ||
+                !char.IsDigit(node.Name[1]))
+            {
+                continue;
+            }
+
+            var headingLevel = int.Parse(node.Name[1].ToString());
+            var headingText = HtmlEntity.DeEntitize(node.InnerText).Trim();
+
+            // Skip if heading level is too deep (> 4)
+            if (headingLevel > 4)
+                continue;
+
+            // Collect content until next heading
+            var contentNodes = new List<HtmlNode>();
+            for (int j = i + 1; j < allNodes.Count; j++)
+            {
+                var nextNode = allNodes[j];
+                
+                // Stop at next heading of same or higher level
+                if (nextNode.Name.StartsWith("h", StringComparison.OrdinalIgnoreCase) &&
+                    nextNode.Name.Length == 2 &&
+                    char.IsDigit(nextNode.Name[1]))
+                {
+                    var nextHeadingLevel = int.Parse(nextNode.Name[1].ToString());
+                    if (nextHeadingLevel <= headingLevel)
+                        break;
+                }
+
+                contentNodes.Add(nextNode);
+            }
+
+            // Build HTML content from collected nodes
+            var sectionContent = string.Join("", contentNodes.Select(n => n.OuterHtml));
+            sectionContent = _htmlContentService.SanitizeHtml(sectionContent);
+
+            // Determine section type
+            var sectionType = ClassifySectionTypeFromHeading(headingText, headingLevel);
+
+            // Check if this is a hero section - try multiple matching strategies
+            int? heroId = TryMatchHeroName(headingText, heroNameMap, out bool matched);
+            
+            if (matched)
+            {
+                sectionType = "Hero";
+            }
+            else if (sectionType == "Hero")
+            {
+                // Section seems like it should be a hero but we couldn't match it
+                _logger.LogWarning(
+                    "Could not match hero name '{HeroName}' in patch '{PatchName}' to any hero in database",
+                    headingText, patchName);
+                unmatchedHeroCount++;
+                heroId = null; // Explicitly set to null (schema allows this)
+            }
+
+            // Create the section (without ParentSectionId - will be set after save)
+            var section = new PatchSection
+            {
+                PatchId = patchId,
+                Order = order++,
+                HeadingLevel = headingLevel,
+                ParentSectionId = null, // Will be updated after sections are saved
+                SectionType = sectionType,
+                EntityName = headingText,
+                HeroId = heroId,
+                Content = sectionContent
+            };
+
+            sections.Add(section);
+        }
+
+        if (unmatchedHeroCount > 0)
+        {
+            _logger.LogWarning("Patch '{PatchName}' had {Count} unmatched hero names", 
+                patchName, unmatchedHeroCount);
+        }
+
+        return sections;
+    }
+
+    /// <summary>
+    /// Attempts to match a heading text to a hero name using multiple strategies.
+    /// First tries exact case-insensitive match, then normalized match.
+    /// </summary>
+    /// <param name="headingText">The heading text to match.</param>
+    /// <param name="heroNameMap">Dictionary of hero names to IDs.</param>
+    /// <param name="matched">Output parameter indicating if a match was found.</param>
+    /// <returns>The hero ID if matched, otherwise null.</returns>
+    private int? TryMatchHeroName(string headingText, Dictionary<string, int> heroNameMap, out bool matched)
+    {
+        matched = false;
+
+        if (string.IsNullOrWhiteSpace(headingText))
+            return null;
+
+        // Strategy 1: Exact case-insensitive match
+        if (heroNameMap.TryGetValue(headingText.ToLowerInvariant(), out var heroId))
+        {
+            matched = true;
+            return heroId;
+        }
+
+        // Strategy 2: Normalized match (remove special characters)
+        var normalized = NormalizeHeroName(headingText);
+        if (!string.IsNullOrEmpty(normalized) && heroNameMap.TryGetValue(normalized, out heroId))
+        {
+            matched = true;
+            return heroId;
+        }
+
+        // No match found
+        return null;
+    }
+
+    /// <summary>
+    /// Removes navigation links and clutter from markdown content.
+    /// </summary>
+    /// <param name="content">The markdown content to clean.</param>
+    /// <returns>Cleaned markdown content.</returns>
+    private static string RemoveNavigationLinksFromMarkdown(string content)
     {
         // Remove "Quick Navigation" section (from "## Quick Navigation" to next "---")
-        content = Regex.Replace(content, 
-            @"^##\s*Quick Navigation:?[\s\S]*?(?=^---|\z)", 
-            "", 
+        content = Regex.Replace(content,
+            @"^##\s*Quick Navigation:?[\s\S]*?(?=^---|\z)",
+            "",
             RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
         // Remove [Return to Top](#return) links
-        content = Regex.Replace(content, 
-            @"\[Return to Top\]\(#return\)\s*", 
-            "", 
+        content = Regex.Replace(content,
+            @"\[Return to Top\]\(#return\)\s*",
+            "",
             RegexOptions.IgnoreCase);
 
         // Remove empty anchor links like []() or [](url)
-        content = Regex.Replace(content, 
-            @"\[\]\([^)]*\)\s*\n?", 
+        content = Regex.Replace(content,
+            @"\[\]\([^)]*\)\s*\n?",
             "");
 
         // Remove "Click here to discuss" type links
-        content = Regex.Replace(content, 
-            @"\[Click here to discuss.*?\]\([^)]*\)\s*", 
-            "", 
+        content = Regex.Replace(content,
+            @"\[Click here to discuss.*?\]\([^)]*\)\s*",
+            "",
             RegexOptions.IgnoreCase);
 
         // Clean up excessive blank lines (more than 2 consecutive)
@@ -669,9 +1012,16 @@ public class GitHubSyncService : IGitHubSyncService
         return content.Trim();
     }
 
-    private static List<PatchSection> ParseMarkdownSections(
-        string content, 
-        Dictionary<string, int> heroNameMap, 
+    /// <summary>
+    /// Extracts structured sections from markdown patch content.
+    /// </summary>
+    /// <param name="content">The markdown content to parse.</param>
+    /// <param name="heroNameMap">Dictionary mapping hero names to IDs.</param>
+    /// <param name="patchId">The ID of the patch these sections belong to.</param>
+    /// <returns>List of patch sections extracted from markdown.</returns>
+    private static List<PatchSection> ExtractSectionsFromMarkdownDocument(
+        string content,
+        Dictionary<string, int> heroNameMap,
         int patchId)
     {
         var sections = new List<PatchSection>();
@@ -683,8 +1033,6 @@ public class GitHubSyncService : IGitHubSyncService
             return sections;
         }
 
-        // Track parent sections for hierarchy
-        var parentStack = new Stack<(int Id, int Level, string Type)>();
         int order = 0;
 
         for (int i = 0; i < matches.Count; i++)
@@ -692,7 +1040,6 @@ public class GitHubSyncService : IGitHubSyncService
             var match = matches[i];
             var headingLevel = match.Groups[1].Value.Length;
             var headingText = match.Groups[2].Value.Trim();
-            var headingLower = headingText.ToLowerInvariant();
 
             // Extract content between this heading and the next (or end of document)
             var contentStart = match.Index + match.Length;
@@ -703,36 +1050,33 @@ public class GitHubSyncService : IGitHubSyncService
             sectionContent = Regex.Replace(sectionContent, @"^---\s*\n?", "").Trim();
 
             // Determine section type
-            var sectionType = DetermineSectionType(headingText, headingLevel);
+            var sectionType = ClassifySectionTypeFromHeading(headingText, headingLevel);
 
-            // Check if this is a hero section
+            // Check if this is a hero section with improved matching
             int? heroId = null;
-            if (heroNameMap.TryGetValue(headingLower, out var matchedHeroId))
+            if (heroNameMap.TryGetValue(headingText.ToLowerInvariant(), out var matchedHeroId))
             {
                 heroId = matchedHeroId;
                 sectionType = "Hero";
             }
-
-            // Update parent stack (pop parents at same or higher level)
-            while (parentStack.Count > 0 && parentStack.Peek().Level >= headingLevel)
+            else
             {
-                parentStack.Pop();
+                // Try normalized match
+                var normalized = NormalizeHeroName(headingText);
+                if (!string.IsNullOrEmpty(normalized) && heroNameMap.TryGetValue(normalized, out matchedHeroId))
+                {
+                    heroId = matchedHeroId;
+                    sectionType = "Hero";
+                }
             }
 
-            // Determine parent section ID
-            int? parentSectionId = null;
-            if (parentStack.Count > 0)
-            {
-                parentSectionId = parentStack.Peek().Id;
-            }
-
-            // Create the section
+            // Create the section (ParentSectionId will be set after save)
             var section = new PatchSection
             {
                 PatchId = patchId,
                 Order = order++,
                 HeadingLevel = headingLevel,
-                ParentSectionId = parentSectionId,
+                ParentSectionId = null, // Will be set after sections are saved
                 SectionType = sectionType,
                 EntityName = headingText,
                 HeroId = heroId,
@@ -740,40 +1084,18 @@ public class GitHubSyncService : IGitHubSyncService
             };
 
             sections.Add(section);
-
-            // Push this section onto the stack as a potential parent
-            // We'll set the actual ID after saving, so use a temporary placeholder
-            parentStack.Push((sections.Count, headingLevel, sectionType));
-        }
-
-        // Second pass: Set parent section IDs using indices
-        // Since we're using Add() and the IDs are assigned by DB, we need to use indices
-        // We'll fix parent references to use the section order instead
-        var sectionsByOrder = sections.OrderBy(s => s.Order).ToList();
-        for (int i = 0; i < sectionsByOrder.Count; i++)
-        {
-            var section = sectionsByOrder[i];
-            if (section.ParentSectionId.HasValue)
-            {
-                // Find the parent by looking backwards for a section with lower heading level
-                for (int j = i - 1; j >= 0; j--)
-                {
-                    if (sectionsByOrder[j].HeadingLevel < section.HeadingLevel)
-                    {
-                        // We can't set FK before save, so we'll leave ParentSectionId null
-                        // and establish hierarchy through HeadingLevel and Order
-                        break;
-                    }
-                }
-            }
-            // Clear the temporary parent ID - will be set properly after save if needed
-            section.ParentSectionId = null;
         }
 
         return sections;
     }
 
-    private static string DetermineSectionType(string headingText, int headingLevel)
+    /// <summary>
+    /// Classifies a section type based on its heading text and level.
+    /// </summary>
+    /// <param name="headingText">The text of the heading.</param>
+    /// <param name="headingLevel">The level of the heading (1-4).</param>
+    /// <returns>The classified section type.</returns>
+    private static string ClassifySectionTypeFromHeading(string headingText, int headingLevel)
     {
         var lower = headingText.ToLowerInvariant();
 
@@ -804,7 +1126,12 @@ public class GitHubSyncService : IGitHubSyncService
 
     #region Helper Methods
 
-    private static string GenerateInternalId(string title)
+    /// <summary>
+    /// Converts a patch title to a URL-friendly slug.
+    /// </summary>
+    /// <param name="title">The patch title to convert.</param>
+    /// <returns>URL-friendly slug.</returns>
+    private static string ConvertTitleToUrlSlug(string title)
     {
         // Convert title to URL-friendly internal ID
         var normalized = title.ToLowerInvariant()
@@ -820,7 +1147,12 @@ public class GitHubSyncService : IGitHubSyncService
         return normalized;
     }
 
-    private static string DeterminePatchType(string title)
+    /// <summary>
+    /// Infers the patch type from the patch title.
+    /// </summary>
+    /// <param name="title">The patch title.</param>
+    /// <returns>The inferred patch type.</returns>
+    private static string InferPatchTypeFromTitle(string title)
     {
         var lowerTitle = title.ToLowerInvariant();
 
@@ -836,7 +1168,12 @@ public class GitHubSyncService : IGitHubSyncService
         return "Patch Notes";
     }
 
-    private static DateTime? ExtractDateFromTitle(string title)
+    /// <summary>
+    /// Attempts to parse a date from a patch title string.
+    /// </summary>
+    /// <param name="title">The patch title containing a date.</param>
+    /// <returns>Parsed date if found, otherwise null.</returns>
+    private static DateTime? ParseDateFromPatchTitle(string title)
     {
         // Try to extract date patterns like "January 14, 2026" or "December 12, 2025"
         var patterns = new[]
@@ -861,14 +1198,25 @@ public class GitHubSyncService : IGitHubSyncService
         return null;
     }
 
-    private static string ConvertHtmlToMarkdown(HtmlNode node)
+    /// <summary>
+    /// Transforms HTML content to markdown format.
+    /// </summary>
+    /// <param name="node">The HTML node to transform.</param>
+    /// <returns>Markdown representation of the HTML.</returns>
+    private static string TransformHtmlToMarkdown(HtmlNode node)
     {
         var text = new System.Text.StringBuilder();
-        ConvertNodeToMarkdown(node, text);
+        AppendHtmlNodeAsMarkdown(node, text, 0);
         return text.ToString().Trim();
     }
 
-    private static void ConvertNodeToMarkdown(HtmlNode node, System.Text.StringBuilder sb)
+    /// <summary>
+    /// Recursively appends HTML nodes as markdown to a StringBuilder.
+    /// </summary>
+    /// <param name="node">The HTML node to process.</param>
+    /// <param name="sb">The StringBuilder to append to.</param>
+    /// <param name="listDepth">Current nesting depth for lists.</param>
+    private static void AppendHtmlNodeAsMarkdown(HtmlNode node, System.Text.StringBuilder sb, int listDepth = 0)
     {
         foreach (var child in node.ChildNodes)
         {
@@ -883,34 +1231,34 @@ public class GitHubSyncService : IGitHubSyncService
                 case "h1":
                     sb.AppendLine();
                     sb.Append("# ");
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.AppendLine();
                     break;
 
                 case "h2":
                     sb.AppendLine();
                     sb.Append("## ");
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.AppendLine();
                     break;
 
                 case "h3":
                     sb.AppendLine();
                     sb.Append("### ");
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.AppendLine();
                     break;
 
                 case "h4":
                     sb.AppendLine();
                     sb.Append("#### ");
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.AppendLine();
                     break;
 
                 case "p":
                     sb.AppendLine();
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.AppendLine();
                     break;
 
@@ -921,35 +1269,69 @@ public class GitHubSyncService : IGitHubSyncService
                 case "strong":
                 case "b":
                     sb.Append("**");
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.Append("**");
                     break;
 
                 case "em":
                 case "i":
                     sb.Append("*");
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.Append("*");
                     break;
 
                 case "ul":
                     sb.AppendLine();
-                    foreach (var li in child.SelectNodes("li") ?? Enumerable.Empty<HtmlNode>())
+                    foreach (var li in child.ChildNodes.Where(n => n.Name.Equals("li", StringComparison.OrdinalIgnoreCase)))
                     {
-                        sb.Append("- ");
-                        ConvertNodeToMarkdown(li, sb);
-                        sb.AppendLine();
+                        var indent = new string(' ', listDepth * 2);
+                        sb.Append($"{indent}- ");
+                        // Process li content, handling nested lists separately
+                        foreach (var liChild in li.ChildNodes)
+                        {
+                            if (liChild.Name.Equals("ul", StringComparison.OrdinalIgnoreCase) ||
+                                liChild.Name.Equals("ol", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Nested list - increase depth
+                                AppendHtmlNodeAsMarkdown(liChild, sb, listDepth + 1);
+                            }
+                            else
+                            {
+                                AppendHtmlNodeAsMarkdown(liChild, sb, listDepth);
+                            }
+                        }
+                        if (!sb.ToString().EndsWith(Environment.NewLine) && !sb.ToString().EndsWith("\n"))
+                        {
+                            sb.AppendLine();
+                        }
                     }
                     break;
 
                 case "ol":
                     sb.AppendLine();
                     var index = 1;
-                    foreach (var li in child.SelectNodes("li") ?? Enumerable.Empty<HtmlNode>())
+                    foreach (var li in child.ChildNodes.Where(n => n.Name.Equals("li", StringComparison.OrdinalIgnoreCase)))
                     {
-                        sb.Append($"{index}. ");
-                        ConvertNodeToMarkdown(li, sb);
-                        sb.AppendLine();
+                        var indent = new string(' ', listDepth * 2);
+                        sb.Append($"{indent}{index}. ");
+                        // Process li content, handling nested lists separately
+                        foreach (var liChild in li.ChildNodes)
+                        {
+                            if (liChild.Name.Equals("ul", StringComparison.OrdinalIgnoreCase) ||
+                                liChild.Name.Equals("ol", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Nested list - increase depth
+                                AppendHtmlNodeAsMarkdown(liChild, sb, listDepth + 1);
+                            }
+                            else
+                            {
+                                AppendHtmlNodeAsMarkdown(liChild, sb, listDepth);
+                            }
+                        }
+                        if (!sb.ToString().EndsWith(Environment.NewLine) && !sb.ToString().EndsWith("\n"))
+                        {
+                            sb.AppendLine();
+                        }
                         index++;
                     }
                     break;
@@ -957,7 +1339,7 @@ public class GitHubSyncService : IGitHubSyncService
                 case "a":
                     var href = child.GetAttributeValue("href", "");
                     sb.Append('[');
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     sb.Append($"]({href})");
                     break;
 
@@ -966,15 +1348,33 @@ public class GitHubSyncService : IGitHubSyncService
                     sb.AppendLine("---");
                     break;
 
-                case "div":
                 case "span":
+                    // Check for color styles (PTR notes often have orange/colored text)
+                    var spanStyle = child.GetAttributeValue("style", "");
+                    var spanClass = child.GetAttributeValue("class", "");
+                    var colorMatch = Regex.Match(spanStyle, @"color:\s*([^;]+)", RegexOptions.IgnoreCase);
+
+                    if (colorMatch.Success || spanClass.Contains("ptr", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var color = colorMatch.Success ? colorMatch.Groups[1].Value.Trim() : "#ff8c00";
+                        sb.Append($"{{{{color:{color}}}}}");
+                        AppendHtmlNodeAsMarkdown(child, sb, listDepth);
+                        sb.Append("{{/color}}");
+                    }
+                    else
+                    {
+                        AppendHtmlNodeAsMarkdown(child, sb, listDepth);
+                    }
+                    break;
+
+                case "div":
                 case "section":
                 case "article":
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     break;
 
                 default:
-                    ConvertNodeToMarkdown(child, sb);
+                    AppendHtmlNodeAsMarkdown(child, sb, listDepth);
                     break;
             }
         }
@@ -1231,6 +1631,105 @@ public class GitHubSyncService : IGitHubSyncService
         public string? PtrBuild { get; set; }
         public string? LiveDate { get; set; }
         public string? LiveBuild { get; set; }
+    }
+
+    #endregion
+
+    #region Battleground Sync
+
+    public async Task<SyncResultDto> SyncBattlegroundsAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new SyncResultDto { SyncedAt = DateTime.UtcNow };
+
+        try
+        {
+            _logger.LogInformation("Starting battleground sync from Fandom wiki");
+
+            // Get list of battlegrounds
+            var battlegroundList = await _battlegroundScraper.GetBattlegroundListAsync(cancellationToken);
+            _logger.LogInformation("Found {Count} battlegrounds to sync", battlegroundList.Count);
+
+            var syncedCount = 0;
+
+            foreach (var bgInfo in battlegroundList)
+            {
+                try
+                {
+                    // Check if battleground already exists
+                    var existing = await _dbContext.Battlegrounds
+                        .FirstOrDefaultAsync(b => b.ShortName == bgInfo.ShortName, cancellationToken);
+
+                    // Get detailed info
+                    var details = await _battlegroundScraper.GetBattlegroundDetailsAsync(bgInfo.WikiUrl, cancellationToken);
+
+                    if (existing == null)
+                    {
+                        // Create new battleground
+                        var battleground = new Battleground
+                        {
+                            ShortName = bgInfo.ShortName,
+                            Name = bgInfo.Name,
+                            MapType = bgInfo.Lanes + "-Lane",
+                            Description = _htmlContentService.SanitizeHtml(details.Description ?? bgInfo.ObjectiveSummary),
+                            Objective = _htmlContentService.SanitizeHtml(details.ObjectiveDetails ?? bgInfo.ObjectiveSummary),
+                            ObjectiveTiming = details.ObjectiveTiming,
+                            MercCamps = _htmlContentService.SanitizeHtml(details.MercCamps ?? ""),
+                            BossInfo = _htmlContentService.SanitizeHtml(details.BossInfo ?? ""),
+                            Tips = _htmlContentService.SanitizeHtml(details.Tips ?? ""),
+                            ImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl,
+                            Universe = bgInfo.Universe,
+                            ReleaseDate = bgInfo.ReleaseDate,
+                            IsInRotation = true
+                        };
+
+                        _dbContext.Battlegrounds.Add(battleground);
+                        _logger.LogInformation("Added new battleground: {Name}", bgInfo.Name);
+                    }
+                    else
+                    {
+                        // Update existing battleground
+                        existing.Name = bgInfo.Name;
+                        existing.MapType = bgInfo.Lanes + "-Lane";
+                        existing.Description = _htmlContentService.SanitizeHtml(details.Description ?? bgInfo.ObjectiveSummary);
+                        existing.Objective = _htmlContentService.SanitizeHtml(details.ObjectiveDetails ?? bgInfo.ObjectiveSummary);
+                        existing.ObjectiveTiming = details.ObjectiveTiming;
+                        existing.MercCamps = _htmlContentService.SanitizeHtml(details.MercCamps ?? "");
+                        existing.BossInfo = _htmlContentService.SanitizeHtml(details.BossInfo ?? "");
+                        existing.Tips = _htmlContentService.SanitizeHtml(details.Tips ?? "");
+                        existing.ImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl ?? existing.ImageUrl;
+                        existing.Universe = bgInfo.Universe;
+                        existing.ReleaseDate = bgInfo.ReleaseDate ?? existing.ReleaseDate;
+
+                        _logger.LogInformation("Updated battleground: {Name}", bgInfo.Name);
+                    }
+
+                    syncedCount++;
+
+                    // Rate limiting - wait 2 seconds between requests
+                    await Task.Delay(2000, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to sync battleground: {Name}", bgInfo.Name);
+                    result.Errors.Add($"Failed to sync {bgInfo.Name}: {ex.Message}");
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            result.Success = true;
+            result.HeroesUpdated = syncedCount; // Reuse counter
+            result.Message = $"Synced {syncedCount} of {battlegroundList.Count} battlegrounds";
+            _logger.LogInformation("Battleground sync complete: {Count} synced", syncedCount);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Errors.Add($"Battleground sync failed: {ex.Message}");
+            _logger.LogError(ex, "Battleground sync failed");
+        }
+
+        return result;
     }
 
     #endregion

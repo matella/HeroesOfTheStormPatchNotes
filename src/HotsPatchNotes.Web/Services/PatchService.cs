@@ -1,44 +1,47 @@
 using System.Net.Http.Json;
+using HotsPatchNotes.Shared;
 using HotsPatchNotes.Shared.DTOs;
 
 namespace HotsPatchNotes.Web.Services;
 
 public interface IPatchService
 {
-    Task<PagedResultDto<PatchSummaryDto>> GetPatchesAsync(string? patchType = null, int page = 1, int pageSize = 20);
+    Task<PagedResultDto<PatchSummaryDto>> GetPatchesAsync(string? patchType = null, int page = Constants.Pagination.DefaultPage, int pageSize = Constants.Pagination.DefaultPageSize);
     Task<ReconstructedPatchDto?> GetPatchAsync(string internalId);
     Task<List<string>> GetPatchTypesAsync();
 }
 
-public class PatchService : IPatchService
+public class PatchService(HttpClient httpClient) : IPatchService
 {
-    private readonly HttpClient _httpClient;
+    private const string BaseRoute = Constants.ApiRoutes.Patches;
 
-    public PatchService(HttpClient httpClient)
+    public async Task<PagedResultDto<PatchSummaryDto>> GetPatchesAsync(string? patchType = null, int page = Constants.Pagination.DefaultPage, int pageSize = Constants.Pagination.DefaultPageSize)
     {
-        _httpClient = httpClient;
-    }
-
-    public async Task<PagedResultDto<PatchSummaryDto>> GetPatchesAsync(string? patchType = null, int page = 1, int pageSize = 20)
-    {
-        var queryParams = new List<string> { $"page={page}", $"pageSize={pageSize}" };
-
-        if (!string.IsNullOrWhiteSpace(patchType))
+        try
         {
-            queryParams.Add($"patchType={Uri.EscapeDataString(patchType)}");
+            var queryParams = new List<string> { $"page={page}", $"pageSize={pageSize}" };
+
+            if (!string.IsNullOrWhiteSpace(patchType))
+            {
+                queryParams.Add($"patchType={Uri.EscapeDataString(patchType)}");
+            }
+
+            var url = $"{BaseRoute}?{string.Join("&", queryParams)}";
+
+            return await httpClient.GetFromJsonAsync<PagedResultDto<PatchSummaryDto>>(url)
+                ?? new PagedResultDto<PatchSummaryDto>();
         }
-
-        var url = $"api/patches?{string.Join("&", queryParams)}";
-
-        return await _httpClient.GetFromJsonAsync<PagedResultDto<PatchSummaryDto>>(url)
-            ?? new PagedResultDto<PatchSummaryDto>();
+        catch (HttpRequestException)
+        {
+            return new PagedResultDto<PatchSummaryDto>();
+        }
     }
 
     public async Task<ReconstructedPatchDto?> GetPatchAsync(string internalId)
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<ReconstructedPatchDto>($"api/patches/{internalId}");
+            return await httpClient.GetFromJsonAsync<ReconstructedPatchDto>($"{BaseRoute}/{internalId}");
         }
         catch (HttpRequestException)
         {
@@ -48,7 +51,13 @@ public class PatchService : IPatchService
 
     public async Task<List<string>> GetPatchTypesAsync()
     {
-        return await _httpClient.GetFromJsonAsync<List<string>>("api/patches/types")
-            ?? [];
+        try
+        {
+            return await httpClient.GetFromJsonAsync<List<string>>($"{BaseRoute}/types") ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
     }
 }

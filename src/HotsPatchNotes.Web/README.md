@@ -15,7 +15,7 @@ This project provides a modern, responsive single-page application (SPA) for bro
 
 ### Prerequisites
 
-- .NET 8 SDK or later
+- .NET 10 SDK or later
 - The API must be running (see [HotsPatchNotes.Api](../HotsPatchNotes.Api/README.md))
 
 ### Running the Web App
@@ -193,7 +193,7 @@ No local image storage is required - images are fetched on demand.
 dotnet publish -c Release
 ```
 
-The output will be in `bin/Release/net8.0/publish/wwwroot/`. This is a static site that can be hosted on any web server.
+The output will be in `bin/Release/net10.0/publish/wwwroot/`. This is a static site that can be hosted on any web server.
 
 ### Hosting Options
 

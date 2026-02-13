@@ -1,6 +1,6 @@
 # Heroes of the Storm Patch Notes
 
-A modern rewrite of [heroespatchnotes.com](https://heroespatchnotes.com/) - a comprehensive database for Heroes of the Storm heroes, abilities, talents, and patch history.
+A modern rewrite of [heroespatchnotes.com](https://heroespatchnotes.com/) - a comprehensive database for Heroes of the Storm heroes, abilities, talents, battlegrounds, and patch history.
 
 ## 🎮 Overview
 
@@ -8,8 +8,11 @@ This project provides a web application to browse and search Heroes of the Storm
 
 - **90+ Heroes** with complete ability and talent information
 - **228+ Patches** with version history and official links
+- **Battlegrounds** with objectives, mercenary camps, and strategies
+- **Hero Builds** - Create and share talent builds with build codes
 - **Talent Trees** organized by tier (levels 1, 4, 7, 10, 13, 16, 20)
-- **Search & Filter** by hero name, role, and type
+- **Patch History** - View changes to specific heroes across patches
+- **Search & Filter** by hero name, role, type, and universe
 
 ## 🏗️ Architecture
 
@@ -43,7 +46,7 @@ Data is sourced from the [heroespatchnotes GitHub organization](https://github.c
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
 - A modern web browser
 
 > **Note for macOS users:** The Web app uses port 5100 (HTTP) instead of 5000 to avoid conflicts with macOS Control Center (AirPlay Receiver).
@@ -148,7 +151,12 @@ The API includes Swagger documentation at `https://localhost:7001/swagger`
 |--------|----------|-------------|
 | GET | `/api/heroes` | List all heroes (supports filtering) |
 | GET | `/api/heroes/{shortName}` | Get hero details with abilities/talents |
+| GET | `/api/heroes/{shortName}/patches` | Get patch history for a hero |
+| GET | `/api/heroes/{shortName}/builds` | Get builds for a hero |
+| POST | `/api/heroes/{shortName}/builds` | Create a new build |
 | GET | `/api/heroes/roles` | List available roles |
+| GET | `/api/battlegrounds` | List all battlegrounds |
+| GET | `/api/battlegrounds/{shortName}` | Get battleground details |
 | GET | `/api/patches` | List patches (paginated) |
 | GET | `/api/patches/{internalId}` | Get patch details |
 | POST | `/api/sync` | Trigger full data sync from GitHub |

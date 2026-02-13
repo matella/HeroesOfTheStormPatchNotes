@@ -1,0 +1,85 @@
+# Docker Compose for PostgreSQL deployment
+# Use: docker-compose -f docker-compose.postgres.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hotspatchnotes-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hots
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - hotspatchnotes-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./src
+      dockerfile: HotsPatchNotes.Api/Dockerfile
+    container_name: hotspatchnotes-api
+    ports:
+      - "5001:5001"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5001
+      DatabaseProvider: PostgreSQL
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=hots;Username=postgres;Password=postgres
+    networks:
+      - hotspatchnotes-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5001/api/heroes/roles || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  web:
+    build:
+      context: ./src
+      dockerfile: HotsPatchNotes.Web/Dockerfile
+      args:
+        API_BASE_URL: http://api:5001
+    container_name: hotspatchnotes-web
+    ports:
+      - "5100:80"
+    depends_on:
+      api:
+        condition: service_healthy
+        restart: true
+    networks:
+      - hotspatchnotes-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+networks:
+  hotspatchnotes-network:
+
+volumes:
+  postgres-data:

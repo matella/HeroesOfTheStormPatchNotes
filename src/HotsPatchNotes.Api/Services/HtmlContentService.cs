@@ -7,7 +7,7 @@ public interface IHtmlContentService
     string SanitizeHtml(string html);
 }
 
-public class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlContentService
+public sealed class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlContentService
 {
     public string SanitizeHtml(string html)
     {

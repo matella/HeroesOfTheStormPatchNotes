@@ -7,7 +7,7 @@ namespace HotsPatchNotes.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class PatchesController(IPatchService patchService) : ControllerBase
+public sealed class PatchesController(IPatchService patchService) : ControllerBase
 {
     /// <summary>
     /// Get all patches with optional filtering and pagination.

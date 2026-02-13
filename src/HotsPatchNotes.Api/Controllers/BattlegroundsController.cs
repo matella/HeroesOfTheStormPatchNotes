@@ -7,7 +7,7 @@ namespace HotsPatchNotes.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class BattlegroundsController(
+public sealed class BattlegroundsController(
     IBattlegroundService battlegroundService,
     ILogger<BattlegroundsController> logger) : ControllerBase
 {

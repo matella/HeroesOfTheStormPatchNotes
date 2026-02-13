@@ -7,7 +7,7 @@ namespace HotsPatchNotes.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class HeroesController(IHeroService heroService) : ControllerBase
+public sealed class HeroesController(IHeroService heroService) : ControllerBase
 {
     /// <summary>
     /// Get all heroes with optional filtering.

@@ -70,6 +70,7 @@ public sealed partial class PatchService(IPatchRepository patchRepository) : IPa
                 HeadingLevel = s.HeadingLevel,
                 SectionType = s.SectionType,
                 EntityName = s.EntityName,
+                Anchor = GenerateAnchor(s.EntityName, s.Order),
                 HeroId = s.HeroId,
                 HeroShortName = s.Hero?.ShortName,
                 Content = s.Content
@@ -117,6 +118,7 @@ public sealed partial class PatchService(IPatchRepository patchRepository) : IPa
             HeadingLevel = s.HeadingLevel,
             SectionType = s.SectionType,
             EntityName = s.EntityName,
+            Anchor = GenerateAnchor(s.EntityName, s.Order),
             HeroId = s.HeroId,
             HeroShortName = s.Hero?.ShortName,
             Content = s.Content

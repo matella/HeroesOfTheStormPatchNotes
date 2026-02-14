@@ -44,6 +44,7 @@ public class PatchSectionDto
     public int HeadingLevel { get; set; }
     public string SectionType { get; set; } = string.Empty;
     public string EntityName { get; set; } = string.Empty;
+    public string Anchor { get; set; } = string.Empty;
     public int? HeroId { get; set; }
     public string? HeroShortName { get; set; }
     public string Content { get; set; } = string.Empty;

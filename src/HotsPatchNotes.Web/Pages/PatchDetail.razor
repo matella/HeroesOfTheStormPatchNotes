@@ -4,6 +4,7 @@
 @using HotsPatchNotes.Web.Services
 @inject IPatchService PatchService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>@(patch?.PatchName ?? "Patch Details") - HotS Patch Notes</PageTitle>
 
@@ -72,24 +73,23 @@
                 {
                     @foreach (var sec in patch.Sections)
                     {
-                        var anchor = GenerateAnchor(sec.EntityName, sec.Order);
                         <div class="patch-section level-@sec.HeadingLevel type-@sec.SectionType.ToLower()">
                             @switch (sec.HeadingLevel)
                             {
                                 case 1:
-                                    <h1 id="@anchor">@sec.EntityName</h1>
+                                    <h1 id="@sec.Anchor">@sec.EntityName</h1>
                                     break;
                                 case 2:
-                                    <h2 id="@anchor">@sec.EntityName</h2>
+                                    <h2 id="@sec.Anchor">@sec.EntityName</h2>
                                     break;
                                 case 3:
-                                    <h3 id="@anchor">@sec.EntityName</h3>
+                                    <h3 id="@sec.Anchor">@sec.EntityName</h3>
                                     break;
                                 case 4:
-                                    <h4 id="@anchor">@sec.EntityName</h4>
+                                    <h4 id="@sec.Anchor">@sec.EntityName</h4>
                                     break;
                                 default:
-                                    <h5 id="@anchor">@sec.EntityName</h5>
+                                    <h5 id="@sec.Anchor">@sec.EntityName</h5>
                                     break;
                             }
                             @if (!string.IsNullOrWhiteSpace(sec.Content))
@@ -100,7 +100,7 @@
                             }
                             @if (sec.HeadingLevel >= 2)
                             {
-                                <a href="#return" class="return-link">↑ Return to Top</a>
+                                <button @onclick="ScrollToTop" class="return-link">↑ Return to Top</button>
                             }
                         </div>
                     }
@@ -192,13 +192,8 @@
         };
     }
 
-    private static string GenerateAnchor(string title, int order)
+    private async Task ScrollToTop()
     {
-        var anchor = title.ToLowerInvariant();
-        anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"[^a-z0-9\s-]", "");
-        anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"\s+", "-");
-        anchor = System.Text.RegularExpressions.Regex.Replace(anchor, @"-+", "-");
-        anchor = anchor.Trim('-');
-        return $"{anchor}-{order}";
+        await JSRuntime.InvokeVoidAsync("scrollToAnchor", "return");
     }
 }

@@ -1,0 +1,115 @@
+/* Ability and talent reference styling in patch content */
+.ability-ref,
+.talent-ref {
+    color: #00d4ff;
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(0, 212, 255, 0.5);
+}
+
+.ability-ref:hover,
+.talent-ref:hover {
+    color: #ffd700;
+    text-decoration-color: rgba(255, 215, 0, 0.7);
+}
+
+/* Tooltip popup container */
+.tooltip-popup {
+    position: fixed;
+    z-index: 9999;
+    background: #1a1a1a;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    max-width: 320px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+    animation: tooltipFadeIn 0.15s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tooltip header with icon and title */
+.tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.tooltip-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.tooltip-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.tooltip-title strong {
+    color: #00d4ff;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.tooltip-hotkey,
+.tooltip-tier {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+/* Tooltip description */
+.tooltip-desc {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0 0 0.5rem 0;
+    color: #ccc;
+}
+
+/* Tooltip metadata (cooldown, mana cost, etc.) */
+.tooltip-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: #999;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tooltip-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Tooltip linked ability info */
+.tooltip-linked {
+    font-size: 0.8rem;
+    color: #ffb74d;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+/* Specific tooltip types */
+.ability-tooltip {
+    /* Inherits styles from tooltip-popup */
+}
+
+.talent-tooltip {
+    /* Inherits styles from tooltip-popup */
+}

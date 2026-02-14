@@ -300,9 +300,10 @@ else
                 <h2>Patch History</h2>
                 @if (heroPatches.Any())
                 {
-                    <span class="patch-count">@heroPatches.Count patches</span>
+                    <span class="patch-count">@GetFilteredPatchCount() patches</span>
                 }
             </div>
+
             @if (loadingPatches)
             {
                 <p class="loading-text">Loading patch history...</p>
@@ -313,28 +314,42 @@ else
             }
             else
             {
+                <div class="patch-filters">
+                    <button class="filter-btn @(selectedPatchType == null ? "active" : "")"
+                            @onclick='() => selectedPatchType = null'>
+                        All
+                    </button>
+                    @foreach (var type in GetAvailablePatchTypes())
+                    {
+                        <button class="filter-btn @(selectedPatchType == type ? "active" : "")"
+                                @onclick='() => selectedPatchType = type'>
+                            @type
+                        </button>
+                    }
+                </div>
+
                 <div class="patch-history-list">
-                    @foreach (var patchGroup in heroPatches
-                        .GroupBy(p => p.PatchId)
-                        .OrderByDescending(g => g.First().LiveDate))
+                    @foreach (var patchGroup in GetFilteredPatches())
                     {
                         var firstSection = patchGroup.First();
                         var isExpanded = expandedPatches.Contains(firstSection.PatchId);
                         <div class="patch-item">
                             <div class="patch-item-header" @onclick="() => TogglePatch(firstSection.PatchId)">
-                                <div class="patch-item-info">
+                                <div class="patch-item-left">
                                     <a href="/patch/@firstSection.InternalId" class="patch-name" @onclick:stopPropagation="true">
                                         @firstSection.PatchName
                                     </a>
-                                    @if (!string.IsNullOrEmpty(firstSection.PatchType))
-                                    {
-                                        <span class="patch-type-badge">@firstSection.PatchType</span>
-                                    }
-                                </div>
-                                <div class="patch-item-right">
                                     @if (firstSection.LiveDate.HasValue)
                                     {
                                         <span class="patch-date">@firstSection.LiveDate.Value.ToString("MMM d, yyyy")</span>
+                                    }
+                                </div>
+                                <div class="patch-item-right">
+                                    @if (!string.IsNullOrEmpty(firstSection.PatchType))
+                                    {
+                                        <span class="patch-type-badge type-@GetPatchTypeCssClass(firstSection.PatchType)">
+                                            @firstSection.PatchType
+                                        </span>
                                     }
                                     <span class="expand-icon">@(isExpanded ? "▾" : "▸")</span>
                                 </div>
@@ -345,7 +360,7 @@ else
                                     @foreach (var section in patchGroup.OrderBy(s => s.Order))
                                     {
                                         <div class="patch-section-content">
-                                            @((MarkupString)section.Content)
+                                            @((MarkupString)StripReturnLinks(section.Content))
                                         </div>
                                     }
                                 </div>
@@ -374,6 +389,8 @@ else
     private Dictionary<int, int> selectedTalents = new();
     private HashSet<int> expandedPatches = [];
     private bool copied = false;
+    private string? selectedPatchType = null;
+    private bool tooltipsInitialized = false;
     private static readonly int[] TalentTiers = { 1, 4, 7, 10, 13, 16, 20 };
 
     protected override async Task OnParametersSetAsync()
@@ -406,12 +423,65 @@ else
         }
     }
 
-    private void TogglePatch(int patchId)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Initialize tooltips after patches are expanded and rendered
+        if (!tooltipsInitialized && hero is not null && heroPatches.Any() && expandedPatches.Any())
+        {
+            await InitializeTooltipsAsync();
+        }
+    }
+
+    private async Task TogglePatch(int patchId)
+    {
+        var wasExpanded = expandedPatches.Contains(patchId);
+
         if (!expandedPatches.Remove(patchId))
         {
             expandedPatches.Add(patchId);
         }
+
+        // Initialize tooltips after first patch expansion
+        if (!wasExpanded && !tooltipsInitialized && hero is not null)
+        {
+            // Force re-render and wait for DOM update
+            StateHasChanged();
+            await Task.Delay(50);
+            await InitializeTooltipsAsync();
+        }
+    }
+
+    private async Task InitializeTooltipsAsync()
+    {
+        if (tooltipsInitialized || hero is null) return;
+
+        // Flatten abilities from all forms
+        var abilities = hero.Abilities
+            .SelectMany(kvp => kvp.Value)
+            .Select(a => new
+            {
+                name = a.Name,
+                hotkey = a.Hotkey,
+                description = a.Description,
+                cooldown = a.Cooldown,
+                manaCost = a.ManaCost,
+                icon = a.Icon
+            })
+            .ToList();
+
+        // Flatten talents from all levels
+        var talents = hero.Talents
+            .SelectMany(kvp => kvp.Value)
+            .Select(t => new
+            {
+                name = t.Name,
+                description = t.Description,
+                icon = t.Icon
+            })
+            .ToList();
+
+        await JSRuntime.InvokeVoidAsync("patchTooltips.initialize", abilities, talents);
+        tooltipsInitialized = true;
     }
 
     private bool HasBaseStats()
@@ -501,5 +571,51 @@ else
             .Replace("<n/>", "<br/>")
             .Replace("<s val=\"StandardTooltipHeader\">", "<strong>")
             .Replace("</s>", "</strong>");
+    }
+
+    private static string StripReturnLinks(string content)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(
+            content,
+            @"<a[^>]*href=""#return""[^>]*>.*?</a>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    private static string GetPatchTypeCssClass(string patchType)
+    {
+        return patchType.ToLowerInvariant() switch
+        {
+            "balance update" => "balance",
+            "major patch" => "major",
+            "hotfix patch" => "hotfix",
+            "ptr" => "ptr",
+            _ => "default"
+        };
+    }
+
+    private IEnumerable<string> GetAvailablePatchTypes()
+    {
+        return heroPatches
+            .Where(p => !string.IsNullOrEmpty(p.PatchType))
+            .Select(p => p.PatchType!)
+            .Distinct()
+            .OrderBy(t => t);
+    }
+
+    private IEnumerable<IGrouping<int, HeroPatchDto>> GetFilteredPatches()
+    {
+        var filtered = selectedPatchType == null
+            ? heroPatches
+            : heroPatches.Where(p => p.PatchType == selectedPatchType);
+
+        return filtered
+            .GroupBy(p => p.PatchId)
+            .OrderByDescending(g => g.First().LiveDate);
+    }
+
+    private int GetFilteredPatchCount()
+    {
+        return GetFilteredPatches().Count();
     }
 }

@@ -5,7 +5,13 @@ window.scrollToAnchor = (anchorId) => {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return true;
     }
+    console.warn(`Anchor element not found: ${anchorId}`);
     return false;
+};
+
+// Convenience function to scroll to top
+window.scrollToTop = () => {
+    return window.scrollToAnchor('return');
 };
 
 // Intercept anchor link clicks for smooth scrolling
@@ -24,6 +30,15 @@ window.setupAnchorInterception = () => {
             }
         }
     });
+
+    // Handle initial page load with hash
+    if (window.location.hash) {
+        const anchorId = window.location.hash.substring(1);
+        // Small delay to ensure page is fully loaded
+        setTimeout(() => {
+            window.scrollToAnchor(anchorId);
+        }, 100);
+    }
 };
 
 // Call on page load

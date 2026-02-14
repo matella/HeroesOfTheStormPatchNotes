@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using HotsPatchNotes.Api.Controllers;
 using HotsPatchNotes.Shared.DTOs;
 
@@ -12,7 +13,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroesAsync();
@@ -29,7 +30,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroesAsync(role: "Tank");
@@ -47,7 +48,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroesAsync(type: "Ranged");
@@ -65,7 +66,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroesAsync(search: "Art");
@@ -83,7 +84,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroAsync("arthas");
@@ -103,7 +104,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroAsync("nonexistent");
@@ -118,7 +119,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetRolesAsync();
@@ -138,7 +139,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroPatchesAsync("arthas");
@@ -155,7 +156,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = await controller.GetHeroBuildsAsync("arthas");
@@ -172,7 +173,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
         var createDto = new CreateBuildDto
         {
             Name = "Tank Build",
@@ -197,7 +198,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
         var createDto = new CreateBuildDto
         {
             Name = "Invalid Build",
@@ -218,7 +219,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = controller.ParseBuildCode("[T1234512,arthas]");
@@ -234,7 +235,7 @@ public class HeroesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreateHeroService(context);
-        var controller = new HeroesController(service);
+        var controller = new HeroesController(service, NullLogger<HeroesController>.Instance);
 
         // Act
         var result = controller.ParseBuildCode("");

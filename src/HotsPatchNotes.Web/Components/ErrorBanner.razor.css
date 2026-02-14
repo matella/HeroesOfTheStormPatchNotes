@@ -1,0 +1,115 @@
+.error-banner {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.error-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.error-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.error-message {
+    flex: 1;
+}
+
+.error-message strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.error-detail {
+    margin: 0;
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.error-dismiss {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+}
+
+.error-dismiss:hover {
+    opacity: 1;
+}
+
+/* Severity-specific styles */
+.severity-info {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #93c5fd;
+}
+
+.severity-warning {
+    background: rgba(251, 191, 36, 0.2);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    color: #fde68a;
+}
+
+.severity-error {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+
+.severity-critical {
+    background: rgba(220, 38, 38, 0.3);
+    border: 1px solid rgba(220, 38, 38, 0.5);
+    color: #fee2e2;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .error-banner {
+        padding: 0.75rem 1rem;
+    }
+
+    .error-icon {
+        font-size: 1.25rem;
+    }
+
+    .error-message strong {
+        font-size: 0.875rem;
+    }
+
+    .error-detail {
+        font-size: 0.75rem;
+    }
+}

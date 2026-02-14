@@ -1,0 +1,71 @@
+@using HotsPatchNotes.Web.Services
+@inject IErrorStateService ErrorState
+@implements IDisposable
+
+@if (ErrorState.CurrentError is not null)
+{
+    <div class="error-banner @GetSeverityClass(ErrorState.CurrentError.Severity)" role="alert">
+        <div class="error-content">
+            <div class="error-icon">
+                @GetSeverityIcon(ErrorState.CurrentError.Severity)
+            </div>
+            <div class="error-message">
+                <strong>@ErrorState.CurrentError.Message</strong>
+                @if (!string.IsNullOrEmpty(ErrorState.CurrentError.Detail))
+                {
+                    <p class="error-detail">@ErrorState.CurrentError.Detail</p>
+                }
+            </div>
+        </div>
+        <button class="error-dismiss" @onclick="DismissError" aria-label="Dismiss error">
+            ✕
+        </button>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        ErrorState.OnErrorChanged += HandleErrorChanged;
+    }
+
+    private void HandleErrorChanged(ErrorInfo? error)
+    {
+        // Force re-render when error state changes
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void DismissError()
+    {
+        ErrorState.ClearError();
+    }
+
+    private static string GetSeverityClass(ErrorSeverity severity)
+    {
+        return severity switch
+        {
+            ErrorSeverity.Info => "severity-info",
+            ErrorSeverity.Warning => "severity-warning",
+            ErrorSeverity.Error => "severity-error",
+            ErrorSeverity.Critical => "severity-critical",
+            _ => "severity-error"
+        };
+    }
+
+    private static string GetSeverityIcon(ErrorSeverity severity)
+    {
+        return severity switch
+        {
+            ErrorSeverity.Info => "ℹ️",
+            ErrorSeverity.Warning => "⚠️",
+            ErrorSeverity.Error => "❌",
+            ErrorSeverity.Critical => "🚨",
+            _ => "❌"
+        };
+    }
+
+    public void Dispose()
+    {
+        ErrorState.OnErrorChanged -= HandleErrorChanged;
+    }
+}

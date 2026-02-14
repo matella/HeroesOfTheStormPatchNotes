@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using HotsPatchNotes.Api.Controllers;
 using HotsPatchNotes.Shared.DTOs;
 
@@ -12,7 +13,7 @@ public class PatchesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreatePatchService(context);
-        var controller = new PatchesController(service);
+        var controller = new PatchesController(service, NullLogger<PatchesController>.Instance);
 
         // Act
         var result = await controller.GetPatchesAsync();
@@ -30,7 +31,7 @@ public class PatchesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreatePatchService(context);
-        var controller = new PatchesController(service);
+        var controller = new PatchesController(service, NullLogger<PatchesController>.Instance);
 
         // Act
         var result = await controller.GetPatchesAsync(patchType: "Balance Update");
@@ -48,7 +49,7 @@ public class PatchesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreatePatchService(context);
-        var controller = new PatchesController(service);
+        var controller = new PatchesController(service, NullLogger<PatchesController>.Instance);
 
         // Act
         var result = await controller.GetPatchAsync("2023-12-05");
@@ -65,7 +66,7 @@ public class PatchesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreatePatchService(context);
-        var controller = new PatchesController(service);
+        var controller = new PatchesController(service, NullLogger<PatchesController>.Instance);
 
         // Act
         var result = await controller.GetPatchAsync("nonexistent");
@@ -80,7 +81,7 @@ public class PatchesControllerTests : TestBase
         // Arrange
         using var context = CreateContextWithData();
         var service = CreatePatchService(context);
-        var controller = new PatchesController(service);
+        var controller = new PatchesController(service, NullLogger<PatchesController>.Instance);
 
         // Act
         var result = await controller.GetPatchTypesAsync();

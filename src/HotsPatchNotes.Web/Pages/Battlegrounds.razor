@@ -91,10 +91,6 @@
         {
             battlegrounds = await BattlegroundService.GetBattlegroundsAsync();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading battlegrounds: {ex.Message}");
-        }
         finally
         {
             loading = false;

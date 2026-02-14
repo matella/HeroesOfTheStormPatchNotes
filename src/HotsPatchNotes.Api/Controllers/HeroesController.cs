@@ -7,7 +7,7 @@ namespace HotsPatchNotes.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class HeroesController(IHeroService heroService) : ControllerBase
+public sealed class HeroesController(IHeroService heroService, ILogger<HeroesController> logger) : ControllerBase
 {
     /// <summary>
     /// Get all heroes with optional filtering.
@@ -20,8 +20,16 @@ public sealed class HeroesController(IHeroService heroService) : ControllerBase
         [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var heroes = await heroService.GetHeroesAsync(role, type, search, cancellationToken);
-        return Ok(heroes);
+        try
+        {
+            var heroes = await heroService.GetHeroesAsync(role, type, search, cancellationToken);
+            return Ok(heroes);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve heroes with filters - Role: {Role}, Type: {Type}, Search: {Search}", role, type, search);
+            throw; // Let global middleware handle
+        }
     }
 
     /// <summary>
@@ -55,8 +63,16 @@ public sealed class HeroesController(IHeroService heroService) : ControllerBase
     [ResponseCache(Duration = 3600)]
     public async Task<ActionResult<List<string>>> GetRolesAsync(CancellationToken cancellationToken = default)
     {
-        var roles = await heroService.GetRolesAsync(cancellationToken);
-        return Ok(roles);
+        try
+        {
+            var roles = await heroService.GetRolesAsync(cancellationToken);
+            return Ok(roles);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve hero roles");
+            throw; // Let global middleware handle
+        }
     }
 
     /// <summary>

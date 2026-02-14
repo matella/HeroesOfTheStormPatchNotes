@@ -131,13 +131,9 @@
         try
         {
             patches = await PatchService.GetPatchesAsync(
-                string.IsNullOrEmpty(selectedType) ? null : selectedType, 
-                currentPage, 
+                string.IsNullOrEmpty(selectedType) ? null : selectedType,
+                currentPage,
                 PageSize);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading patches: {ex.Message}");
         }
         finally
         {

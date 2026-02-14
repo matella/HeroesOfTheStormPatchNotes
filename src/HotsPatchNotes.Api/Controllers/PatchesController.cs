@@ -7,7 +7,7 @@ namespace HotsPatchNotes.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class PatchesController(IPatchService patchService) : ControllerBase
+public sealed class PatchesController(IPatchService patchService, ILogger<PatchesController> logger) : ControllerBase
 {
     /// <summary>
     /// Get all patches with optional filtering and pagination.
@@ -21,8 +21,16 @@ public sealed class PatchesController(IPatchService patchService) : ControllerBa
         [FromQuery] int pageSize = Constants.Pagination.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
-        var result = await patchService.GetPatchesAsync(patchType, source, page, pageSize, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await patchService.GetPatchesAsync(patchType, source, page, pageSize, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve patches with filters - Type: {PatchType}, Source: {Source}, Page: {Page}, PageSize: {PageSize}", patchType, source, page, pageSize);
+            throw; // Let global middleware handle
+        }
     }
 
     /// <summary>
@@ -32,8 +40,16 @@ public sealed class PatchesController(IPatchService patchService) : ControllerBa
     [ResponseCache(Duration = 3600)]
     public async Task<ActionResult<List<string>>> GetPatchTypesAsync(CancellationToken cancellationToken = default)
     {
-        var types = await patchService.GetPatchTypesAsync(cancellationToken);
-        return Ok(types);
+        try
+        {
+            var types = await patchService.GetPatchTypesAsync(cancellationToken);
+            return Ok(types);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve patch types");
+            throw; // Let global middleware handle
+        }
     }
 
     /// <summary>

@@ -182,10 +182,6 @@ else
         {
             hero = await HeroService.GetHeroAsync(ShortName);
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading hero: {ex.Message}");
-        }
         finally
         {
             loading = false;

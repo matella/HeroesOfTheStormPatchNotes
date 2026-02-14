@@ -93,10 +93,6 @@
             roles = await HeroService.GetRolesAsync();
             filteredHeroes = heroes;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading heroes: {ex.Message}");
-        }
         finally
         {
             loading = false;

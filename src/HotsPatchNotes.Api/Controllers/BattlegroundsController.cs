@@ -20,8 +20,16 @@ public sealed class BattlegroundsController(
         [FromQuery] string? universe = null,
         CancellationToken cancellationToken = default)
     {
-        var battlegrounds = await battlegroundService.GetBattlegroundsAsync(inRotation, universe, cancellationToken);
-        return Ok(battlegrounds);
+        try
+        {
+            var battlegrounds = await battlegroundService.GetBattlegroundsAsync(inRotation, universe, cancellationToken);
+            return Ok(battlegrounds);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve battlegrounds with filters - InRotation: {InRotation}, Universe: {Universe}", inRotation, universe);
+            throw; // Let global middleware handle
+        }
     }
 
     /// <summary>

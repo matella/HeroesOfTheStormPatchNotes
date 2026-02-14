@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using HotsPatchNotes.Api.Data;
+using HotsPatchNotes.Api.Middleware;
 using HotsPatchNotes.Api.Repositories;
 using HotsPatchNotes.Api.Services;
 
@@ -96,6 +97,9 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<HotsDbContext>();
     db.Database.EnsureCreated();
 }
+
+// Global exception handling (must be first middleware to catch all exceptions)
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

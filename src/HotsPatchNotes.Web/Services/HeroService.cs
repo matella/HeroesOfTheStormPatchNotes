@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using HotsPatchNotes.Shared;
 using HotsPatchNotes.Shared.DTOs;
 
@@ -14,7 +16,7 @@ public interface IHeroService
     Task<List<HeroPatchDto>> GetHeroPatchesAsync(string shortName);
 }
 
-public sealed class HeroService(HttpClient httpClient) : IHeroService
+public sealed class HeroService(HttpClient httpClient, IErrorStateService errorState) : IHeroService
 {
     private const string BaseRoute = Constants.ApiRoutes.Heroes;
 
@@ -37,8 +39,26 @@ public sealed class HeroService(HttpClient httpClient) : IHeroService
 
             return await httpClient.GetFromJsonAsync<List<HeroSummaryDto>>(url) ?? [];
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            // Don't set error for 404s (no heroes found is not an error)
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load heroes",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return [];
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return [];
         }
     }
@@ -49,8 +69,26 @@ public sealed class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<HeroDetailDto>($"{BaseRoute}/{shortName}");
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            // Don't set error for 404s (expected for non-existent heroes)
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load hero details",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return null;
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return null;
         }
     }
@@ -61,8 +99,25 @@ public sealed class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<List<string>>($"{BaseRoute}/roles") ?? [];
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load hero roles",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return [];
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return [];
         }
     }
@@ -73,8 +128,25 @@ public sealed class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<List<HeroBuildDto>>($"{BaseRoute}/{shortName}/builds") ?? [];
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load hero builds",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return [];
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return [];
         }
     }
@@ -90,8 +162,25 @@ public sealed class HeroService(HttpClient httpClient) : IHeroService
             }
             return null;
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to create build",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return null;
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return null;
         }
     }
@@ -102,8 +191,25 @@ public sealed class HeroService(HttpClient httpClient) : IHeroService
         {
             return await httpClient.GetFromJsonAsync<List<HeroPatchDto>>($"{BaseRoute}/{shortName}/patches") ?? [];
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load hero patches",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return [];
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return [];
         }
     }

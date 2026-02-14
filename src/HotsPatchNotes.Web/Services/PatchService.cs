@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using HotsPatchNotes.Shared;
 using HotsPatchNotes.Shared.DTOs;
 
@@ -11,7 +13,7 @@ public interface IPatchService
     Task<List<string>> GetPatchTypesAsync();
 }
 
-public sealed class PatchService(HttpClient httpClient) : IPatchService
+public sealed class PatchService(HttpClient httpClient, IErrorStateService errorState) : IPatchService
 {
     private const string BaseRoute = Constants.ApiRoutes.Patches;
 
@@ -31,8 +33,25 @@ public sealed class PatchService(HttpClient httpClient) : IPatchService
             return await httpClient.GetFromJsonAsync<PagedResultDto<PatchSummaryDto>>(url)
                 ?? new PagedResultDto<PatchSummaryDto>();
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load patches",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return new PagedResultDto<PatchSummaryDto>();
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return new PagedResultDto<PatchSummaryDto>();
         }
     }
@@ -43,8 +62,26 @@ public sealed class PatchService(HttpClient httpClient) : IPatchService
         {
             return await httpClient.GetFromJsonAsync<ReconstructedPatchDto>($"{BaseRoute}/{internalId}");
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            // Don't set error for 404s (expected for non-existent patches)
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load patch details",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return null;
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return null;
         }
     }
@@ -55,8 +92,25 @@ public sealed class PatchService(HttpClient httpClient) : IPatchService
         {
             return await httpClient.GetFromJsonAsync<List<string>>($"{BaseRoute}/types") ?? [];
         }
-        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException)
+        catch (HttpRequestException ex)
         {
+            if (ex.StatusCode is not null && ex.StatusCode != HttpStatusCode.NotFound)
+            {
+                errorState.SetError(
+                    "Unable to load patch types",
+                    ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                        ? "The server is temporarily unavailable. Please try again later."
+                        : "Network connection failed. Check your connection.",
+                    ErrorSeverity.Error);
+            }
+            return [];
+        }
+        catch (JsonException)
+        {
+            errorState.SetError(
+                "Data format error",
+                "Received invalid data from server. Please refresh the page.",
+                ErrorSeverity.Warning);
             return [];
         }
     }

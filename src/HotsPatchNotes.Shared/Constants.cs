@@ -63,6 +63,9 @@ public static class Constants
         public const string InvalidTalentCode = "Invalid talent code";
         public const string BuildCodeRequired = "Build code required";
         public const string InvalidBuildCodeFormat = "Invalid build code format";
+        public const string DatabaseUnavailable = "Database is temporarily unavailable";
+        public const string InternalServerError = "An unexpected error occurred";
+        public const string RequestCancelled = "Request was cancelled";
     }
 
     /// <summary>

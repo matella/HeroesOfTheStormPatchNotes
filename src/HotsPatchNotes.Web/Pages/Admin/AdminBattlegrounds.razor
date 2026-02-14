@@ -1,0 +1,140 @@
+@page "/admin/battlegrounds"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IAdminService AdminService
+
+<PageTitle>Admin - Battlegrounds</PageTitle>
+
+<div class="admin-page">
+    <a href="/admin" class="back-link">← Back to Admin</a>
+    <h1>Manage Battlegrounds</h1>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="status-message @(saveSuccess ? "success" : "error")">@statusMessage</div>
+    }
+
+    @if (loading)
+    {
+        <p class="loading-text">Loading battlegrounds...</p>
+    }
+    else
+    {
+        <div class="bg-list">
+            @foreach (var bg in battlegrounds)
+            {
+                <div class="bg-edit-card">
+                    <div class="bg-header">
+                        <h3>@bg.Name</h3>
+                        <div class="bg-actions">
+                            @if (editingId == bg.Id)
+                            {
+                                <button class="btn-save-small" @onclick="() => SaveAsync(bg)">Save</button>
+                                <button class="btn-cancel" @onclick="() => editingId = null">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn-edit" @onclick="() => editingId = bg.Id">Edit</button>
+                                <button class="btn-delete" @onclick="() => DeleteAsync(bg)">Delete</button>
+                            }
+                        </div>
+                    </div>
+
+                    @if (editingId == bg.Id)
+                    {
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" @bind="bg.Name" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Short Name</label>
+                                <input type="text" @bind="bg.ShortName" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Map Type</label>
+                                <input type="text" @bind="bg.MapType" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Universe</label>
+                                <input type="text" @bind="bg.Universe" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Objective Timing</label>
+                                <input type="text" @bind="bg.ObjectiveTiming" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Image URL</label>
+                                <input type="text" @bind="bg.ImageUrl" class="form-input" />
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Description</label>
+                            <textarea @bind="bg.Description" class="form-textarea" rows="3"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Objective</label>
+                            <textarea @bind="bg.Objective" class="form-textarea" rows="3"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Tips</label>
+                            <textarea @bind="bg.Tips" class="form-textarea" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" @bind="bg.IsInRotation" />
+                                In Rotation
+                            </label>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="bg-summary">
+                            <span class="badge">@bg.MapType</span>
+                            <span class="badge">@bg.Universe</span>
+                            <span>@(bg.IsInRotation ? "In Rotation" : "Removed")</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<AdminBattlegroundDto> battlegrounds = [];
+    private bool loading = true;
+    private int? editingId;
+    private string? statusMessage;
+    private bool saveSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            battlegrounds = await AdminService.GetBattlegroundsAsync();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SaveAsync(AdminBattlegroundDto bg)
+    {
+        saveSuccess = await AdminService.UpdateBattlegroundAsync(bg);
+        statusMessage = saveSuccess ? $"Saved: {bg.Name}" : "Failed to save.";
+        editingId = null;
+    }
+
+    private async Task DeleteAsync(AdminBattlegroundDto bg)
+    {
+        var success = await AdminService.DeleteBattlegroundAsync(bg.Id);
+        if (success)
+        {
+            battlegrounds.Remove(bg);
+            statusMessage = $"Deleted: {bg.Name}";
+            saveSuccess = true;
+        }
+    }
+}

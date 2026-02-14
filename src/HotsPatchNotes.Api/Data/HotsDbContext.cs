@@ -56,6 +56,10 @@ public class HotsDbContext : DbContext
             entity.Property(e => e.Icon).HasMaxLength(255);
             entity.Property(e => e.Type).HasMaxLength(50);
             entity.Property(e => e.FormName).HasMaxLength(100);
+            entity.Property(e => e.Scaling).HasMaxLength(100);
+            entity.Property(e => e.CastTime).HasMaxLength(100);
+            entity.Property(e => e.Range).HasMaxLength(100);
+            entity.Property(e => e.AreaOfEffect).HasMaxLength(200);
 
             entity.HasOne(e => e.Hero)
                 .WithMany(h => h.Abilities)
@@ -74,6 +78,8 @@ public class HotsDbContext : DbContext
             entity.Property(e => e.Icon).HasMaxLength(255);
             entity.Property(e => e.Type).HasMaxLength(50);
             entity.Property(e => e.AbilityId).HasMaxLength(100);
+            entity.Property(e => e.LinkedAbilityName).HasMaxLength(200);
+            entity.Property(e => e.Properties).HasMaxLength(500);
 
             entity.HasOne(e => e.Hero)
                 .WithMany(h => h.Talents)

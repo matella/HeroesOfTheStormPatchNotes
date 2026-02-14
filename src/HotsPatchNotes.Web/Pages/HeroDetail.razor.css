@@ -65,11 +65,18 @@
 
 .hero-title h1 {
     font-size: 2.5rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.25rem;
     background: linear-gradient(90deg, #fff, #00d4ff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+
+.hero-subtitle {
+    font-size: 1.1rem;
+    color: #aaa;
+    font-style: italic;
+    margin: 0 0 0.75rem 0;
 }
 
 .hero-meta {
@@ -98,6 +105,9 @@
 .role-melee-assassin { background: rgba(239, 68, 68, 0.3) !important; color: #fca5a5; }
 .role-ranged-assassin { background: rgba(249, 115, 22, 0.3) !important; color: #fdba74; }
 
+.universe { background: rgba(0, 212, 255, 0.15) !important; color: #00d4ff; }
+.difficulty { background: rgba(255, 193, 7, 0.15) !important; color: #ffc107; }
+
 .hero-tags {
     display: flex;
     flex-wrap: wrap;
@@ -112,6 +122,47 @@
     color: #888;
 }
 
+/* Base Stats */
+.base-stats {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.base-stats h3 {
+    font-size: 1.1rem;
+    color: #00d4ff;
+    margin: 0 0 1rem 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* Section headers with toggle */
 .section {
     margin-bottom: 3rem;
 }
@@ -123,6 +174,100 @@
     border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.toggle-btn {
+    padding: 0.35rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+    background: rgba(0, 212, 255, 0.15);
+    color: #00d4ff;
+    border-color: rgba(0, 212, 255, 0.3);
+}
+
+/* Collapsed state */
+.collapsed-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.collapsed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.collapsed-item:hover {
+    border-color: rgba(0, 212, 255, 0.3);
+}
+
+.collapsed-name {
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.ability-icon.small, .talent-icon.small {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.ability-icon.small img, .talent-icon.small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hotkey.small {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    background: #00d4ff;
+    color: #000;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: bold;
+}
+
+.collapsed-talents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Talents header */
 .talents-header {
     display: flex;
     justify-content: space-between;
@@ -138,6 +283,12 @@
     margin-bottom: 0;
     padding-bottom: 0;
     border-bottom: none;
+}
+
+.talents-title-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .build-code-display {
@@ -370,44 +521,15 @@
     color: #00d4ff;
 }
 
-@media (max-width: 768px) {
-    .hero-header {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-    
-    .hero-meta {
-        justify-content: center;
-    }
-    
-    .hero-tags {
-        justify-content: center;
-    }
-    
-    .abilities-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .talent-tier {
-        flex-direction: column;
-    }
-    
-    .tier-level {
-        width: 100%;
-        flex-direction: row;
-        justify-content: flex-start;
-        gap: 1rem;
-    }
-    
-    .tier-talents {
-        grid-template-columns: 1fr;
-    }
-}
-
 /* Patch History Section */
 .patch-history-section {
     margin-top: 2rem;
+}
+
+.patch-count {
+    font-size: 0.9rem;
+    color: #888;
+    font-weight: normal;
 }
 
 .loading-text, .no-patches {
@@ -419,27 +541,38 @@
 .patch-history-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .patch-item {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    padding: 1rem 1.5rem;
+    overflow: hidden;
 }
 
 .patch-item:hover {
     border-color: rgba(0, 212, 255, 0.3);
 }
 
-.patch-header {
+.patch-item-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.patch-item-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.patch-item-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .patch-name {
@@ -453,41 +586,91 @@
     text-decoration: underline;
 }
 
+.patch-type-badge {
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #aaa;
+}
+
+.patch-item-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
 .patch-date {
     color: #888;
     font-size: 0.9rem;
 }
 
-.patch-content {
-    font-size: 0.95rem;
-    line-height: 1.6;
+.expand-icon {
+    color: #666;
+    font-size: 0.9rem;
 }
 
-.patch-content ul {
+.patch-item-content {
+    padding: 0 1.5rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.patch-section-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #ccc;
+    padding: 0.75rem 0;
+}
+
+.patch-section-content ul {
     margin: 0;
     padding-left: 1.5rem;
 }
 
-.patch-content li {
+.patch-section-content li {
     margin-bottom: 0.25rem;
 }
 
-.patch-content li.nested {
-    margin-left: 1.5rem;
-}
-
-.btn-show-more {
-    margin-top: 1rem;
-    padding: 0.5rem 1.25rem;
-    background: rgba(0, 212, 255, 0.15);
+.patch-section-content strong {
     color: #00d4ff;
-    border: 1px solid rgba(0, 212, 255, 0.3);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
 }
 
-.btn-show-more:hover {
-    background: rgba(0, 212, 255, 0.25);
+@media (max-width: 768px) {
+    .hero-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .hero-meta {
+        justify-content: center;
+    }
+
+    .hero-tags {
+        justify-content: center;
+    }
+
+    .abilities-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .talent-tier {
+        flex-direction: column;
+    }
+
+    .tier-level {
+        width: 100%;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 1rem;
+    }
+
+    .tier-talents {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }

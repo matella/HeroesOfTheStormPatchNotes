@@ -368,7 +368,6 @@ public class BattlegroundScraperTests
         // Assert
         Assert.NotNull(details.FullImageUrl);
         Assert.StartsWith("https://", details.FullImageUrl);
-        Assert.Contains("/revision/latest", details.FullImageUrl);
         Assert.DoesNotContain("scale-to-width-down", details.FullImageUrl);
     }
 

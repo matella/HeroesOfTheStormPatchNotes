@@ -1,0 +1,249 @@
+@page "/admin/heroes/{Id:int}"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IAdminService AdminService
+@inject NavigationManager Navigation
+
+<PageTitle>Admin - Edit Hero</PageTitle>
+
+<div class="admin-page">
+    <a href="/admin/heroes" class="back-link">← Back to Heroes</a>
+
+    @if (hero is null)
+    {
+        <p class="loading-text">Loading hero...</p>
+    }
+    else
+    {
+        <h1>Edit: @hero.Name</h1>
+
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <div class="status-message @(saveSuccess ? "success" : "error")">@statusMessage</div>
+        }
+
+        <div class="edit-sections">
+            <div class="edit-section">
+                <h2>Basic Info</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" @bind="hero.Name" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Short Name</label>
+                        <input type="text" @bind="hero.ShortName" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" @bind="hero.Title" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Expanded Role</label>
+                        <input type="text" @bind="hero.ExpandedRole" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <input type="text" @bind="hero.Type" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Universe</label>
+                        <input type="text" @bind="hero.Universe" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Difficulty</label>
+                        <input type="text" @bind="hero.Difficulty" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Wiki URL</label>
+                        <input type="text" @bind="hero.WikiUrl" class="form-input" />
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Description</label>
+                    <textarea @bind="hero.Description" class="form-textarea" rows="3"></textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label>Lore</label>
+                    <textarea @bind="hero.Lore" class="form-textarea" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="edit-section">
+                <h2>Base Stats</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Health</label>
+                        <input type="number" @bind="hero.BaseHealth" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Health Regen</label>
+                        <input type="number" step="0.01" @bind="hero.HealthRegen" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Mana</label>
+                        <input type="number" @bind="hero.BaseMana" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Mana Regen</label>
+                        <input type="number" step="0.01" @bind="hero.ManaRegen" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Attack Damage</label>
+                        <input type="number" step="0.1" @bind="hero.BaseAttackDamage" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Attack Speed</label>
+                        <input type="number" step="0.01" @bind="hero.AttackSpeed" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Attack Range</label>
+                        <input type="number" step="0.1" @bind="hero.AttackRange" class="form-input" />
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-save" @onclick="SaveHeroAsync" disabled="@saving">
+                @(saving ? "Saving..." : "Save Hero")
+            </button>
+        </div>
+
+        <div class="edit-section">
+            <h2>Abilities (@abilities.Count)</h2>
+            @foreach (var ability in abilities)
+            {
+                <div class="inline-edit-card">
+                    <div class="inline-header">
+                        <strong>@ability.Name</strong>
+                        @if (!string.IsNullOrEmpty(ability.Hotkey))
+                        {
+                            <span class="badge">@ability.Hotkey</span>
+                        }
+                        <span class="badge">@ability.Type</span>
+                    </div>
+                    <div class="form-grid compact">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" @bind="ability.Name" class="form-input" />
+                        </div>
+                        <div class="form-group">
+                            <label>Cooldown</label>
+                            <input type="number" step="0.1" @bind="ability.Cooldown" class="form-input" />
+                        </div>
+                        <div class="form-group">
+                            <label>Mana Cost</label>
+                            <input type="text" @bind="ability.ManaCost" class="form-input" />
+                        </div>
+                        <div class="form-group">
+                            <label>Scaling</label>
+                            <input type="text" @bind="ability.Scaling" class="form-input" />
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Description</label>
+                        <textarea @bind="ability.Description" class="form-textarea" rows="2"></textarea>
+                    </div>
+                    <button class="btn-save-small" @onclick="() => SaveAbilityAsync(ability)">Save</button>
+                </div>
+            }
+        </div>
+
+        <div class="edit-section">
+            <h2>Talents (@talents.Count)</h2>
+            @foreach (var group in talents.GroupBy(t => t.Level).OrderBy(g => g.Key))
+            {
+                <h3 class="tier-heading">Level @group.Key</h3>
+                @foreach (var talent in group.OrderBy(t => t.Sort))
+                {
+                    <div class="inline-edit-card">
+                        <div class="inline-header">
+                            <strong>@talent.Name</strong>
+                            @if (!string.IsNullOrEmpty(talent.Type))
+                            {
+                                <span class="badge">@talent.Type</span>
+                            }
+                        </div>
+                        <div class="form-grid compact">
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" @bind="talent.Name" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Cooldown</label>
+                                <input type="number" step="0.1" @bind="talent.Cooldown" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Linked Ability</label>
+                                <input type="text" @bind="talent.LinkedAbilityName" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Properties</label>
+                                <input type="text" @bind="talent.Properties" class="form-input" />
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Description</label>
+                            <textarea @bind="talent.Description" class="form-textarea" rows="2"></textarea>
+                        </div>
+                        <button class="btn-save-small" @onclick="() => SaveTalentAsync(talent)">Save</button>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private AdminHeroDto? hero;
+    private List<AdminAbilityDto> abilities = [];
+    private List<AdminTalentDto> talents = [];
+    private bool saving;
+    private string? statusMessage;
+    private bool saveSuccess;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var result = await AdminService.GetHeroesAsync(1, 1000);
+        hero = result?.Items.FirstOrDefault(h => h.Id == Id);
+
+        if (hero is not null)
+        {
+            abilities = await AdminService.GetAbilitiesAsync(Id);
+            talents = await AdminService.GetTalentsAsync(Id);
+        }
+    }
+
+    private async Task SaveHeroAsync()
+    {
+        if (hero is null) return;
+        saving = true;
+        statusMessage = null;
+
+        try
+        {
+            saveSuccess = await AdminService.UpdateHeroAsync(hero);
+            statusMessage = saveSuccess ? "Hero saved successfully." : "Failed to save hero.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task SaveAbilityAsync(AdminAbilityDto ability)
+    {
+        var success = await AdminService.UpdateAbilityAsync(ability);
+        statusMessage = success ? $"Saved ability: {ability.Name}" : $"Failed to save ability: {ability.Name}";
+        saveSuccess = success;
+    }
+
+    private async Task SaveTalentAsync(AdminTalentDto talent)
+    {
+        var success = await AdminService.UpdateTalentAsync(talent);
+        statusMessage = success ? $"Saved talent: {talent.Name}" : $"Failed to save talent: {talent.Name}";
+        saveSuccess = success;
+    }
+}

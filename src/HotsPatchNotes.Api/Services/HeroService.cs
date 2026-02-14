@@ -222,6 +222,9 @@ public sealed partial class HeroService(
             WikiUrl = hero.WikiUrl,
             SplashArtUrl = hero.SplashArtUrl,
             BaseHealth = hero.BaseHealth,
+            HealthRegen = hero.HealthRegen,
+            BaseMana = hero.BaseMana,
+            ManaRegen = hero.ManaRegen,
             BaseAttackDamage = hero.BaseAttackDamage,
             AttackSpeed = hero.AttackSpeed,
             AttackRange = hero.AttackRange
@@ -242,7 +245,11 @@ public sealed partial class HeroService(
                     ManaCost = a.ManaCost,
                     Icon = a.Icon,
                     Type = a.Type,
-                    IsTrait = a.IsTrait
+                    IsTrait = a.IsTrait,
+                    Scaling = a.Scaling,
+                    CastTime = a.CastTime,
+                    Range = a.Range,
+                    AreaOfEffect = a.AreaOfEffect
                 }).ToList()
             );
 
@@ -262,7 +269,9 @@ public sealed partial class HeroService(
                     Sort = t.Sort,
                     Cooldown = t.Cooldown,
                     AbilityId = t.AbilityId,
-                    AbilityLinks = DeserializeJsonList(t.AbilityLinksJson)
+                    AbilityLinks = DeserializeJsonList(t.AbilityLinksJson),
+                    LinkedAbilityName = t.LinkedAbilityName,
+                    Properties = t.Properties
                 }).ToList()
             );
 

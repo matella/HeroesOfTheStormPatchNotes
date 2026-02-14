@@ -86,5 +86,6 @@ public static class Constants
         public const string Heroes = "api/heroes";
         public const string Patches = "api/patches";
         public const string Battlegrounds = "api/battlegrounds";
+        public const string Admin = "api/admin";
     }
 }

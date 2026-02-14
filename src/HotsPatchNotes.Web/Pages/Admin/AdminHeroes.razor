@@ -1,0 +1,119 @@
+@page "/admin/heroes"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IAdminService AdminService
+@inject NavigationManager Navigation
+
+<PageTitle>Admin - Heroes</PageTitle>
+
+<div class="admin-page">
+    <a href="/admin" class="back-link">← Back to Admin</a>
+    <h1>Manage Heroes</h1>
+
+    <div class="search-bar">
+        <input type="text" @bind="searchTerm" @bind:event="oninput" placeholder="Search heroes..." class="search-input" />
+        <button class="btn-search" @onclick="SearchAsync">Search</button>
+    </div>
+
+    @if (loading)
+    {
+        <p class="loading-text">Loading heroes...</p>
+    }
+    else if (result is null)
+    {
+        <p class="error-text">Failed to load heroes.</p>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Type</th>
+                        <th>Universe</th>
+                        <th>Stats</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var hero in result.Items)
+                    {
+                        <tr>
+                            <td>
+                                <a href="/hero/@hero.ShortName" class="hero-link">@hero.Name</a>
+                                @if (!string.IsNullOrEmpty(hero.Title))
+                                {
+                                    <span class="subtitle">@hero.Title</span>
+                                }
+                            </td>
+                            <td>@hero.ExpandedRole</td>
+                            <td>@hero.Type</td>
+                            <td>@hero.Universe</td>
+                            <td>
+                                <span class="stat-badge">@hero.AbilityCount A</span>
+                                <span class="stat-badge">@hero.TalentCount T</span>
+                            </td>
+                            <td>
+                                <a href="/admin/heroes/@hero.Id" class="btn-edit">Edit</a>
+                                <button class="btn-delete" @onclick="() => DeleteHeroAsync(hero)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (result.TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="btn-page" disabled="@(currentPage <= 1)" @onclick="() => LoadPageAsync(currentPage - 1)">Previous</button>
+                <span class="page-info">Page @currentPage of @result.TotalPages (@result.TotalCount total)</span>
+                <button class="btn-page" disabled="@(currentPage >= result.TotalPages)" @onclick="() => LoadPageAsync(currentPage + 1)">Next</button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private PagedResult<AdminHeroDto>? result;
+    private bool loading = true;
+    private string searchTerm = "";
+    private int currentPage = 1;
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPageAsync(1);
+    }
+
+    private async Task LoadPageAsync(int page)
+    {
+        loading = true;
+        currentPage = page;
+        try
+        {
+            result = await AdminService.GetHeroesAsync(page, 20, string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        await LoadPageAsync(1);
+    }
+
+    private async Task DeleteHeroAsync(AdminHeroDto hero)
+    {
+        var success = await AdminService.DeleteHeroAsync(hero.Id);
+        if (success)
+        {
+            statusMessage = $"Deleted {hero.Name}";
+            await LoadPageAsync(currentPage);
+        }
+    }
+}

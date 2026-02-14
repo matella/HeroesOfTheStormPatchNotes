@@ -68,6 +68,16 @@ public class Talent
     public string? AbilityLinksJson { get; set; }
 
     /// <summary>
+    /// Display name of the ability this talent modifies
+    /// </summary>
+    public string? LinkedAbilityName { get; set; }
+
+    /// <summary>
+    /// Additional properties/tags from wiki (e.g., "Spell Armor", "Spell Power")
+    /// </summary>
+    public string? Properties { get; set; }
+
+    /// <summary>
     /// Navigation property to the hero.
     /// </summary>
     public virtual Hero? Hero { get; set; }

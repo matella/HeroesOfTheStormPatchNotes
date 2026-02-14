@@ -1,0 +1,28 @@
+@page "/admin"
+@using HotsPatchNotes.Web.Services
+@inject IAdminService AdminService
+
+<PageTitle>Admin Dashboard - HotS Patch Notes</PageTitle>
+
+<div class="admin-page">
+    <h1>Admin Dashboard</h1>
+    <p class="admin-desc">Manage heroes, patches, and battlegrounds in the database.</p>
+
+    <div class="admin-cards">
+        <a href="/admin/heroes" class="admin-card">
+            <div class="card-icon">&#9876;</div>
+            <h2>Heroes</h2>
+            <p>Edit hero details, abilities, talents, and base stats</p>
+        </a>
+        <a href="/admin/patches" class="admin-card">
+            <div class="card-icon">&#128220;</div>
+            <h2>Patches</h2>
+            <p>Manage patch notes, dates, and metadata</p>
+        </a>
+        <a href="/admin/battlegrounds" class="admin-card">
+            <div class="card-icon">&#127758;</div>
+            <h2>Battlegrounds</h2>
+            <p>Edit battleground info, objectives, and images</p>
+        </a>
+    </div>
+</div>

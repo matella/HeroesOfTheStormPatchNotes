@@ -60,7 +60,9 @@ public sealed partial class GitHubSyncService(
     HttpClient httpClient,
     ILogger<GitHubSyncService> logger,
     IHtmlContentService htmlContentService,
-    IBattlegroundScraper battlegroundScraper) : IGitHubSyncService
+    IBattlegroundScraper battlegroundScraper,
+    IImageDownloadService imageDownloadService,
+    IHeroScraper heroScraper) : IGitHubSyncService
 {
     private const string HeroesBaseUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/hero/";
     private const string HeroListUrl = "https://api.github.com/repos/heroespatchnotes/heroes-talents/contents/hero";
@@ -1105,23 +1107,116 @@ public sealed partial class GitHubSyncService(
             dbContext.Talents.RemoveRange(existingHero.Talents);
         }
 
-        MapHeroData(heroData, existingHero);
+        await MapHeroDataAsync(heroData, existingHero, cancellationToken);
+
+        // Enrich with wiki data
+        try
+        {
+            var wikiUrl = existingHero.WikiUrl ?? heroScraper.GetWikiUrl(existingHero.Name);
+            var wikiDetails = await heroScraper.GetHeroDetailsAsync(wikiUrl, cancellationToken);
+            EnrichHeroWithWikiData(existingHero, wikiDetails);
+
+            // Rate limiting between wiki requests
+            await Task.Delay(2000, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to enrich hero {HeroName} with wiki data", existingHero.Name);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogDebug("Synced hero: {HeroName}", existingHero.Name);
     }
 
-    private void MapHeroData(GitHubHeroData data, Hero hero)
+    private static void EnrichHeroWithWikiData(Hero hero, HeroWikiDetailInfo wikiDetails)
+    {
+        // Only update fields that are empty or where wiki data provides richer info
+        hero.WikiUrl ??= $"https://heroesofthestorm.fandom.com/wiki/{Uri.EscapeDataString(hero.Name.Replace(" ", "_"))}";
+
+        if (!string.IsNullOrEmpty(wikiDetails.Title))
+            hero.Title ??= wikiDetails.Title;
+
+        if (!string.IsNullOrEmpty(wikiDetails.Universe))
+            hero.Universe ??= wikiDetails.Universe;
+
+        if (!string.IsNullOrEmpty(wikiDetails.Difficulty))
+            hero.Difficulty ??= wikiDetails.Difficulty;
+
+        if (!string.IsNullOrEmpty(wikiDetails.Description))
+            hero.Description ??= wikiDetails.Description;
+
+        if (!string.IsNullOrEmpty(wikiDetails.Lore))
+            hero.Lore ??= wikiDetails.Lore;
+
+        if (!string.IsNullOrEmpty(wikiDetails.SplashArtUrl))
+            hero.SplashArtUrl ??= wikiDetails.SplashArtUrl;
+
+        // Stats - only set if not already populated
+        hero.BaseHealth ??= wikiDetails.BaseHealth;
+        hero.HealthRegen ??= wikiDetails.HealthRegen;
+        hero.BaseMana ??= wikiDetails.BaseMana;
+        hero.ManaRegen ??= wikiDetails.ManaRegen;
+        hero.BaseAttackDamage ??= wikiDetails.BaseAttackDamage;
+        hero.AttackSpeed ??= wikiDetails.AttackSpeed;
+        hero.AttackRange ??= wikiDetails.AttackRange;
+
+        // Enrich abilities with wiki data
+        foreach (var wikiAbility in wikiDetails.Abilities)
+        {
+            var matchingAbility = hero.Abilities.FirstOrDefault(a =>
+                a.Name.Equals(wikiAbility.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingAbility is null) continue;
+
+            if (!string.IsNullOrEmpty(wikiAbility.Scaling))
+                matchingAbility.Scaling ??= wikiAbility.Scaling;
+            if (!string.IsNullOrEmpty(wikiAbility.CastTime))
+                matchingAbility.CastTime ??= wikiAbility.CastTime;
+            if (!string.IsNullOrEmpty(wikiAbility.Range))
+                matchingAbility.Range ??= wikiAbility.Range;
+            if (!string.IsNullOrEmpty(wikiAbility.AreaOfEffect))
+                matchingAbility.AreaOfEffect ??= wikiAbility.AreaOfEffect;
+        }
+
+        // Enrich talents with wiki data
+        foreach (var wikiTalent in wikiDetails.Talents)
+        {
+            var matchingTalent = hero.Talents.FirstOrDefault(t =>
+                t.Name.Equals(wikiTalent.Name, StringComparison.OrdinalIgnoreCase) &&
+                (wikiTalent.Level == 0 || t.Level == wikiTalent.Level));
+
+            if (matchingTalent is null) continue;
+
+            if (!string.IsNullOrEmpty(wikiTalent.LinkedAbilityName))
+                matchingTalent.LinkedAbilityName ??= wikiTalent.LinkedAbilityName;
+            if (!string.IsNullOrEmpty(wikiTalent.Properties))
+                matchingTalent.Properties ??= wikiTalent.Properties;
+        }
+    }
+
+    private async Task MapHeroDataAsync(GitHubHeroData data, Hero hero, CancellationToken cancellationToken)
     {
         hero.Name = data.Name ?? hero.ShortName;
         hero.HyperlinkId = data.HyperlinkId;
         hero.AttributeId = data.AttributeId;
-        hero.Icon = data.Icon;
         hero.Role = data.Role;
         hero.ExpandedRole = data.ExpandedRole;
         hero.Type = data.Type;
         hero.ReleasePatch = data.ReleasePatch;
         hero.LastSyncedAt = DateTime.UtcNow;
+
+        // Download hero icon if available
+        if (!string.IsNullOrEmpty(data.Icon))
+        {
+            var localIconPath = await imageDownloadService.DownloadImageAsync(
+                data.Icon,
+                "heroes",
+                hero.ShortName,
+                cancellationToken);
+
+            hero.Icon = localIconPath ?? data.Icon; // Use local path if download succeeded, otherwise keep original URL
+        }
 
         if (DateTime.TryParse(data.ReleaseDate, out var releaseDate))
         {
@@ -1337,12 +1432,33 @@ public sealed partial class GitHubSyncService(
             {
                 try
                 {
+                    logger.LogInformation("Processing battleground: {Name} (ShortName: {ShortName})", bgInfo.Name, bgInfo.ShortName);
+
                     // Check if battleground already exists
                     var existing = await dbContext.Battlegrounds
                         .FirstOrDefaultAsync(b => b.ShortName == bgInfo.ShortName, cancellationToken);
 
+                    if (existing != null)
+                    {
+                        logger.LogInformation("Found existing battleground with ShortName '{ShortName}': {Name}", bgInfo.ShortName, existing.Name);
+                    }
+
                     // Get detailed info
                     var details = await battlegroundScraper.GetBattlegroundDetailsAsync(bgInfo.WikiUrl, cancellationToken);
+
+                    // Download battleground image if available
+                    string? localImagePath = null;
+                    var sourceImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl;
+                    if (!string.IsNullOrEmpty(sourceImageUrl))
+                    {
+                        localImagePath = await imageDownloadService.DownloadImageAsync(
+                            sourceImageUrl,
+                            "battlegrounds",
+                            bgInfo.ShortName,
+                            cancellationToken);
+                    }
+
+                    var imageUrl = localImagePath ?? sourceImageUrl;
 
                     if (existing == null)
                     {
@@ -1358,7 +1474,7 @@ public sealed partial class GitHubSyncService(
                             MercCamps = htmlContentService.SanitizeHtml(details.MercCamps ?? ""),
                             BossInfo = htmlContentService.SanitizeHtml(details.BossInfo ?? ""),
                             Tips = htmlContentService.SanitizeHtml(details.Tips ?? ""),
-                            ImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl,
+                            ImageUrl = imageUrl,
                             Universe = bgInfo.Universe,
                             ReleaseDate = bgInfo.ReleaseDate,
                             IsInRotation = true
@@ -1378,7 +1494,7 @@ public sealed partial class GitHubSyncService(
                         existing.MercCamps = htmlContentService.SanitizeHtml(details.MercCamps ?? "");
                         existing.BossInfo = htmlContentService.SanitizeHtml(details.BossInfo ?? "");
                         existing.Tips = htmlContentService.SanitizeHtml(details.Tips ?? "");
-                        existing.ImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl ?? existing.ImageUrl;
+                        existing.ImageUrl = imageUrl ?? existing.ImageUrl;
                         existing.Universe = bgInfo.Universe;
                         existing.ReleaseDate = bgInfo.ReleaseDate ?? existing.ReleaseDate;
 
@@ -1386,6 +1502,9 @@ public sealed partial class GitHubSyncService(
                     }
 
                     syncedCount++;
+
+                    // Save changes after each battleground to avoid UNIQUE constraint violations
+                    await dbContext.SaveChangesAsync(cancellationToken);
 
                     // Rate limiting - wait 2 seconds between requests
                     await Task.Delay(2000, cancellationToken);
@@ -1396,8 +1515,6 @@ public sealed partial class GitHubSyncService(
                     result.Errors.Add($"Failed to sync {bgInfo.Name}: {ex.Message}");
                 }
             }
-
-            await dbContext.SaveChangesAsync(cancellationToken);
 
             result.Success = true;
             result.HeroesUpdated = syncedCount; // Reuse counter

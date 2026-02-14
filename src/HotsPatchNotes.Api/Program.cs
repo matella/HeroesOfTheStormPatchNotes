@@ -48,8 +48,19 @@ builder.Services.AddScoped<IBattlegroundService, BattlegroundService>();
 builder.Services.AddSingleton(HtmlContentService.CreateSanitizer());
 builder.Services.AddScoped<IHtmlContentService, HtmlContentService>();
 
-// HttpClient for GitHub API and BattlegroundScraper
+// Register Image Download Service
+builder.Services.AddHttpClient<IImageDownloadService, ImageDownloadService>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// HttpClient for GitHub API, BattlegroundScraper, and HeroScraper
 builder.Services.AddHttpClient<IBattlegroundScraper, BattlegroundScraper>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+});
+builder.Services.AddHttpClient<IHeroScraper, HeroScraper>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
 });
@@ -114,6 +125,10 @@ else
 }
 
 app.UseHttpsRedirection();
+
+// Serve static files (for downloaded images)
+app.UseStaticFiles();
+
 app.UseResponseCaching();
 app.UseAuthorization();
 app.MapControllers();

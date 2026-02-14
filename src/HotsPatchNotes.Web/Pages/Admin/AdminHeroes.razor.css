@@ -1,0 +1,140 @@
+.admin-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 0;
+}
+
+.admin-page h1 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.back-link {
+    color: #00d4ff;
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+.back-link:hover { text-decoration: underline; }
+
+.search-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.95rem;
+}
+
+.btn-search {
+    padding: 0.5rem 1.25rem;
+    background: rgba(0, 212, 255, 0.2);
+    color: #00d4ff;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.table-container { overflow-x: auto; }
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th, .admin-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-table th {
+    color: #888;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.hero-link {
+    color: #00d4ff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.hero-link:hover { text-decoration: underline; }
+
+.subtitle {
+    display: block;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.stat-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-right: 0.25rem;
+}
+
+.btn-edit {
+    padding: 0.3rem 0.75rem;
+    background: rgba(0, 212, 255, 0.15);
+    color: #00d4ff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-delete {
+    padding: 0.3rem 0.75rem;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-edit:hover { background: rgba(0, 212, 255, 0.25); }
+.btn-delete:hover { background: rgba(239, 68, 68, 0.25); }
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding: 1rem;
+}
+
+.btn-page {
+    padding: 0.4rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-page:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.page-info { color: #888; font-size: 0.9rem; }
+.loading-text { color: #888; font-style: italic; }
+.error-text { color: #fca5a5; }

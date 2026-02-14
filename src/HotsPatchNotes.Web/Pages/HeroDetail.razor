@@ -25,17 +25,29 @@ else
 {
     <div class="hero-detail">
         <a href="/" class="back-link">← Back to Heroes</a>
-        
+
         <div class="hero-header">
             <div class="hero-portrait">
-                <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? hero.ShortName + ".png")" 
+                <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? hero.ShortName + ".png")"
                      alt="@hero.Name" />
             </div>
             <div class="hero-title">
                 <h1>@hero.Name</h1>
+                @if (!string.IsNullOrEmpty(hero.Title))
+                {
+                    <p class="hero-subtitle">@hero.Title</p>
+                }
                 <div class="hero-meta">
                     <span class="role role-@(hero.ExpandedRole?.ToLower().Replace(" ", "-"))">@hero.ExpandedRole</span>
                     <span class="type">@hero.Type</span>
+                    @if (!string.IsNullOrEmpty(hero.Universe))
+                    {
+                        <span class="universe">@hero.Universe</span>
+                    }
+                    @if (!string.IsNullOrEmpty(hero.Difficulty))
+                    {
+                        <span class="difficulty">@hero.Difficulty</span>
+                    }
                     @if (hero.ReleaseDate.HasValue)
                     {
                         <span class="release">Released @hero.ReleaseDate.Value.ToString("MMM d, yyyy")</span>
@@ -53,46 +65,135 @@ else
             </div>
         </div>
 
-        <div class="section">
-            <h2>Abilities</h2>
-            @foreach (var (formName, abilities) in hero.Abilities)
-            {
-                @if (hero.Abilities.Count > 1)
-                {
-                    <h3 class="form-name">@FormatFormName(formName)</h3>
-                }
-                <div class="abilities-grid">
-                    @foreach (var ability in abilities.OrderBy(a => GetAbilityOrder(a)))
+        @if (HasBaseStats())
+        {
+            <div class="base-stats">
+                <h3>Base Stats</h3>
+                <div class="stats-grid">
+                    @if (hero.BaseHealth.HasValue)
                     {
-                        <div class="ability-card">
-                            <div class="ability-header">
-                                <div class="ability-icon">
-                                    <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@ability.Icon" 
+                        <div class="stat-item">
+                            <span class="stat-label">Health</span>
+                            <span class="stat-value">@hero.BaseHealth</span>
+                        </div>
+                    }
+                    @if (hero.HealthRegen.HasValue)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Health Regen</span>
+                            <span class="stat-value">@hero.HealthRegen.Value.ToString("F2")/s</span>
+                        </div>
+                    }
+                    @if (hero.BaseMana.HasValue)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Mana</span>
+                            <span class="stat-value">@hero.BaseMana</span>
+                        </div>
+                    }
+                    @if (hero.ManaRegen.HasValue)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Mana Regen</span>
+                            <span class="stat-value">@hero.ManaRegen.Value.ToString("F2")/s</span>
+                        </div>
+                    }
+                    @if (hero.BaseAttackDamage.HasValue)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Attack Damage</span>
+                            <span class="stat-value">@hero.BaseAttackDamage.Value.ToString("F0")</span>
+                        </div>
+                    }
+                    @if (hero.AttackSpeed.HasValue)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Attack Speed</span>
+                            <span class="stat-value">@hero.AttackSpeed.Value.ToString("F2")</span>
+                        </div>
+                    }
+                    @if (hero.AttackRange.HasValue)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Attack Range</span>
+                            <span class="stat-value">@hero.AttackRange.Value.ToString("F1")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="section">
+            <div class="section-header">
+                <h2>Abilities</h2>
+                <button class="toggle-btn" @onclick="() => showAbilities = !showAbilities">
+                    @(showAbilities ? "▾ Collapse" : "▸ Expand")
+                </button>
+            </div>
+            @if (showAbilities)
+            {
+                @foreach (var (formName, abilities) in hero.Abilities)
+                {
+                    @if (hero.Abilities.Count > 1)
+                    {
+                        <h3 class="form-name">@FormatFormName(formName)</h3>
+                    }
+                    <div class="abilities-grid">
+                        @foreach (var ability in abilities.OrderBy(a => GetAbilityOrder(a)))
+                        {
+                            <div class="ability-card">
+                                <div class="ability-header">
+                                    <div class="ability-icon">
+                                        <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@ability.Icon"
+                                             alt="@ability.Name"
+                                             onerror="this.style.display='none'" />
+                                    </div>
+                                    <div class="ability-info">
+                                        <h4>
+                                            @if (!string.IsNullOrEmpty(ability.Hotkey))
+                                            {
+                                                <span class="hotkey">@ability.Hotkey</span>
+                                            }
+                                            @ability.Name
+                                        </h4>
+                                        <div class="ability-meta">
+                                            @if (ability.Cooldown.HasValue)
+                                            {
+                                                <span>⏱ @ability.Cooldown s</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(ability.ManaCost))
+                                            {
+                                                <span>💧 @ability.ManaCost</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="ability-desc">@((MarkupString)FormatDescription(ability.Description ?? ""))</p>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="collapsed-list">
+                    @foreach (var (formName, abilities) in hero.Abilities)
+                    {
+                        @foreach (var ability in abilities.OrderBy(a => GetAbilityOrder(a)))
+                        {
+                            <div class="collapsed-item">
+                                <div class="ability-icon small">
+                                    <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@ability.Icon"
                                          alt="@ability.Name"
                                          onerror="this.style.display='none'" />
                                 </div>
-                                <div class="ability-info">
-                                    <h4>
-                                        @if (!string.IsNullOrEmpty(ability.Hotkey))
-                                        {
-                                            <span class="hotkey">@ability.Hotkey</span>
-                                        }
-                                        @ability.Name
-                                    </h4>
-                                    <div class="ability-meta">
-                                        @if (ability.Cooldown.HasValue)
-                                        {
-                                            <span>⏱ @ability.Cooldown s</span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(ability.ManaCost))
-                                        {
-                                            <span>💧 @ability.ManaCost</span>
-                                        }
-                                    </div>
-                                </div>
+                                @if (!string.IsNullOrEmpty(ability.Hotkey))
+                                {
+                                    <span class="hotkey small">@ability.Hotkey</span>
+                                }
+                                <span class="collapsed-name">@ability.Name</span>
                             </div>
-                            <p class="ability-desc">@((MarkupString)FormatDescription(ability.Description ?? ""))</p>
-                        </div>
+                        }
                     }
                 </div>
             }
@@ -100,7 +201,12 @@ else
 
         <div class="section">
             <div class="talents-header">
-                <h2>Talents</h2>
+                <div class="talents-title-row">
+                    <h2>Talents</h2>
+                    <button class="toggle-btn" @onclick="() => showTalents = !showTalents">
+                        @(showTalents ? "▾ Collapse" : "▸ Expand")
+                    </button>
+                </div>
                 @if (HasBuildSelected())
                 {
                     <div class="build-code-display sticky">
@@ -114,50 +220,140 @@ else
                     </div>
                 }
             </div>
-            <div class="talent-tree">
-                @foreach (var (level, talents) in hero.Talents.OrderBy(t => t.Key))
-                {
-                    <div class="talent-tier">
-                        <div class="tier-level">
-                            <span class="level-number">@level</span>
+            @if (showTalents)
+            {
+                <div class="talent-tree">
+                    @foreach (var (level, talents) in hero.Talents.OrderBy(t => t.Key))
+                    {
+                        <div class="talent-tier">
+                            <div class="tier-level">
+                                <span class="level-number">@level</span>
+                            </div>
+                            <div class="tier-talents">
+                                @{
+                                    var sortedTalents = talents.OrderBy(t => t.Sort).ToList();
+                                }
+                                @foreach (var talent in sortedTalents)
+                                {
+                                    var talentIndex = sortedTalents.IndexOf(talent) + 1;
+                                    var isSelected = selectedTalents.ContainsKey(level) && selectedTalents[level] == talentIndex;
+                                    <div class="talent-card @(isSelected ? "selected" : "")"
+                                         @onclick="() => SelectTalent(level, talentIndex)">
+                                        @if (isSelected)
+                                        {
+                                            <span class="selected-indicator">✓</span>
+                                        }
+                                        <div class="talent-icon">
+                                            <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@talent.Icon"
+                                                 alt="@talent.Name"
+                                                 onerror="this.style.display='none'" />
+                                        </div>
+                                        <div class="talent-info">
+                                            <h4>@talent.Name</h4>
+                                            @if (!string.IsNullOrEmpty(talent.Type))
+                                            {
+                                                <span class="talent-type">@talent.Type</span>
+                                            }
+                                            <p class="talent-desc">@((MarkupString)FormatDescription(talent.Description ?? ""))</p>
+                                            @if (talent.Cooldown.HasValue)
+                                            {
+                                                <span class="talent-cooldown">⏱ @talent.Cooldown s cooldown</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
-                        <div class="tier-talents">
-                            @{
-                                var sortedTalents = talents.OrderBy(t => t.Sort).ToList();
-                            }
-                            @foreach (var talent in sortedTalents)
-                            {
-                                var talentIndex = sortedTalents.IndexOf(talent) + 1;
-                                var isSelected = selectedTalents.ContainsKey(level) && selectedTalents[level] == talentIndex;
-                                <div class="talent-card @(isSelected ? "selected" : "")" 
-                                     @onclick="() => SelectTalent(level, talentIndex)">
-                                    @if (isSelected)
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="talent-tree collapsed">
+                    @foreach (var (level, talents) in hero.Talents.OrderBy(t => t.Key))
+                    {
+                        <div class="talent-tier">
+                            <div class="tier-level">
+                                <span class="level-number">@level</span>
+                            </div>
+                            <div class="tier-talents collapsed-talents">
+                                @foreach (var talent in talents.OrderBy(t => t.Sort))
+                                {
+                                    <div class="collapsed-item" @onclick="() => showTalents = true">
+                                        <div class="talent-icon small">
+                                            <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@talent.Icon"
+                                                 alt="@talent.Name"
+                                                 onerror="this.style.display='none'" />
+                                        </div>
+                                        <span class="collapsed-name">@talent.Name</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="section patch-history-section">
+            <div class="section-header">
+                <h2>Patch History</h2>
+                @if (heroPatches.Any())
+                {
+                    <span class="patch-count">@heroPatches.Count patches</span>
+                }
+            </div>
+            @if (loadingPatches)
+            {
+                <p class="loading-text">Loading patch history...</p>
+            }
+            else if (!heroPatches.Any())
+            {
+                <p class="no-patches">No patch history found for this hero.</p>
+            }
+            else
+            {
+                <div class="patch-history-list">
+                    @foreach (var patchGroup in heroPatches
+                        .GroupBy(p => p.PatchId)
+                        .OrderByDescending(g => g.First().LiveDate))
+                    {
+                        var firstSection = patchGroup.First();
+                        var isExpanded = expandedPatches.Contains(firstSection.PatchId);
+                        <div class="patch-item">
+                            <div class="patch-item-header" @onclick="() => TogglePatch(firstSection.PatchId)">
+                                <div class="patch-item-info">
+                                    <a href="/patch/@firstSection.InternalId" class="patch-name" @onclick:stopPropagation="true">
+                                        @firstSection.PatchName
+                                    </a>
+                                    @if (!string.IsNullOrEmpty(firstSection.PatchType))
                                     {
-                                        <span class="selected-indicator">✓</span>
+                                        <span class="patch-type-badge">@firstSection.PatchType</span>
                                     }
-                                    <div class="talent-icon">
-                                        <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/talents/@talent.Icon" 
-                                             alt="@talent.Name"
-                                             onerror="this.style.display='none'" />
-                                    </div>
-                                    <div class="talent-info">
-                                        <h4>@talent.Name</h4>
-                                        @if (!string.IsNullOrEmpty(talent.Type))
-                                        {
-                                            <span class="talent-type">@talent.Type</span>
-                                        }
-                                        <p class="talent-desc">@((MarkupString)FormatDescription(talent.Description ?? ""))</p>
-                                        @if (talent.Cooldown.HasValue)
-                                        {
-                                            <span class="talent-cooldown">⏱ @talent.Cooldown s cooldown</span>
-                                        }
-                                    </div>
+                                </div>
+                                <div class="patch-item-right">
+                                    @if (firstSection.LiveDate.HasValue)
+                                    {
+                                        <span class="patch-date">@firstSection.LiveDate.Value.ToString("MMM d, yyyy")</span>
+                                    }
+                                    <span class="expand-icon">@(isExpanded ? "▾" : "▸")</span>
+                                </div>
+                            </div>
+                            @if (isExpanded)
+                            {
+                                <div class="patch-item-content">
+                                    @foreach (var section in patchGroup.OrderBy(s => s.Order))
+                                    {
+                                        <div class="patch-section-content">
+                                            @((MarkupString)section.Content)
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
-                    </div>
-                }
-            </div>
+                    }
+                </div>
+            }
         </div>
     </div>
 }
@@ -170,14 +366,20 @@ else
     private IJSRuntime JSRuntime { get; set; } = default!;
 
     private HeroDetailDto? hero;
+    private List<HeroPatchDto> heroPatches = [];
     private bool loading = true;
+    private bool loadingPatches = true;
+    private bool showAbilities = true;
+    private bool showTalents = true;
     private Dictionary<int, int> selectedTalents = new();
+    private HashSet<int> expandedPatches = [];
     private bool copied = false;
     private static readonly int[] TalentTiers = { 1, 4, 7, 10, 13, 16, 20 };
 
     protected override async Task OnParametersSetAsync()
     {
         loading = true;
+        loadingPatches = true;
         try
         {
             hero = await HeroService.GetHeroAsync(ShortName);
@@ -186,13 +388,43 @@ else
         {
             loading = false;
         }
+
+        if (hero is not null)
+        {
+            try
+            {
+                heroPatches = await HeroService.GetHeroPatchesAsync(ShortName);
+            }
+            finally
+            {
+                loadingPatches = false;
+            }
+        }
+        else
+        {
+            loadingPatches = false;
+        }
+    }
+
+    private void TogglePatch(int patchId)
+    {
+        if (!expandedPatches.Remove(patchId))
+        {
+            expandedPatches.Add(patchId);
+        }
+    }
+
+    private bool HasBaseStats()
+    {
+        return hero is not null && (hero.BaseHealth.HasValue || hero.BaseAttackDamage.HasValue ||
+               hero.AttackSpeed.HasValue || hero.AttackRange.HasValue ||
+               hero.HealthRegen.HasValue || hero.BaseMana.HasValue || hero.ManaRegen.HasValue);
     }
 
     private void SelectTalent(int level, int choice)
     {
         if (selectedTalents.ContainsKey(level) && selectedTalents[level] == choice)
         {
-            // Deselect if clicking the same talent
             selectedTalents.Remove(level);
         }
         else
@@ -235,8 +467,7 @@ else
 
     private string FormatTag(string tag)
     {
-        // Convert camelCase to Title Case with spaces
-        return string.Concat(tag.Select((c, i) => 
+        return string.Concat(tag.Select((c, i) =>
             i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
     }
 
@@ -266,7 +497,6 @@ else
 
     private string FormatDescription(string description)
     {
-        // Convert game text formatting to HTML
         return description
             .Replace("<n/>", "<br/>")
             .Replace("<s val=\"StandardTooltipHeader\">", "<strong>")

@@ -68,6 +68,26 @@ public class Ability
     public string? FormName { get; set; }
 
     /// <summary>
+    /// Damage scaling per level (e.g., "4%")
+    /// </summary>
+    public string? Scaling { get; set; }
+
+    /// <summary>
+    /// Cast time (e.g., "0.5 seconds")
+    /// </summary>
+    public string? CastTime { get; set; }
+
+    /// <summary>
+    /// Ability range
+    /// </summary>
+    public string? Range { get; set; }
+
+    /// <summary>
+    /// Area of effect description
+    /// </summary>
+    public string? AreaOfEffect { get; set; }
+
+    /// <summary>
     /// Navigation property to the hero.
     /// </summary>
     public virtual Hero? Hero { get; set; }

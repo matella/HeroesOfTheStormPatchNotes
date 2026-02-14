@@ -172,6 +172,17 @@
     line-height: 1.6;
 }
 
+/* Constrain images in battleground content */
+.formatted-content img,
+.section img,
+.patch-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1rem 0;
+    display: block;
+}
+
 .patch-history .patches-list {
     display: flex;
     flex-direction: column;

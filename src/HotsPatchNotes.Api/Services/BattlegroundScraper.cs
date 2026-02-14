@@ -46,7 +46,25 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
                     var nameLink = nameCell.SelectSingleNode(".//a");
                     if (nameLink == null) continue;
 
-                    var name = HtmlEntity.DeEntitize(nameLink.InnerText.Trim());
+                    // Get name from title attribute (both image and text links have it)
+                    // or from link text (second link contains the text)
+                    var name = nameLink.GetAttributeValue("title", "");
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        // Fallback: try to get text from second link
+                        var textLinks = nameCell.SelectNodes(".//a");
+                        if (textLinks != null && textLinks.Count > 1)
+                        {
+                            name = HtmlEntity.DeEntitize(textLinks[1].InnerText.Trim());
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        logger.LogWarning("Could not extract battleground name from cell");
+                        continue;
+                    }
+
                     var wikiPath = nameLink.GetAttributeValue("href", "");
                     var wikiUrl = wikiPath.StartsWith("http") ? wikiPath : FandomBaseUrl + wikiPath;
 
@@ -55,18 +73,17 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
                     var realm = HtmlEntity.DeEntitize(cells[5].InnerText.Trim());
                     var releaseDateText = HtmlEntity.DeEntitize(cells[6].InnerText.Trim());
 
-                    // Extract image if present
-                    var imageNode = nameCell.SelectSingleNode(".//img");
-                    var imageUrl = imageNode?.GetAttributeValue("src", null);
-                    if (!string.IsNullOrEmpty(imageUrl) && !imageUrl.StartsWith("http"))
-                    {
-                        imageUrl = "https:" + imageUrl;
-                    }
+                    // Skip thumbnail extraction - table images are placeholders
+                    // We'll get the real image from the detail page
+                    string? imageUrl = null;
+
+                    var shortName = GenerateShortName(name);
+                    logger.LogDebug("Parsed battleground: {Name} -> ShortName: {ShortName}", name, shortName);
 
                     battlegrounds.Add(new BattlegroundBasicInfo
                     {
                         Name = name,
-                        ShortName = GenerateShortName(name),
+                        ShortName = shortName,
                         WikiUrl = wikiUrl,
                         ObjectiveSummary = objective,
                         Lanes = ParseLanes(lanesText),
@@ -75,8 +92,6 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
                         ReleaseDate = ParseReleaseDate(releaseDateText),
                         ThumbnailUrl = imageUrl
                     });
-
-                    logger.LogDebug("Parsed battleground: {Name}", name);
                 }
                 catch (Exception ex)
                 {
@@ -170,16 +185,27 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
                 details.Tips = CleanWikiText(tipsSection.InnerText);
             }
 
-            // Extract high-res image
-            var imageNode = doc.DocumentNode.SelectSingleNode("//figure[contains(@class, 'pi-item')]//img | //div[@class='infobox-image']//img");
-            if (imageNode != null)
+            // Extract high-res image - Fandom wraps images in <a> tags, so get the href from parent link
+            var imageLink = doc.DocumentNode.SelectSingleNode("//figure[contains(@class, 'pi-item')]//a | //div[@class='infobox-image']//a");
+            if (imageLink != null)
             {
-                var imageSrc = imageNode.GetAttributeValue("src", null);
-                if (!string.IsNullOrEmpty(imageSrc))
+                var imageUrl = imageLink.GetAttributeValue("href", null);
+                if (!string.IsNullOrEmpty(imageUrl))
                 {
-                    details.FullImageUrl = imageSrc.StartsWith("http") ? imageSrc : "https:" + imageSrc;
-                    // Remove scale-to-width parameters to get full resolution
-                    details.FullImageUrl = details.FullImageUrl.Split('?')[0] + "/revision/latest";
+                    details.FullImageUrl = imageUrl.StartsWith("http") ? imageUrl : "https:" + imageUrl;
+                }
+            }
+            else
+            {
+                // Fallback: try to get src from img tag (in case structure is different)
+                var imageNode = doc.DocumentNode.SelectSingleNode("//figure[contains(@class, 'pi-item')]//img | //div[@class='infobox-image']//img");
+                if (imageNode != null)
+                {
+                    var imageSrc = imageNode.GetAttributeValue("src", null);
+                    if (!string.IsNullOrEmpty(imageSrc) && !imageSrc.StartsWith("data:"))
+                    {
+                        details.FullImageUrl = imageSrc.StartsWith("http") ? imageSrc : "https:" + imageSrc;
+                    }
                 }
             }
 
@@ -198,12 +224,29 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
     /// </summary>
     public static string GenerateShortName(string name)
     {
-        return name
-            .ToLowerInvariant()
+        if (string.IsNullOrWhiteSpace(name))
+            return "unknown";
+
+        // Convert to lowercase and remove special characters
+        var shortName = name.ToLowerInvariant();
+
+        // Remove common special characters
+        shortName = shortName
             .Replace("'", "")
-            .Replace(" ", "-")
             .Replace(":", "")
-            .Trim('-');
+            .Replace("(", "")
+            .Replace(")", "")
+            .Replace("[", "")
+            .Replace("]", "");
+
+        // Replace spaces and other separators with hyphens
+        shortName = System.Text.RegularExpressions.Regex.Replace(shortName, @"[^a-z0-9]+", "-");
+
+        // Remove leading/trailing hyphens and collapse multiple hyphens
+        shortName = System.Text.RegularExpressions.Regex.Replace(shortName, @"-+", "-");
+        shortName = shortName.Trim('-');
+
+        return string.IsNullOrEmpty(shortName) ? "unknown" : shortName;
     }
 
     /// <summary>

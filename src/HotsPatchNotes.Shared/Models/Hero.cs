@@ -140,6 +140,21 @@ public class Hero
     /// </summary>
     public double? AttackRange { get; set; }
 
+    /// <summary>
+    /// Health regeneration per second
+    /// </summary>
+    public double? HealthRegen { get; set; }
+
+    /// <summary>
+    /// Base mana at level 1
+    /// </summary>
+    public int? BaseMana { get; set; }
+
+    /// <summary>
+    /// Mana regeneration per second
+    /// </summary>
+    public double? ManaRegen { get; set; }
+
     // --- Navigation properties ---
 
     /// <summary>

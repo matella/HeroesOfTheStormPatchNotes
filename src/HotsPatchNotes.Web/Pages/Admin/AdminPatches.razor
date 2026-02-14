@@ -1,0 +1,153 @@
+@page "/admin/patches"
+@using HotsPatchNotes.Shared.DTOs
+@using HotsPatchNotes.Web.Services
+@inject IAdminService AdminService
+
+<PageTitle>Admin - Patches</PageTitle>
+
+<div class="admin-page">
+    <a href="/admin" class="back-link">← Back to Admin</a>
+    <h1>Manage Patches</h1>
+
+    <div class="search-bar">
+        <input type="text" @bind="searchTerm" @bind:event="oninput" placeholder="Search patches..." class="search-input" />
+        <button class="btn-search" @onclick="SearchAsync">Search</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="status-message @(saveSuccess ? "success" : "error")">@statusMessage</div>
+    }
+
+    @if (loading)
+    {
+        <p class="loading-text">Loading patches...</p>
+    }
+    else if (result is null)
+    {
+        <p class="error-text">Failed to load patches.</p>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Patch Name</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Source</th>
+                        <th>Content</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var patch in result.Items)
+                    {
+                        <tr>
+                            <td>
+                                @if (editingPatchId == patch.Id)
+                                {
+                                    <input type="text" @bind="patch.PatchName" class="form-input inline" />
+                                }
+                                else
+                                {
+                                    <a href="/patch/@patch.InternalId" class="hero-link">@patch.PatchName</a>
+                                }
+                            </td>
+                            <td>
+                                @if (editingPatchId == patch.Id)
+                                {
+                                    <input type="text" @bind="patch.PatchType" class="form-input inline" />
+                                }
+                                else
+                                {
+                                    @patch.PatchType
+                                }
+                            </td>
+                            <td>@patch.LiveDate?.ToString("yyyy-MM-dd")</td>
+                            <td>@patch.Source</td>
+                            <td>
+                                @(patch.HasContent ? "Yes" : "No")
+                                <span class="stat-badge">@patch.SectionCount sections</span>
+                            </td>
+                            <td>
+                                @if (editingPatchId == patch.Id)
+                                {
+                                    <button class="btn-save-small" @onclick="() => SavePatchAsync(patch)">Save</button>
+                                    <button class="btn-cancel" @onclick="() => editingPatchId = null">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="btn-edit" @onclick="() => editingPatchId = patch.Id">Edit</button>
+                                    <button class="btn-delete" @onclick="() => DeletePatchAsync(patch)">Delete</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (result.TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="btn-page" disabled="@(currentPage <= 1)" @onclick="() => LoadPageAsync(currentPage - 1)">Previous</button>
+                <span class="page-info">Page @currentPage of @result.TotalPages (@result.TotalCount total)</span>
+                <button class="btn-page" disabled="@(currentPage >= result.TotalPages)" @onclick="() => LoadPageAsync(currentPage + 1)">Next</button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private PagedResult<AdminPatchDto>? result;
+    private bool loading = true;
+    private string searchTerm = "";
+    private int currentPage = 1;
+    private int? editingPatchId;
+    private string? statusMessage;
+    private bool saveSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPageAsync(1);
+    }
+
+    private async Task LoadPageAsync(int page)
+    {
+        loading = true;
+        currentPage = page;
+        try
+        {
+            result = await AdminService.GetPatchesAsync(page, 20, string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        await LoadPageAsync(1);
+    }
+
+    private async Task SavePatchAsync(AdminPatchDto patch)
+    {
+        saveSuccess = await AdminService.UpdatePatchAsync(patch);
+        statusMessage = saveSuccess ? $"Saved: {patch.PatchName}" : "Failed to save patch.";
+        editingPatchId = null;
+    }
+
+    private async Task DeletePatchAsync(AdminPatchDto patch)
+    {
+        var success = await AdminService.DeletePatchAsync(patch.Id);
+        if (success)
+        {
+            statusMessage = $"Deleted: {patch.PatchName}";
+            saveSuccess = true;
+            await LoadPageAsync(currentPage);
+        }
+    }
+}

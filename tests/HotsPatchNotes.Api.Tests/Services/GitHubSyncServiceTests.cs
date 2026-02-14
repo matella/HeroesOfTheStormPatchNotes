@@ -22,6 +22,8 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockHttpClient = new HttpClient(); // Would need MockHttpMessageHandler for full test
         var mockHtmlService = new Mock<IHtmlContentService>();
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
 
         mockHtmlService
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
@@ -33,7 +35,9 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Assert - service created successfully
         Assert.NotNull(service);
@@ -75,12 +79,17 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockHtmlService = new Mock<IHtmlContentService>();
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act - would fail without HTTP mocking, but service structure is valid
         // In a full test, we'd mock HttpClient responses
@@ -100,12 +109,17 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockHtmlService = new Mock<IHtmlContentService>();
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act
         var result = await service.SyncPatchesFromGitHubAsync(CancellationToken.None);
@@ -132,12 +146,17 @@ public sealed class GitHubSyncServiceTests : TestBase
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
             .Returns<string>(html => html);
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -189,12 +208,17 @@ public sealed class GitHubSyncServiceTests : TestBase
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
             .Returns<string>(html => html);
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -265,12 +289,17 @@ public sealed class GitHubSyncServiceTests : TestBase
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
             .Returns<string>(html => html);
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -313,12 +342,17 @@ public sealed class GitHubSyncServiceTests : TestBase
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
             .Returns<string>(html => html);
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -339,12 +373,17 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockHtmlService = new Mock<IHtmlContentService>();
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act - would require extensive HTTP mocking for full test
         var result = await service.SyncPatchesFromBlueTrackerAsync(isInitialSync: true, CancellationToken.None);
@@ -363,12 +402,17 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockHtmlService = new Mock<IHtmlContentService>();
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
 
+        var mockImageDownloadService = new Mock<IImageDownloadService>();
+        var mockHeroScraper = new Mock<IHeroScraper>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
             NullLogger<GitHubSyncService>.Instance,
             mockHtmlService.Object,
-            mockBattlegroundScraper.Object);
+            mockBattlegroundScraper.Object,
+            mockImageDownloadService.Object,
+            mockHeroScraper.Object);
 
         // Act
         var result = await service.SyncPatchesFromBlueTrackerAsync(isInitialSync: false, CancellationToken.None);

@@ -52,6 +52,9 @@ public class HeroDetailDto
     public string? WikiUrl { get; set; }
     public string? SplashArtUrl { get; set; }
     public int? BaseHealth { get; set; }
+    public double? HealthRegen { get; set; }
+    public int? BaseMana { get; set; }
+    public double? ManaRegen { get; set; }
     public double? BaseAttackDamage { get; set; }
     public double? AttackSpeed { get; set; }
     public double? AttackRange { get; set; }
@@ -82,6 +85,10 @@ public class AbilityDto
     public string? Icon { get; set; }
     public string? Type { get; set; }
     public bool IsTrait { get; set; }
+    public string? Scaling { get; set; }
+    public string? CastTime { get; set; }
+    public string? Range { get; set; }
+    public string? AreaOfEffect { get; set; }
 }
 
 /// <summary>
@@ -99,6 +106,8 @@ public class TalentDto
     public double? Cooldown { get; set; }
     public string? AbilityId { get; set; }
     public List<string> AbilityLinks { get; set; } = [];
+    public string? LinkedAbilityName { get; set; }
+    public string? Properties { get; set; }
 }
 
 /// <summary>

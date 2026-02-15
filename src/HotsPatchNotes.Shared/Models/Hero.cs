@@ -155,6 +155,68 @@ public class Hero
     /// </summary>
     public double? ManaRegen { get; set; }
 
+    // --- Extended fields from heroes-data ---
+
+    /// <summary>
+    /// Maximum life (health) at level 0 (from heroes-data Life.LifeMax)
+    /// </summary>
+    public double? LifeMax { get; set; }
+
+    /// <summary>
+    /// Life (health) regeneration rate (from heroes-data Life.LifeRegenRate)
+    /// </summary>
+    public double? LifeRegenRate { get; set; }
+
+    /// <summary>
+    /// Life scaling per level (from heroes-data Life.LifeScaling)
+    /// </summary>
+    public double? LifeScaling { get; set; }
+
+    /// <summary>
+    /// Life regeneration scaling per level (from heroes-data Life.LifeRegenRateScaling)
+    /// </summary>
+    public double? LifeRegenRateScaling { get; set; }
+
+    /// <summary>
+    /// Maximum energy (for heroes that use energy instead of mana)
+    /// </summary>
+    public double? EnergyMax { get; set; }
+
+    /// <summary>
+    /// Energy regeneration rate
+    /// </summary>
+    public double? EnergyRegenRate { get; set; }
+
+    /// <summary>
+    /// Maximum shield value
+    /// </summary>
+    public double? ShieldMax { get; set; }
+
+    /// <summary>
+    /// Shield regeneration rate
+    /// </summary>
+    public double? ShieldRegenRate { get; set; }
+
+    /// <summary>
+    /// Shield regeneration delay (seconds before shield starts regenerating)
+    /// </summary>
+    public double? ShieldRegenDelay { get; set; }
+
+    /// <summary>
+    /// Attack damage scaling per level
+    /// </summary>
+    public double? AttackDamageScaling { get; set; }
+
+    /// <summary>
+    /// Movement speed
+    /// </summary>
+    public double? Speed { get; set; }
+
+    /// <summary>
+    /// Sight radius
+    /// </summary>
+    public double? SightRadius { get; set; }
+
     // --- Navigation properties ---
 
     /// <summary>

@@ -77,6 +77,33 @@ public class Talent
     /// </summary>
     public string? Properties { get; set; }
 
+    // --- Extended fields from heroes-data ---
+
+    /// <summary>
+    /// Whether this talent is a quest talent
+    /// </summary>
+    public bool? IsQuest { get; set; }
+
+    /// <summary>
+    /// Quest completion requirement (e.g., "Gather 30 Regeneration Globes")
+    /// </summary>
+    public string? QuestRequirement { get; set; }
+
+    /// <summary>
+    /// Quest completion reward description
+    /// </summary>
+    public string? QuestReward { get; set; }
+
+    /// <summary>
+    /// Talent tier IDs that this talent links to (JSON array from heroes-data)
+    /// </summary>
+    public string? AbilityTalentLinkIdsJson { get; set; }
+
+    /// <summary>
+    /// Whether this talent has multiple levels/stacks
+    /// </summary>
+    public bool? IsStackable { get; set; }
+
     /// <summary>
     /// Navigation property to the hero.
     /// </summary>

@@ -24,6 +24,9 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
 
         mockHtmlService
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
@@ -37,7 +40,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Assert - service created successfully
         Assert.NotNull(service);
@@ -82,6 +88,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -89,7 +99,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act - would fail without HTTP mocking, but service structure is valid
         // In a full test, we'd mock HttpClient responses
@@ -112,6 +125,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -119,7 +136,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act
         var result = await service.SyncPatchesFromGitHubAsync(CancellationToken.None);
@@ -149,6 +169,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -156,7 +180,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -211,6 +238,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -218,7 +249,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -292,6 +326,31 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
+        // Mock S2MA parser to successfully update the battleground
+        mockS2MAParserService
+            .Setup(s => s.SyncBattlegroundsFromS2MAAsync(It.IsAny<CancellationToken>()))
+            .Callback<CancellationToken>(async (ct) =>
+            {
+                // S2MA parser updates the existing battleground with new data
+                var bg = await context.Battlegrounds.FirstOrDefaultAsync(b => b.ShortName == "cursed-hollow", ct);
+                if (bg is not null)
+                {
+                    bg.Description = "Updated description";
+                    bg.Objective = "Updated objective details";
+                    await context.SaveChangesAsync(ct);
+                }
+            })
+            .ReturnsAsync(new HotsPatchNotes.Shared.DTOs.SyncResultDto
+            {
+                Success = true,
+                HeroesUpdated = 1,
+                Message = "Synced 1 battlegrounds from S2MA"
+            });
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -299,7 +358,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -345,6 +407,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -352,16 +418,26 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
+
+        // Mock S2MA parser to throw exception (simulating S2MA sync failure)
+        mockS2MAParserService
+            .Setup(s => s.SyncBattlegroundsFromS2MAAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("S2MA parse error"));
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
 
         // Assert - service should handle error gracefully
         Assert.NotNull(result);
-        Assert.True(result.Success); // Overall success despite individual failure
-        Assert.Single(result.Errors);
-        Assert.Contains("Network error", result.Errors[0]);
+        Assert.True(result.Success); // Overall success despite individual failures
+        // Now we expect 2 errors: one from S2MA sync failing, one from wiki scraping failing
+        Assert.Equal(2, result.Errors.Count);
+        Assert.Contains(result.Errors, e => e.Contains("S2MA parse error") || e.Contains("S2MA sync failed"));
+        Assert.Contains(result.Errors, e => e.Contains("Network error"));
     }
 
     [Fact]
@@ -376,6 +452,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -383,7 +463,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act - would require extensive HTTP mocking for full test
         var result = await service.SyncPatchesFromBlueTrackerAsync(isInitialSync: true, CancellationToken.None);
@@ -405,6 +488,10 @@ public sealed class GitHubSyncServiceTests : TestBase
         var mockImageDownloadService = new Mock<IImageDownloadService>();
         var mockHeroScraper = new Mock<IHeroScraper>();
 
+        var mockHeroesDataSyncService = new Mock<IHeroesDataSyncService>();
+        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockS2MAHeroParserService = new Mock<IS2MAHeroParserService>();
+
         var service = new GitHubSyncService(
             context,
             mockHttpClient,
@@ -412,7 +499,10 @@ public sealed class GitHubSyncServiceTests : TestBase
             mockHtmlService.Object,
             mockBattlegroundScraper.Object,
             mockImageDownloadService.Object,
-            mockHeroScraper.Object);
+            mockHeroScraper.Object,
+            mockHeroesDataSyncService.Object,
+            mockS2MAParserService.Object,
+            mockS2MAHeroParserService.Object);
 
         // Act
         var result = await service.SyncPatchesFromBlueTrackerAsync(isInitialSync: false, CancellationToken.None);

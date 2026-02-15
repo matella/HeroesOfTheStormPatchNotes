@@ -314,4 +314,17 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
             .Replace("[citation needed]", "")
             .Trim();
     }
+
+    /// <summary>
+    /// Constructs the Fandom wiki URL for a battleground given its display name.
+    /// </summary>
+    public string GetWikiUrl(string battlegroundName)
+    {
+        if (string.IsNullOrWhiteSpace(battlegroundName))
+            return $"{FandomBaseUrl}/wiki/Battleground";
+
+        // Convert name to wiki URL format (replace spaces with underscores, URL-encode special chars)
+        var wikiPageName = battlegroundName.Replace(" ", "_");
+        return $"{FandomBaseUrl}/wiki/{Uri.EscapeDataString(wikiPageName)}";
+    }
 }

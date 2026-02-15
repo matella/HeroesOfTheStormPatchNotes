@@ -59,6 +59,20 @@ public class HeroDetailDto
     public double? AttackSpeed { get; set; }
     public double? AttackRange { get; set; }
 
+    // Extended stats from heroes-data
+    public double? LifeMax { get; set; }
+    public double? LifeRegenRate { get; set; }
+    public double? LifeScaling { get; set; }
+    public double? LifeRegenRateScaling { get; set; }
+    public double? EnergyMax { get; set; }
+    public double? EnergyRegenRate { get; set; }
+    public double? ShieldMax { get; set; }
+    public double? ShieldRegenRate { get; set; }
+    public double? ShieldRegenDelay { get; set; }
+    public double? AttackDamageScaling { get; set; }
+    public double? Speed { get; set; }
+    public double? SightRadius { get; set; }
+
     /// <summary>
     /// Abilities grouped by form (e.g., "Abathur", "AbathurSymbiote").
     /// </summary>
@@ -89,6 +103,14 @@ public class AbilityDto
     public string? CastTime { get; set; }
     public string? Range { get; set; }
     public string? AreaOfEffect { get; set; }
+
+    // Extended fields from heroes-data
+    public bool? IsPassive { get; set; }
+    public double? LifeCost { get; set; }
+    public int? Charges { get; set; }
+    public int? ChargesMax { get; set; }
+    public double? RechargeTime { get; set; }
+    public bool? IsToggle { get; set; }
 }
 
 /// <summary>
@@ -108,6 +130,13 @@ public class TalentDto
     public List<string> AbilityLinks { get; set; } = [];
     public string? LinkedAbilityName { get; set; }
     public string? Properties { get; set; }
+
+    // Extended fields from heroes-data
+    public bool? IsQuest { get; set; }
+    public string? QuestRequirement { get; set; }
+    public string? QuestReward { get; set; }
+    public List<string> AbilityTalentLinkIds { get; set; } = [];
+    public bool? IsStackable { get; set; }
 }
 
 /// <summary>

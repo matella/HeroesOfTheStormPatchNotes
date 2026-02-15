@@ -19,4 +19,11 @@ public interface IBattlegroundScraper
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Detailed battleground information.</returns>
     Task<BattlegroundDetailInfo> GetBattlegroundDetailsAsync(string wikiUrl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Constructs the Fandom wiki URL for a battleground given its display name.
+    /// </summary>
+    /// <param name="battlegroundName">The display name of the battleground (e.g., "Cursed Hollow").</param>
+    /// <returns>The full wiki URL.</returns>
+    string GetWikiUrl(string battlegroundName);
 }

@@ -227,7 +227,20 @@ public sealed partial class HeroService(
             ManaRegen = hero.ManaRegen,
             BaseAttackDamage = hero.BaseAttackDamage,
             AttackSpeed = hero.AttackSpeed,
-            AttackRange = hero.AttackRange
+            AttackRange = hero.AttackRange,
+            // Extended stats from heroes-data
+            LifeMax = hero.LifeMax,
+            LifeRegenRate = hero.LifeRegenRate,
+            LifeScaling = hero.LifeScaling,
+            LifeRegenRateScaling = hero.LifeRegenRateScaling,
+            EnergyMax = hero.EnergyMax,
+            EnergyRegenRate = hero.EnergyRegenRate,
+            ShieldMax = hero.ShieldMax,
+            ShieldRegenRate = hero.ShieldRegenRate,
+            ShieldRegenDelay = hero.ShieldRegenDelay,
+            AttackDamageScaling = hero.AttackDamageScaling,
+            Speed = hero.Speed,
+            SightRadius = hero.SightRadius
         };
 
         dto.Abilities = hero.Abilities
@@ -249,7 +262,14 @@ public sealed partial class HeroService(
                     Scaling = a.Scaling,
                     CastTime = a.CastTime,
                     Range = a.Range,
-                    AreaOfEffect = a.AreaOfEffect
+                    AreaOfEffect = a.AreaOfEffect,
+                    // Extended fields from heroes-data
+                    IsPassive = a.IsPassive,
+                    LifeCost = a.LifeCost,
+                    Charges = a.Charges,
+                    ChargesMax = a.ChargesMax,
+                    RechargeTime = a.RechargeTime,
+                    IsToggle = a.IsToggle
                 }).ToList()
             );
 
@@ -271,7 +291,13 @@ public sealed partial class HeroService(
                     AbilityId = t.AbilityId,
                     AbilityLinks = DeserializeJsonList(t.AbilityLinksJson),
                     LinkedAbilityName = t.LinkedAbilityName,
-                    Properties = t.Properties
+                    Properties = t.Properties,
+                    // Extended fields from heroes-data
+                    IsQuest = t.IsQuest,
+                    QuestRequirement = t.QuestRequirement,
+                    QuestReward = t.QuestReward,
+                    AbilityTalentLinkIds = DeserializeJsonList(t.AbilityTalentLinkIdsJson),
+                    IsStackable = t.IsStackable
                 }).ToList()
             );
 

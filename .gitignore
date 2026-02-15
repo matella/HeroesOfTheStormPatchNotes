@@ -79,3 +79,6 @@ coverage*/
 # Local settings
 appsettings.Development.json
 appsettings.Local.json
+
+# Claude Code MCP configuration (contains sensitive tokens)
+.claude/mcp_config.json

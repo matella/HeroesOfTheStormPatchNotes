@@ -87,6 +87,38 @@ public class Ability
     /// </summary>
     public string? AreaOfEffect { get; set; }
 
+    // --- Extended fields from heroes-data ---
+
+    /// <summary>
+    /// Whether this ability is passive (does not require activation)
+    /// </summary>
+    public bool? IsPassive { get; set; }
+
+    /// <summary>
+    /// Life cost to use the ability (e.g., for abilities that cost health)
+    /// </summary>
+    public double? LifeCost { get; set; }
+
+    /// <summary>
+    /// Charges available for the ability
+    /// </summary>
+    public int? Charges { get; set; }
+
+    /// <summary>
+    /// Maximum number of charges the ability can hold
+    /// </summary>
+    public int? ChargesMax { get; set; }
+
+    /// <summary>
+    /// Time to recharge one charge (seconds)
+    /// </summary>
+    public double? RechargeTime { get; set; }
+
+    /// <summary>
+    /// Whether this ability is toggleable (can be turned on/off)
+    /// </summary>
+    public bool? IsToggle { get; set; }
+
     /// <summary>
     /// Navigation property to the hero.
     /// </summary>

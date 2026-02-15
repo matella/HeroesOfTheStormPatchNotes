@@ -50,6 +50,12 @@ public abstract class TestBase : IDisposable
         return new BattlegroundService(battlegroundRepository);
     }
 
+    protected IS2MAHeroParserService CreateS2MAHeroParserService(HotsDbContext context, HttpClient httpClient)
+    {
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<S2MAHeroParserService>.Instance;
+        return new S2MAHeroParserService(context, httpClient, logger);
+    }
+
     protected virtual void SeedTestData(HotsDbContext context)
     {
         // Add sample heroes

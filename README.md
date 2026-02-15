@@ -7,6 +7,7 @@ A modern rewrite of [heroespatchnotes.com](https://heroespatchnotes.com/) - a co
 This project provides a web application to browse and search Heroes of the Storm game data, including:
 
 - **90+ Heroes** with complete ability and talent information
+- **Always-Current Talent Descriptions** - Parsed directly from game files (gamestrings), updated with every game patch
 - **228+ Patches** with version history and official links
 - **Battlegrounds** with objectives, mercenary camps, and strategies
 - **Hero Builds** - Create and share talent builds with build codes
@@ -32,15 +33,25 @@ HeroesOfTheStormPatchNotes/
 ### Data Flow
 
 ```
-GitHub Repositories ──► API (Sync Service) ──► SQLite Database
-                                                      │
-                                                      ▼
-                        Blazor WebAssembly ◄── API Endpoints
+GitHub Repositories + Web Sources ──► API (Sync Service) ──► SQLite Database
+                                                                      │
+                                                                      ▼
+                                        Blazor WebAssembly ◄── API Endpoints
 ```
 
-Data is sourced from the [heroespatchnotes GitHub organization](https://github.com/heroespatchnotes):
-- **[heroes-talents](https://github.com/heroespatchnotes/heroes-talents)** - Hero data (abilities, talents, icons)
-- **[heroes-patch-data](https://github.com/heroespatchnotes/heroes-patch-data)** - Patch version history
+**Data Sources**:
+- **[heroespatchnotes/heroes-talents](https://github.com/heroespatchnotes/heroes-talents)** - Hero structural data (abilities, talents, icons)
+- **[HeroesToolChest/heroes-data](https://github.com/HeroesToolChest/heroes-data)** - Comprehensive hero stats and **gamestrings** (talent descriptions directly from game files - always current)
+- **[jamiephan/HeroesOfTheStorm_S2MA](https://github.com/jamiephan/HeroesOfTheStorm_S2MA)** - Battleground map files (authoritative metadata)
+- **[heroespatchnotes/heroes-patch-data](https://github.com/heroespatchnotes/heroes-patch-data)** - Patch version tracking
+- **Fandom Wiki** - Fallback for battleground descriptions
+- **BlueTracker** - Official Blizzard patch notes
+
+The sync process combines multiple sources for the most accurate and up-to-date information:
+1. **heroes-talents** provides the base structure (hero roster, talent trees)
+2. **heroes-data gamestrings** provide talent names and descriptions (updated with every game patch)
+3. **S2MA map files** provide battleground metadata
+4. **BlueTracker** provides official patch notes content
 
 ## 🚀 Quick Start
 
@@ -177,13 +188,20 @@ The API includes Swagger documentation at `https://localhost:7001/swagger`
 
 ## 🔄 Data Synchronization
 
-The API automatically syncs data from GitHub every **6 hours** via a background service. You can also trigger a manual sync:
+The API automatically syncs data from multiple sources every **6 hours** via a background service. The sync process:
+
+1. Fetches hero data from **heroes-talents** (base structure)
+2. Enriches with **heroes-data** stats and **gamestrings** (talent descriptions from game files)
+3. Parses battleground data from **S2MA map files**
+4. Scrapes official patch notes from **BlueTracker**
+
+You can also trigger a manual sync:
 
 ```bash
-# Full sync (heroes + patches)
+# Full sync (heroes + patches + battlegrounds)
 POST /api/sync
 
-# Heroes only
+# Heroes only (includes heroes-data enrichment and gamestrings)
 POST /api/sync/heroes
 
 # Patches only
@@ -203,6 +221,13 @@ dotnet build
 ```bash
 dotnet test
 ```
+
+The project includes **173 passing tests** covering:
+- Repository layer (data access)
+- Service layer (business logic)
+- Controller layer (API endpoints)
+- Gamestrings parsing and HTML sanitization
+- Multi-source data integration
 
 ### Project Structure
 

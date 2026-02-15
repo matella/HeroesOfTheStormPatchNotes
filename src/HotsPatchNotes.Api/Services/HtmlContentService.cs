@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Ganss.Xss;
 
 namespace HotsPatchNotes.Api.Services;
@@ -5,9 +6,10 @@ namespace HotsPatchNotes.Api.Services;
 public interface IHtmlContentService
 {
     string SanitizeHtml(string html);
+    string SanitizeGamestring(string gamestring);
 }
 
-public sealed class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlContentService
+public sealed partial class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlContentService
 {
     public string SanitizeHtml(string html)
     {
@@ -16,6 +18,70 @@ public sealed class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlContentSe
 
         return sanitizer.Sanitize(html);
     }
+
+    /// <summary>
+    /// Sanitizes gamestring-specific HTML markup from Heroes of the Storm game files.
+    /// Handles special tags like &lt;c val="..."&gt;, &lt;n/&gt;, &lt;s&gt;, and &lt;img&gt; that appear in gamestrings.
+    /// </summary>
+    public string SanitizeGamestring(string gamestring)
+    {
+        if (string.IsNullOrWhiteSpace(gamestring))
+            return string.Empty;
+
+        var result = gamestring;
+
+        try
+        {
+            // 1. Convert <n/> newlines to <br/> tags
+            result = GamestringNewlineRegex().Replace(result, "<br/>");
+
+            // 2. Strip color tags: <c val="bfd4fd">text</c> → text
+            result = GamestringColorTagRegex().Replace(result, "$1");
+
+            // 3. Strip styled spans: <s val="..." name="...">text</s> → text
+            result = GamestringStyledSpanRegex().Replace(result, "$1");
+
+            // 4. Remove quest icon images: <img path="..." />
+            result = GamestringImageTagRegex().Replace(result, string.Empty);
+
+            // 5. Apply standard HTML sanitization for final cleanup
+            result = sanitizer.Sanitize(result);
+
+            return result.Trim();
+        }
+        catch (RegexMatchTimeoutException ex)
+        {
+            // Log warning but return partially processed text
+            System.Diagnostics.Debug.WriteLine($"Regex timeout while sanitizing gamestring: {ex.Message}");
+            return sanitizer.Sanitize(gamestring);
+        }
+    }
+
+    /// <summary>
+    /// Matches gamestring newline tags: &lt;n/&gt; or &lt;n /&gt;
+    /// </summary>
+    [GeneratedRegex(@"<n\s*/?>", RegexOptions.IgnoreCase, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex GamestringNewlineRegex();
+
+    /// <summary>
+    /// Matches gamestring color tags: &lt;c val="..."&gt;content&lt;/c&gt;
+    /// Captures the content in group 1.
+    /// </summary>
+    [GeneratedRegex(@"<c\s+val=""[^""]*"">(.*?)</c>", RegexOptions.IgnoreCase | RegexOptions.Singleline, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex GamestringColorTagRegex();
+
+    /// <summary>
+    /// Matches gamestring styled span tags: &lt;s val="..." name="..."&gt;content&lt;/s&gt;
+    /// Captures the content in group 1.
+    /// </summary>
+    [GeneratedRegex(@"<s\s+(?:val=""[^""]*""\s*)?(?:name=""[^""]*""\s*)?>(.*?)</s>", RegexOptions.IgnoreCase | RegexOptions.Singleline, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex GamestringStyledSpanRegex();
+
+    /// <summary>
+    /// Matches gamestring image tags: &lt;img path="..." /&gt;
+    /// </summary>
+    [GeneratedRegex(@"<img\s+[^>]*/>", RegexOptions.IgnoreCase, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex GamestringImageTagRegex();
 
     public static HtmlSanitizer CreateSanitizer()
     {

@@ -32,6 +32,36 @@ public static class Constants
     }
 
     /// <summary>
+    /// Gamestrings-related constants for parsing Heroes of the Storm game files.
+    /// </summary>
+    public static class Gamestrings
+    {
+        /// <summary>
+        /// Default locale for gamestrings (English US).
+        /// </summary>
+        public const string DefaultLocale = "enus";
+
+        /// <summary>
+        /// All supported locales in Heroes of the Storm.
+        /// </summary>
+        public static readonly string[] SupportedLocales =
+        [
+            "enus", // English (US)
+            "dede", // German
+            "eses", // Spanish (Spain)
+            "esmx", // Spanish (Mexico)
+            "frfr", // French
+            "itit", // Italian
+            "kokr", // Korean
+            "plpl", // Polish
+            "ptbr", // Portuguese (Brazil)
+            "ruru", // Russian
+            "zhcn", // Chinese (Simplified)
+            "zhtw"  // Chinese (Traditional)
+        ];
+    }
+
+    /// <summary>
     /// Pagination constants.
     /// </summary>
     public static class Pagination
@@ -66,6 +96,8 @@ public static class Constants
         public const string DatabaseUnavailable = "Database is temporarily unavailable";
         public const string InternalServerError = "An unexpected error occurred";
         public const string RequestCancelled = "Request was cancelled";
+        public const string GamestringsFetchFailed = "Failed to fetch gamestrings";
+        public const string GamestringsParsingFailed = "Failed to parse gamestrings";
     }
 
     /// <summary>

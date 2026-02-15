@@ -48,6 +48,13 @@ builder.Services.AddScoped<IBattlegroundService, BattlegroundService>();
 builder.Services.AddSingleton(HtmlContentService.CreateSanitizer());
 builder.Services.AddScoped<IHtmlContentService, HtmlContentService>();
 
+// Register GamestringsParser
+builder.Services.AddHttpClient<IGamestringsParser, GamestringsParser>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // Register Image Download Service
 builder.Services.AddHttpClient<IImageDownloadService, ImageDownloadService>(client =>
 {

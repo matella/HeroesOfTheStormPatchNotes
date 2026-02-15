@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using HotsPatchNotes.Api.Data;
 using HotsPatchNotes.Shared.DTOs;
@@ -10,9 +11,10 @@ namespace HotsPatchNotes.Api.Services;
 /// Service for syncing comprehensive hero data from HeroesToolChest/heroes-data repository.
 /// Supplements and enhances the base hero data from heroes-talents with detailed game mechanics.
 /// </summary>
-public sealed class HeroesDataSyncService(
+public sealed partial class HeroesDataSyncService(
     HotsDbContext dbContext,
     HttpClient httpClient,
+    IGamestringsParser gamestringsParser,
     ILogger<HeroesDataSyncService> logger) : IHeroesDataSyncService
 {
     private const string HeroesDataRepoUrl = "https://api.github.com/repos/HeroesToolChest/heroes-data/contents";
@@ -58,12 +60,39 @@ public sealed class HeroesDataSyncService(
 
             logger.LogInformation("Parsed {Count} heroes from heroes-data", heroesData.Count);
 
+            // Extract build number and fetch gamestrings
+            Dictionary<string, GamestringEntry>? gamestrings = null;
+            try
+            {
+                var buildNumber = ExtractBuildNumber(latestFile);
+                logger.LogDebug("Extracted build number: {Build}", buildNumber);
+
+                gamestrings = await gamestringsParser.FetchAndParseGamestringsAsync(
+                    buildNumber,
+                    "enus",
+                    cancellationToken);
+
+                if (gamestrings is not null)
+                {
+                    logger.LogInformation("Fetched {Count} gamestring entries for build {Build}",
+                        gamestrings.Count, buildNumber);
+                }
+                else
+                {
+                    logger.LogWarning("No gamestrings fetched for build {Build}, continuing without them", buildNumber);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch gamestrings, continuing without them");
+            }
+
             // Enrich existing heroes with heroes-data
             foreach (var (heroId, heroData) in heroesData)
             {
                 try
                 {
-                    await EnrichHeroWithHeroesDataAsync(heroId, heroData, cancellationToken);
+                    await EnrichHeroWithHeroesDataAsync(heroId, heroData, gamestrings, cancellationToken);
                     result.HeroesUpdated++;
                 }
                 catch (Exception ex)
@@ -122,6 +151,7 @@ public sealed class HeroesDataSyncService(
     private async Task EnrichHeroWithHeroesDataAsync(
         string heroId,
         HeroesDataHero heroData,
+        Dictionary<string, GamestringEntry>? gamestrings,
         CancellationToken cancellationToken)
     {
         // Try to match hero by HyperlinkId or ShortName
@@ -227,7 +257,43 @@ public sealed class HeroesDataSyncService(
             }
         }
 
+        // Apply gamestrings to talents (after heroes-data enrichment)
+        if (gamestrings is not null && hero.Talents.Any())
+        {
+            try
+            {
+                var matchCount = gamestringsParser.ApplyGamestringsToTalents(
+                    hero.Talents,
+                    gamestrings);
+
+                logger.LogDebug("Matched {Count}/{Total} talents to gamestrings for {Hero}",
+                    matchCount, hero.Talents.Count, hero.Name);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to apply gamestrings to {Hero}", hero.Name);
+            }
+        }
+
         hero.LastSyncedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Extracts the build number from a herodata file name.
+    /// Example: "herodata_76003_localized.json" → "76003"
+    /// </summary>
+    [GeneratedRegex(@"_(\d+)_")]
+    private static partial Regex BuildNumberRegex();
+
+    private static string ExtractBuildNumber(string fileName)
+    {
+        var match = BuildNumberRegex().Match(fileName);
+        if (!match.Success)
+        {
+            throw new ArgumentException($"Invalid herodata file name format: {fileName}", nameof(fileName));
+        }
+
+        return match.Groups[1].Value;
     }
 
     #region Data Models for heroes-data JSON

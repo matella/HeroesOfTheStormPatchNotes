@@ -6,7 +6,17 @@
       "Bash(dotnet test:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:api.github.com)",
+      "Bash(dotnet add package:*)",
+      "Bash(dotnet nuget:*)",
+      "Bash(node --version:*)",
+      "Bash(npx:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

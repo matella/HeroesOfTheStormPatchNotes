@@ -67,7 +67,7 @@ public sealed partial class GitHubSyncService(
     IImageDownloadService imageDownloadService,
     IHeroesDataSyncService heroesDataSyncService,
     IGamedataXmlEnrichmentService gamedataXmlEnrichmentService,
-    IS2MAParserService s2maParserService,
+    IGamedataMapSyncService gamedataMapSyncService,
     IS2MAHeroParserService s2maHeroParserService) : IGitHubSyncService
 {
     private const string PatchesUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-patch-data/master/patchversions.json";
@@ -1198,79 +1198,77 @@ public sealed partial class GitHubSyncService(
 
         try
         {
-            // Hybrid approach: S2MA (authoritative metadata) + Wiki (rich descriptions)
-            logger.LogInformation("Starting battleground sync using hybrid S2MA + Wiki approach");
+            // Hybrid approach: Gamedata gamestrings (authoritative metadata) + Wiki (rich enrichment)
+            logger.LogInformation("Starting battleground sync using Gamedata + Wiki approach");
 
-            // Phase 1: Sync from S2MA repository (primary, authoritative source)
-            logger.LogInformation("Phase 1: Syncing battlegrounds from S2MA repository");
-            try
+            // Phase 1: Sync from Gamedata repository (primary, authoritative source)
+            logger.LogInformation("Phase 1: Syncing battlegrounds from Gamedata gamestrings");
+            var gamedataResult = await gamedataMapSyncService.SyncBattlegroundsFromGamedataAsync(cancellationToken);
+
+            if (gamedataResult.Success)
             {
-                var s2maResult = await s2maParserService.SyncBattlegroundsFromS2MAAsync(cancellationToken);
-
-                if (s2maResult.Success)
-                {
-                    logger.LogInformation("Successfully synced {Count} battlegrounds from S2MA", s2maResult.HeroesUpdated);
-                    result.HeroesUpdated = s2maResult.HeroesUpdated;
-                    result.Message = $"Synced {s2maResult.HeroesUpdated} battlegrounds from S2MA";
-                    result.Success = true;
-                }
-                else
-                {
-                    logger.LogWarning("S2MA sync completed with errors");
-                    result.Errors.AddRange(s2maResult.Errors);
-                }
+                logger.LogInformation("Successfully synced {Count} battlegrounds from Gamedata", gamedataResult.HeroesUpdated);
+                result.HeroesUpdated = gamedataResult.HeroesUpdated;
+                result.Message = $"Synced {gamedataResult.HeroesUpdated} battlegrounds from Gamedata";
+                result.Success = true;
             }
-            catch (Exception ex)
+            else
             {
-                // S2MA sync failed - fall back to wiki scraping
-                logger.LogWarning(ex, "S2MA battleground sync failed, falling back to wiki scraping");
-                result.Errors.Add($"S2MA sync failed (non-critical): {ex.Message}");
+                logger.LogWarning("Gamedata battleground sync completed with errors");
+                result.Errors.AddRange(gamedataResult.Errors);
             }
 
-            // Phase 2: Fallback to wiki scraping if S2MA failed or for additional battlegrounds
-            if (!result.Success || result.HeroesUpdated == 0)
+            // Phase 2: Wiki enrichment — fills ObjectiveTiming, MercCamps, BossInfo, Tips, ImageUrl
+            // Always runs to enrich existing records; wiki data never overwrites Gamedata fields
+            logger.LogInformation("Phase 2: Enriching battlegrounds from Fandom wiki");
+
+            var battlegroundList = await battlegroundScraper.GetBattlegroundListAsync(cancellationToken);
+            logger.LogInformation("Found {Count} battlegrounds from wiki", battlegroundList.Count);
+
+            var wikiSyncedCount = 0;
+
+            foreach (var bgInfo in battlegroundList)
             {
-                logger.LogInformation("Phase 2: Falling back to Fandom wiki scraping");
-
-                var battlegroundList = await battlegroundScraper.GetBattlegroundListAsync(cancellationToken);
-                logger.LogInformation("Found {Count} battlegrounds from wiki", battlegroundList.Count);
-
-                var syncedCount = 0;
-
-                foreach (var bgInfo in battlegroundList)
+                try
                 {
-                    try
+                    logger.LogDebug("Wiki enriching battleground: {Name} (ShortName: {ShortName})", bgInfo.Name, bgInfo.ShortName);
+
+                    var existing = await dbContext.Battlegrounds
+                        .FirstOrDefaultAsync(b => b.ShortName == bgInfo.ShortName, cancellationToken);
+
+                    // Get detailed info from wiki
+                    var details = await battlegroundScraper.GetBattlegroundDetailsAsync(bgInfo.WikiUrl, cancellationToken);
+
+                    // Download battleground image if available
+                    string? localImagePath = null;
+                    var sourceImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl;
+                    if (!string.IsNullOrEmpty(sourceImageUrl))
                     {
-                        logger.LogInformation("Processing battleground: {Name} (ShortName: {ShortName})", bgInfo.Name, bgInfo.ShortName);
+                        localImagePath = await imageDownloadService.DownloadImageAsync(
+                            sourceImageUrl,
+                            "battlegrounds",
+                            bgInfo.ShortName,
+                            cancellationToken);
+                    }
 
-                        // Check if battleground already exists
-                        var existing = await dbContext.Battlegrounds
-                            .FirstOrDefaultAsync(b => b.ShortName == bgInfo.ShortName, cancellationToken);
+                    var imageUrl = localImagePath ?? sourceImageUrl;
 
-                        if (existing is not null)
-                        {
-                            logger.LogDebug("Battleground {Name} already exists from S2MA sync, skipping wiki update", bgInfo.Name);
-                            continue;
-                        }
+                    if (existing is not null)
+                    {
+                        // Enrich existing record with wiki-only fields (never overwrite Gamedata fields)
+                        existing.ObjectiveTiming ??= details.ObjectiveTiming;
+                        existing.MercCamps ??= htmlContentService.SanitizeHtml(details.MercCamps ?? "");
+                        existing.BossInfo ??= htmlContentService.SanitizeHtml(details.BossInfo ?? "");
+                        existing.Tips ??= htmlContentService.SanitizeHtml(details.Tips ?? "");
+                        existing.ImageUrl ??= imageUrl;
+                        existing.ReleaseDate ??= bgInfo.ReleaseDate;
 
-                        // Get detailed info from wiki
-                        var details = await battlegroundScraper.GetBattlegroundDetailsAsync(bgInfo.WikiUrl, cancellationToken);
-
-                        // Download battleground image if available
-                        string? localImagePath = null;
-                        var sourceImageUrl = details.FullImageUrl ?? bgInfo.ThumbnailUrl;
-                        if (!string.IsNullOrEmpty(sourceImageUrl))
-                        {
-                            localImagePath = await imageDownloadService.DownloadImageAsync(
-                                sourceImageUrl,
-                                "battlegrounds",
-                                bgInfo.ShortName,
-                                cancellationToken);
-                        }
-
-                        var imageUrl = localImagePath ?? sourceImageUrl;
-
-                        // Create new battleground from wiki data
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                        logger.LogDebug("Wiki-enriched existing battleground: {Name}", bgInfo.Name);
+                    }
+                    else
+                    {
+                        // Create record from wiki data for any map not in Gamedata
                         var battleground = new Battleground
                         {
                             ShortName = bgInfo.ShortName,
@@ -1289,27 +1287,25 @@ public sealed partial class GitHubSyncService(
                         };
 
                         dbContext.Battlegrounds.Add(battleground);
-                        logger.LogInformation("Added new battleground from wiki: {Name}", bgInfo.Name);
-
-                        syncedCount++;
-
-                        // Save changes after each battleground to avoid UNIQUE constraint violations
                         await dbContext.SaveChangesAsync(cancellationToken);
+                        logger.LogInformation("Added new battleground from wiki (not in Gamedata): {Name}", bgInfo.Name);
+                        wikiSyncedCount++;
+                    }
 
-                        // Rate limiting - wait 2 seconds between requests
-                        await Task.Delay(2000, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Failed to sync battleground from wiki: {Name}", bgInfo.Name);
-                        result.Errors.Add($"Failed to sync {bgInfo.Name} from wiki: {ex.Message}");
-                    }
+                    // Rate limiting - wait 2 seconds between wiki requests
+                    await Task.Delay(2000, cancellationToken);
                 }
-
-                result.HeroesUpdated += syncedCount;
-                result.Message += $"; {syncedCount} additional battlegrounds from wiki";
-                result.Success = true;
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to enrich battleground from wiki: {Name}", bgInfo.Name);
+                    result.Errors.Add($"Failed to wiki-enrich {bgInfo.Name}: {ex.Message}");
+                }
             }
+
+            result.HeroesUpdated += wikiSyncedCount;
+            if (wikiSyncedCount > 0)
+                result.Message += $"; {wikiSyncedCount} additional battlegrounds from wiki";
+            result.Success = true;
 
             logger.LogInformation("Battleground sync complete: {Count} total battlegrounds", result.HeroesUpdated);
         }

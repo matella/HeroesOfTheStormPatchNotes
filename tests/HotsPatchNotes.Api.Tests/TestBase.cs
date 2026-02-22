@@ -62,6 +62,12 @@ public abstract class TestBase : IDisposable
         return new GamedataXmlEnrichmentService(context, httpClient, logger);
     }
 
+    protected IGamedataMapSyncService CreateGamedataMapSyncService(HotsDbContext context, HttpClient httpClient)
+    {
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<GamedataMapSyncService>.Instance;
+        return new GamedataMapSyncService(context, httpClient, logger);
+    }
+
     protected virtual void SeedTestData(HotsDbContext context)
     {
         // Add sample heroes

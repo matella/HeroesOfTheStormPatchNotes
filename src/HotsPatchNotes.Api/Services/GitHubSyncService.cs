@@ -23,7 +23,10 @@ public interface IGitHubSyncService
     Task<SyncResultDto> SyncAllAsync(CancellationToken cancellationToken = default);
     
     /// <summary>
-    /// Syncs hero data from the heroespatchnotes/heroes-talents GitHub repository.
+    /// Syncs hero data using a three-phase pipeline:
+    /// Phase 1 (primary): HeroesToolChest/heroes-data JSON
+    /// Phase 2 (enrichment): jamiephan/HeroesOfTheStorm_Gamedata XML
+    /// Phase 3 (enrichment): jamiephan/HeroesOfTheStorm_S2MA MPQ files
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Sync result with hero count and any errors.</returns>
@@ -62,13 +65,11 @@ public sealed partial class GitHubSyncService(
     IHtmlContentService htmlContentService,
     IBattlegroundScraper battlegroundScraper,
     IImageDownloadService imageDownloadService,
-    IHeroScraper heroScraper,
     IHeroesDataSyncService heroesDataSyncService,
+    IGamedataXmlEnrichmentService gamedataXmlEnrichmentService,
     IS2MAParserService s2maParserService,
     IS2MAHeroParserService s2maHeroParserService) : IGitHubSyncService
 {
-    private const string HeroesBaseUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/hero/";
-    private const string HeroListUrl = "https://api.github.com/repos/heroespatchnotes/heroes-talents/contents/hero";
     private const string PatchesUrl = "https://raw.githubusercontent.com/heroespatchnotes/heroes-patch-data/master/patchversions.json";
     private const string BlueTrackerUrl = "https://www.bluetracker.gg/heroes/";
     private const string BlueTrackerBaseUrl = "https://www.bluetracker.gg";
@@ -127,81 +128,71 @@ public sealed partial class GitHubSyncService(
 
         try
         {
-            // Phase 1: Sync from S2MA .stormmod files (primary, most up-to-date source)
-            logger.LogInformation("Phase 1: Syncing from S2MA .stormmod files");
-            SyncResultDto? s2maResult = null;
+            // Phase 1: Primary — heroes-data JSON creates/replaces all heroes, abilities, and talents
+            logger.LogInformation("Phase 1: Syncing heroes from heroes-data repository (primary)");
+            var heroesDataResult = await heroesDataSyncService.SyncHeroesDataAsync(cancellationToken);
 
+            result.HeroesUpdated = heroesDataResult.HeroesUpdated;
+            result.Errors.AddRange(heroesDataResult.Errors);
+
+            if (heroesDataResult.Success && heroesDataResult.HeroesUpdated > 0)
+            {
+                result.Success = true;
+                result.Message = $"Synced {result.HeroesUpdated} heroes from heroes-data";
+                logger.LogInformation("Phase 1 complete: {Count} heroes synced", result.HeroesUpdated);
+            }
+            else
+            {
+                logger.LogWarning("Phase 1 (heroes-data) completed with {Count} heroes and errors: {Errors}",
+                    result.HeroesUpdated, heroesDataResult.Errors.Count);
+                result.Success = result.HeroesUpdated > 0;
+            }
+
+            // Phase 2: Gamedata XML enrichment — Role, ExpandedRole, Type, Cooldown, Range
+            logger.LogInformation("Phase 2: Enriching heroes from Gamedata XML");
             try
             {
-                s2maResult = await s2maHeroParserService.SyncHeroesFromS2MAAsync(cancellationToken);
+                var gamedataResult = await gamedataXmlEnrichmentService.EnrichHeroesFromGamedataAsync(cancellationToken);
 
-                if (s2maResult.Success && s2maResult.HeroesUpdated > 0)
+                if (gamedataResult.Success)
                 {
-                    logger.LogInformation("Successfully synced {Count} heroes from S2MA", s2maResult.HeroesUpdated);
-                    result.HeroesUpdated = s2maResult.HeroesUpdated;
-                    result.Success = true;
-                    result.Message = s2maResult.Message;
+                    logger.LogInformation("Phase 2 complete: Gamedata XML enrichment applied to {Count} heroes",
+                        gamedataResult.HeroesUpdated);
+                    result.Message += $"; {gamedataResult.HeroesUpdated} heroes enriched from Gamedata XML";
+                }
+                else
+                {
+                    logger.LogWarning("Phase 2 (Gamedata XML) completed with errors");
+                    result.Errors.AddRange(gamedataResult.Errors);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Phase 2 (Gamedata XML) failed, continuing with existing data");
+                result.Errors.Add($"Gamedata XML enrichment failed (non-critical): {ex.Message}");
+            }
+
+            // Phase 3: S2MA MPQ enrichment — Cooldown, ManaCost, Range from game files
+            logger.LogInformation("Phase 3: Enriching heroes from S2MA .stormmod files");
+            try
+            {
+                var s2maResult = await s2maHeroParserService.SyncHeroesFromS2MAAsync(cancellationToken);
+
+                if (s2maResult.Success)
+                {
+                    logger.LogInformation("Phase 3 complete: S2MA enrichment applied to {Count} heroes",
+                        s2maResult.HeroesUpdated);
+                }
+                else
+                {
+                    logger.LogWarning("Phase 3 (S2MA) completed with errors");
                     result.Errors.AddRange(s2maResult.Errors);
                 }
-                else
-                {
-                    logger.LogWarning("S2MA sync failed or returned 0 heroes, falling back to heroes-talents");
-                    result.Errors.Add("S2MA sync failed, using heroes-talents fallback");
-                }
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "S2MA sync failed with exception, falling back to heroes-talents");
-                result.Errors.Add($"S2MA sync failed (non-critical): {ex.Message}");
-            }
-
-            // Phase 2: Fallback to heroes-talents (proven source) if Phase 1 failed
-            if (s2maResult is null || !s2maResult.Success || s2maResult.HeroesUpdated == 0)
-            {
-                logger.LogInformation("Phase 2: Syncing from heroes-talents repository (fallback)");
-                var heroFiles = await GetHeroFileListAsync(cancellationToken);
-                logger.LogInformation("Found {Count} hero files to sync", heroFiles.Count);
-
-                foreach (var heroFile in heroFiles)
-                {
-                    try
-                    {
-                        await SyncHeroAsync(heroFile, cancellationToken);
-                        result.HeroesUpdated++;
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Failed to sync hero: {HeroFile}", heroFile);
-                        result.Errors.Add($"Failed to sync {heroFile}: {ex.Message}");
-                    }
-                }
-
-                result.Success = result.Errors.Count == 0 || result.HeroesUpdated > 0;
-                result.Message = $"Synced {result.HeroesUpdated} heroes from heroes-talents (fallback)";
-            }
-
-            // Phase 3: Enrich with heroes-data (supplementary, comprehensive source)
-            logger.LogInformation("Phase 3: Enriching heroes with heroes-data repository");
-            try
-            {
-                var heroesDataResult = await heroesDataSyncService.SyncHeroesDataAsync(cancellationToken);
-
-                if (heroesDataResult.Success)
-                {
-                    logger.LogInformation("Successfully enriched {Count} heroes with heroes-data", heroesDataResult.HeroesUpdated);
-                    result.Message += $"; enriched {heroesDataResult.HeroesUpdated} heroes with heroes-data";
-                }
-                else
-                {
-                    logger.LogWarning("Heroes-data enrichment completed with errors");
-                    result.Errors.AddRange(heroesDataResult.Errors);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Don't fail the entire sync if heroes-data enrichment fails - it's supplementary
-                logger.LogWarning(ex, "Heroes-data enrichment failed, continuing with existing data");
-                result.Errors.Add($"Heroes-data enrichment failed (non-critical): {ex.Message}");
+                logger.LogWarning(ex, "Phase 3 (S2MA) failed, continuing with existing data");
+                result.Errors.Add($"S2MA enrichment failed (non-critical): {ex.Message}");
             }
         }
         catch (Exception ex)
@@ -1125,230 +1116,6 @@ public sealed partial class GitHubSyncService(
 
     #endregion
 
-    #region Existing Methods
-
-    private async Task<List<string>> GetHeroFileListAsync(CancellationToken cancellationToken)
-    {
-        var response = await httpClient.GetStringAsync(HeroListUrl, cancellationToken);
-        var files = JsonSerializer.Deserialize<List<GitHubFileInfo>>(response, JsonOptions);
-
-        return files?
-            .Where(f => f.Name.EndsWith(".json"))
-            .Select(f => f.Name.Replace(".json", ""))
-            .ToList() ?? new List<string>();
-    }
-
-    private async Task SyncHeroAsync(string heroShortName, CancellationToken cancellationToken)
-    {
-        var url = $"{HeroesBaseUrl}{heroShortName}.json";
-        var response = await httpClient.GetStringAsync(url, cancellationToken);
-        var heroData = JsonSerializer.Deserialize<GitHubHeroData>(response, JsonOptions);
-
-        if (heroData == null)
-        {
-            throw new InvalidOperationException($"Failed to parse hero data for {heroShortName}");
-        }
-
-        var existingHero = await dbContext.Heroes
-            .Include(h => h.Abilities)
-            .Include(h => h.Talents)
-            .FirstOrDefaultAsync(h => h.ShortName == heroShortName, cancellationToken);
-
-        if (existingHero == null)
-        {
-            existingHero = new Hero { ShortName = heroShortName };
-            dbContext.Heroes.Add(existingHero);
-        }
-        else
-        {
-            // Clear existing abilities and talents for update
-            dbContext.Abilities.RemoveRange(existingHero.Abilities);
-            dbContext.Talents.RemoveRange(existingHero.Talents);
-        }
-
-        await MapHeroDataAsync(heroData, existingHero, cancellationToken);
-
-        // Enrich with wiki data
-        try
-        {
-            var wikiUrl = existingHero.WikiUrl ?? heroScraper.GetWikiUrl(existingHero.Name);
-            var wikiDetails = await heroScraper.GetHeroDetailsAsync(wikiUrl, cancellationToken);
-            EnrichHeroWithWikiData(existingHero, wikiDetails);
-
-            // Rate limiting between wiki requests
-            await Task.Delay(2000, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to enrich hero {HeroName} with wiki data", existingHero.Name);
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        logger.LogDebug("Synced hero: {HeroName}", existingHero.Name);
-    }
-
-    private static void EnrichHeroWithWikiData(Hero hero, HeroWikiDetailInfo wikiDetails)
-    {
-        // Only update fields that are empty or where wiki data provides richer info
-        hero.WikiUrl ??= $"https://heroesofthestorm.fandom.com/wiki/{Uri.EscapeDataString(hero.Name.Replace(" ", "_"))}";
-
-        if (!string.IsNullOrEmpty(wikiDetails.Title))
-            hero.Title ??= wikiDetails.Title;
-
-        if (!string.IsNullOrEmpty(wikiDetails.Universe))
-            hero.Universe ??= wikiDetails.Universe;
-
-        if (!string.IsNullOrEmpty(wikiDetails.Difficulty))
-            hero.Difficulty ??= wikiDetails.Difficulty;
-
-        if (!string.IsNullOrEmpty(wikiDetails.Description))
-            hero.Description ??= wikiDetails.Description;
-
-        if (!string.IsNullOrEmpty(wikiDetails.Lore))
-            hero.Lore ??= wikiDetails.Lore;
-
-        if (!string.IsNullOrEmpty(wikiDetails.SplashArtUrl))
-            hero.SplashArtUrl ??= wikiDetails.SplashArtUrl;
-
-        // Stats - only set if not already populated
-        hero.BaseHealth ??= wikiDetails.BaseHealth;
-        hero.HealthRegen ??= wikiDetails.HealthRegen;
-        hero.BaseMana ??= wikiDetails.BaseMana;
-        hero.ManaRegen ??= wikiDetails.ManaRegen;
-        hero.BaseAttackDamage ??= wikiDetails.BaseAttackDamage;
-        hero.AttackSpeed ??= wikiDetails.AttackSpeed;
-        hero.AttackRange ??= wikiDetails.AttackRange;
-
-        // Enrich abilities with wiki data
-        foreach (var wikiAbility in wikiDetails.Abilities)
-        {
-            var matchingAbility = hero.Abilities.FirstOrDefault(a =>
-                a.Name.Equals(wikiAbility.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (matchingAbility is null) continue;
-
-            if (!string.IsNullOrEmpty(wikiAbility.Scaling))
-                matchingAbility.Scaling ??= wikiAbility.Scaling;
-            if (!string.IsNullOrEmpty(wikiAbility.CastTime))
-                matchingAbility.CastTime ??= wikiAbility.CastTime;
-            if (!string.IsNullOrEmpty(wikiAbility.Range))
-                matchingAbility.Range ??= wikiAbility.Range;
-            if (!string.IsNullOrEmpty(wikiAbility.AreaOfEffect))
-                matchingAbility.AreaOfEffect ??= wikiAbility.AreaOfEffect;
-        }
-
-        // Enrich talents with wiki data
-        foreach (var wikiTalent in wikiDetails.Talents)
-        {
-            var matchingTalent = hero.Talents.FirstOrDefault(t =>
-                t.Name.Equals(wikiTalent.Name, StringComparison.OrdinalIgnoreCase) &&
-                (wikiTalent.Level == 0 || t.Level == wikiTalent.Level));
-
-            if (matchingTalent is null) continue;
-
-            if (!string.IsNullOrEmpty(wikiTalent.LinkedAbilityName))
-                matchingTalent.LinkedAbilityName ??= wikiTalent.LinkedAbilityName;
-            if (!string.IsNullOrEmpty(wikiTalent.Properties))
-                matchingTalent.Properties ??= wikiTalent.Properties;
-        }
-    }
-
-    private async Task MapHeroDataAsync(GitHubHeroData data, Hero hero, CancellationToken cancellationToken)
-    {
-        hero.Name = data.Name ?? hero.ShortName;
-        hero.HyperlinkId = data.HyperlinkId;
-        hero.AttributeId = data.AttributeId;
-        hero.Role = data.Role;
-        hero.ExpandedRole = data.ExpandedRole;
-        hero.Type = data.Type;
-        hero.ReleasePatch = data.ReleasePatch;
-        hero.LastSyncedAt = DateTime.UtcNow;
-
-        // Download hero icon if available
-        if (!string.IsNullOrEmpty(data.Icon))
-        {
-            var localIconPath = await imageDownloadService.DownloadImageAsync(
-                data.Icon,
-                "heroes",
-                hero.ShortName,
-                cancellationToken);
-
-            hero.Icon = localIconPath ?? data.Icon; // Use local path if download succeeded, otherwise keep original URL
-        }
-
-        if (DateTime.TryParse(data.ReleaseDate, out var releaseDate))
-        {
-            hero.ReleaseDate = releaseDate;
-        }
-
-        if (data.Tags != null)
-        {
-            hero.TagsJson = JsonSerializer.Serialize(data.Tags);
-        }
-
-        // Map abilities
-        if (data.Abilities != null)
-        {
-            foreach (var (formName, abilities) in data.Abilities)
-            {
-                foreach (var abilityData in abilities)
-                {
-                    var ability = new Ability
-                    {
-                        Hero = hero,
-                        FormName = formName,
-                        Uid = abilityData.Uid,
-                        Name = abilityData.Name ?? "Unknown",
-                        Description = abilityData.Description,
-                        Hotkey = abilityData.Hotkey,
-                        AbilityId = abilityData.AbilityId,
-                        Cooldown = abilityData.Cooldown,
-                        ManaCost = abilityData.ManaCost?.ToString(),
-                        Icon = abilityData.Icon,
-                        Type = abilityData.Type,
-                        IsTrait = abilityData.Trait ?? false
-                    };
-                    hero.Abilities.Add(ability);
-                }
-            }
-        }
-
-        // Map talents
-        if (data.Talents != null)
-        {
-            foreach (var (levelStr, talents) in data.Talents)
-            {
-                if (!int.TryParse(levelStr, out var level)) continue;
-
-                foreach (var talentData in talents)
-                {
-                    var talent = new Talent
-                    {
-                        Hero = hero,
-                        Level = level,
-                        TooltipId = talentData.TooltipId,
-                        TalentTreeId = talentData.TalentTreeId,
-                        Name = talentData.Name ?? "Unknown",
-                        Description = talentData.Description,
-                        Icon = talentData.Icon,
-                        Type = talentData.Type,
-                        Sort = talentData.Sort ?? 0,
-                        Cooldown = talentData.Cooldown,
-                        AbilityId = talentData.AbilityId
-                    };
-
-                    if (talentData.AbilityLinks != null)
-                    {
-                        talent.AbilityLinksJson = JsonSerializer.Serialize(talentData.AbilityLinks);
-                    }
-
-                    hero.Talents.Add(talent);
-                }
-            }
-        }
-    }
-
     private void MapPatchData(GitHubPatchData data, Patch patch)
     {
         patch.PatchName = data.PatchName;
@@ -1373,8 +1140,6 @@ public sealed partial class GitHubSyncService(
             patch.PtrDate = ptrDate;
         }
     }
-
-    #endregion
 
     #region Data Models
 
@@ -1405,52 +1170,6 @@ public sealed partial class GitHubSyncService(
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
-    }
-
-    private class GitHubHeroData
-    {
-        public int? Id { get; set; }
-        public string? ShortName { get; set; }
-        public string? HyperlinkId { get; set; }
-        public string? AttributeId { get; set; }
-        public string? Name { get; set; }
-        public string? Icon { get; set; }
-        public string? Role { get; set; }
-        public string? ExpandedRole { get; set; }
-        public string? Type { get; set; }
-        public string? ReleaseDate { get; set; }
-        public string? ReleasePatch { get; set; }
-        public List<string>? Tags { get; set; }
-        public Dictionary<string, List<GitHubAbilityData>>? Abilities { get; set; }
-        public Dictionary<string, List<GitHubTalentData>>? Talents { get; set; }
-    }
-
-    private class GitHubAbilityData
-    {
-        public string? Uid { get; set; }
-        public string? Name { get; set; }
-        public string? Description { get; set; }
-        public string? Hotkey { get; set; }
-        public string? AbilityId { get; set; }
-        public double? Cooldown { get; set; }
-        public object? ManaCost { get; set; }
-        public string? Icon { get; set; }
-        public string? Type { get; set; }
-        public bool? Trait { get; set; }
-    }
-
-    private class GitHubTalentData
-    {
-        public string? TooltipId { get; set; }
-        public string? TalentTreeId { get; set; }
-        public string? Name { get; set; }
-        public string? Description { get; set; }
-        public string? Icon { get; set; }
-        public string? Type { get; set; }
-        public int? Sort { get; set; }
-        public double? Cooldown { get; set; }
-        public string? AbilityId { get; set; }
-        public List<string>? AbilityLinks { get; set; }
     }
 
     private class GitHubPatchData

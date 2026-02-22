@@ -4,12 +4,14 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using HotsPatchNotes.Api.Data;
 using HotsPatchNotes.Shared.DTOs;
+using HotsPatchNotes.Shared.Models;
 
 namespace HotsPatchNotes.Api.Services;
 
 /// <summary>
-/// Service for syncing comprehensive hero data from HeroesToolChest/heroes-data repository.
-/// Supplements and enhances the base hero data from heroes-talents with detailed game mechanics.
+/// Primary sync service for hero data from HeroesToolChest/heroes-data repository.
+/// Creates and fully replaces heroes, abilities, and talents on each sync.
+/// Gamestrings are applied to abilities and talents during sync for up-to-date names/descriptions.
 /// </summary>
 public sealed partial class HeroesDataSyncService(
     HotsDbContext dbContext,
@@ -17,8 +19,46 @@ public sealed partial class HeroesDataSyncService(
     IGamestringsParser gamestringsParser,
     ILogger<HeroesDataSyncService> logger) : IHeroesDataSyncService
 {
-    private const string HeroesDataRepoUrl = "https://api.github.com/repos/HeroesToolChest/heroes-data/contents";
+    private const string HeroesDataDirApiUrl = "https://api.github.com/repos/HeroesToolChest/heroes-data/contents/heroesdata";
     private const string HeroesDataRawBaseUrl = "https://raw.githubusercontent.com/HeroesToolChest/heroes-data/main";
+
+    // Ability categories from heroes-data JSON to create abilities from
+    private static readonly HashSet<string> AbilityCategoriesToProcess =
+        new(StringComparer.OrdinalIgnoreCase) { "basic", "heroic", "trait", "mount", "active", "activable" };
+
+    // Maps heroes-data abilityType to the Hotkey field
+    private static readonly Dictionary<string, string> AbilityTypeToHotkey =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Q"] = "Q",
+            ["W"] = "W",
+            ["E"] = "E",
+            ["Heroic"] = "R",
+            ["Trait"] = "D",
+            ["Z"] = "Z",
+            ["Mount"] = "Z",
+        };
+
+    // Maps heroes-data level key to integer tier level
+    private static readonly Dictionary<string, int> LevelKeyToInt =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["level1"] = 1,
+            ["level4"] = 4,
+            ["level7"] = 7,
+            ["level10"] = 10,
+            ["level13"] = 13,
+            ["level16"] = 16,
+            ["level20"] = 20,
+        };
+
+    // Overrides for heroes where camelCase→kebab derivation is incorrect
+    private static readonly Dictionary<string, string> ShortNameOverrides =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["DVa"] = "d.va",
+            ["LostVikings"] = "the-lost-vikings",
+        };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -34,21 +74,19 @@ public sealed partial class HeroesDataSyncService(
 
         try
         {
-            logger.LogInformation("Starting heroes-data sync from HeroesToolChest repository");
+            logger.LogInformation("Starting heroes-data primary sync");
 
-            // Find the latest herodata localized file
-            var latestFile = await FindLatestHeroDataFileAsync(cancellationToken);
-            if (string.IsNullOrEmpty(latestFile))
+            var latest = await FindLatestBuildAsync(cancellationToken);
+            if (latest is null)
             {
-                result.Errors.Add("No herodata files found in heroes-data repository");
-                logger.LogWarning("No herodata files found");
+                result.Errors.Add("No build directories found in heroes-data repository");
+                logger.LogWarning("No build directories found in heroes-data repository");
                 return result;
             }
 
-            logger.LogInformation("Found latest heroes-data file: {FileName}", latestFile);
+            var (dirName, fileUrl) = latest.Value;
+            logger.LogInformation("Found latest heroes-data build: {DirName}", dirName);
 
-            // Download and parse the file
-            var fileUrl = $"{HeroesDataRawBaseUrl}/{latestFile}";
             var jsonContent = await httpClient.GetStringAsync(fileUrl, cancellationToken);
             var heroesData = JsonSerializer.Deserialize<Dictionary<string, HeroesDataHero>>(jsonContent, JsonOptions);
 
@@ -60,53 +98,49 @@ public sealed partial class HeroesDataSyncService(
 
             logger.LogInformation("Parsed {Count} heroes from heroes-data", heroesData.Count);
 
-            // Extract build number and fetch gamestrings
+            // Fetch gamestrings (graceful degradation — sync continues without them)
             Dictionary<string, GamestringEntry>? gamestrings = null;
             try
             {
-                var buildNumber = ExtractBuildNumber(latestFile);
-                logger.LogDebug("Extracted build number: {Build}", buildNumber);
-
                 gamestrings = await gamestringsParser.FetchAndParseGamestringsAsync(
-                    buildNumber,
+                    dirName,
                     "enus",
                     cancellationToken);
 
                 if (gamestrings is not null)
-                {
-                    logger.LogInformation("Fetched {Count} gamestring entries for build {Build}",
-                        gamestrings.Count, buildNumber);
-                }
+                    logger.LogInformation("Fetched {Count} gamestring entries for {DirName}", gamestrings.Count, dirName);
                 else
-                {
-                    logger.LogWarning("No gamestrings fetched for build {Build}, continuing without them", buildNumber);
-                }
+                    logger.LogWarning("No gamestrings fetched for {DirName}, continuing without them", dirName);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to fetch gamestrings, continuing without them");
             }
 
-            // Enrich existing heroes with heroes-data
+            var syncStartTime = DateTime.UtcNow;
+
             foreach (var (heroId, heroData) in heroesData)
             {
                 try
                 {
-                    await EnrichHeroWithHeroesDataAsync(heroId, heroData, gamestrings, cancellationToken);
+                    await CreateOrUpdateHeroAsync(heroId, heroData, gamestrings, cancellationToken);
                     result.HeroesUpdated++;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to enrich hero with heroes-data: {HeroId}", heroId);
-                    result.Errors.Add($"Failed to enrich {heroId}: {ex.Message}");
+                    logger.LogWarning(ex, "Failed to sync hero: {HeroId}", heroId);
+                    result.Errors.Add($"Failed to sync {heroId}: {ex.Message}");
                 }
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
+            // Warn about heroes in DB that were not present in heroes-data
+            await WarnAboutStaleHeroesAsync(syncStartTime, cancellationToken);
+
             result.Success = true;
-            result.Message = $"Enriched {result.HeroesUpdated} heroes with heroes-data";
-            logger.LogInformation("Heroes-data sync complete: {Count} heroes enriched", result.HeroesUpdated);
+            result.Message = $"Synced {result.HeroesUpdated} heroes from heroes-data";
+            logger.LogInformation("Heroes-data sync complete: {Count} heroes synced", result.HeroesUpdated);
         }
         catch (Exception ex)
         {
@@ -118,60 +152,102 @@ public sealed partial class HeroesDataSyncService(
     }
 
     /// <summary>
-    /// Finds the latest herodata localized JSON file in the repository.
+    /// Finds the latest build directory and constructs the herodata file URL.
+    /// Returns (dirName, fileUrl) for the newest build, or null if none found.
     /// </summary>
-    private async Task<string?> FindLatestHeroDataFileAsync(CancellationToken cancellationToken)
+    private async Task<(string DirName, string FileUrl)?> FindLatestBuildAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var response = await httpClient.GetStringAsync(HeroesDataRepoUrl, cancellationToken);
-            var files = JsonSerializer.Deserialize<List<GitHubFileInfo>>(response, JsonOptions);
+            var response = await httpClient.GetStringAsync(HeroesDataDirApiUrl, cancellationToken);
+            var items = JsonSerializer.Deserialize<List<GitHubFileInfo>>(response, JsonOptions);
 
-            if (files is null) return null;
+            if (items is null) return null;
 
-            // Find files matching pattern: herodata_<version>_localized.json
-            var heroDataFiles = files
-                .Where(f => f.Name.StartsWith("herodata_") && f.Name.EndsWith("_localized.json"))
-                .OrderByDescending(f => f.Name) // Latest version should sort last
+            // Select directories, sort by numeric build number descending
+            var buildDirs = items
+                .Where(i => i.Type == "dir")
+                .Select(i => (DirName: i.Name, BuildNum: ParseBuildNum(i.Name)))
+                .Where(x => x.BuildNum > 0)
+                .OrderByDescending(x => x.BuildNum)
                 .ToList();
 
-            return heroDataFiles.FirstOrDefault()?.Name;
+            var latest = buildDirs.FirstOrDefault();
+            if (latest == default) return null;
+
+            var fileUrl = $"{HeroesDataRawBaseUrl}/heroesdata/{latest.DirName}/data/herodata_{latest.DirName}_localized.json";
+            return (latest.DirName, fileUrl);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to list heroes-data files");
+            logger.LogError(ex, "Failed to find latest heroes-data build directory");
             return null;
         }
     }
 
     /// <summary>
-    /// Enriches an existing hero in the database with comprehensive data from heroes-data.
-    /// Only updates fields that are null or need enhancement - doesn't overwrite existing data.
+    /// Creates or fully replaces a hero and all its abilities and talents.
+    /// Existing abilities and talents are cleared and repopulated from heroes-data.
+    /// Gamestrings are applied to update names and descriptions.
     /// </summary>
-    private async Task EnrichHeroWithHeroesDataAsync(
+    private async Task CreateOrUpdateHeroAsync(
         string heroId,
         HeroesDataHero heroData,
         Dictionary<string, GamestringEntry>? gamestrings,
         CancellationToken cancellationToken)
     {
-        // Try to match hero by HyperlinkId or ShortName
+        var hyperlinkId = heroData.HyperlinkId ?? heroId;
+        var shortName = DeriveShortName(hyperlinkId);
+
         var hero = await dbContext.Heroes
             .Include(h => h.Abilities)
             .Include(h => h.Talents)
             .FirstOrDefaultAsync(h =>
-                h.HyperlinkId == heroId ||
-                h.ShortName == heroId.ToLowerInvariant(),
+                h.HyperlinkId == hyperlinkId ||
+                h.ShortName == shortName,
                 cancellationToken);
 
         if (hero is null)
         {
-            logger.LogDebug("Hero not found for heroes-data ID: {HeroId} (skipping)", heroId);
-            return;
+            hero = new Hero
+            {
+                ShortName = shortName,
+                HyperlinkId = hyperlinkId,
+                Name = heroData.Name ?? hyperlinkId,
+            };
+            dbContext.Heroes.Add(hero);
+            logger.LogDebug("Creating new hero: {Name} ({ShortName})", hero.Name, hero.ShortName);
+        }
+        else
+        {
+            // Full replace strategy: clear existing abilities and talents
+            dbContext.Abilities.RemoveRange(hero.Abilities);
+            dbContext.Talents.RemoveRange(hero.Talents);
+            hero.Abilities.Clear();
+            hero.Talents.Clear();
+            logger.LogDebug("Updating hero: {Name} — cleared abilities and talents for repopulation", hero.Name);
         }
 
-        logger.LogDebug("Enriching hero {HeroName} with heroes-data", hero.Name);
+        // Update hero fields (preserve existing non-null values that we can't derive from heroes-data)
+        if (!string.IsNullOrWhiteSpace(heroData.Name))
+            hero.Name = heroData.Name;
 
-        // Enrich hero-level stats
+        hero.HyperlinkId ??= hyperlinkId;
+        hero.AttributeId ??= heroData.AttributeId;
+
+        if (!string.IsNullOrWhiteSpace(heroData.Franchise))
+            hero.Universe ??= heroData.Franchise;
+
+        if (!string.IsNullOrWhiteSpace(heroData.ReleaseDate) && hero.ReleaseDate is null &&
+            DateTime.TryParse(heroData.ReleaseDate, out var releaseDate))
+        {
+            hero.ReleaseDate = releaseDate;
+        }
+
+        if (heroData.Descriptors is not null && heroData.Descriptors.Count > 0)
+            hero.TagsJson ??= JsonSerializer.Serialize(heroData.Descriptors);
+
+        // Stats (null-coalescing — not overwriting values set by other enrichment)
         if (heroData.Life is not null)
         {
             hero.LifeMax ??= heroData.Life.LifeMax;
@@ -196,82 +272,106 @@ public sealed partial class HeroesDataSyncService(
         hero.Speed ??= heroData.Speed;
         hero.SightRadius ??= heroData.Sight;
 
-        // Enrich weapon/attack data
-        if (heroData.Weapons is not null && heroData.Weapons.Count > 0)
+        var primaryWeapon = heroData.Weapons?.FirstOrDefault();
+        if (primaryWeapon is not null)
         {
-            var primaryWeapon = heroData.Weapons.FirstOrDefault().Value;
-            if (primaryWeapon is not null)
-            {
-                hero.AttackDamageScaling ??= primaryWeapon.DamageScaling;
-                hero.AttackRange ??= primaryWeapon.Range;
-                hero.AttackSpeed ??= primaryWeapon.AttackSpeed;
-            }
+            hero.AttackDamageScaling ??= primaryWeapon.DamageScaling;
+            hero.AttackRange ??= primaryWeapon.Range;
+            hero.AttackSpeed ??= primaryWeapon.AttackSpeed;
         }
 
-        // Enrich abilities with heroes-data
+        // Create abilities from heroes-data categories
         if (heroData.Abilities is not null)
         {
-            foreach (var (abilityId, abilityData) in heroData.Abilities)
+            foreach (var (category, abilitiesList) in heroData.Abilities)
             {
-                var matchingAbility = hero.Abilities.FirstOrDefault(a =>
-                    a.AbilityId == abilityId ||
-                    a.Uid == abilityId ||
-                    a.Name.Equals(abilityData.Name, StringComparison.OrdinalIgnoreCase));
+                if (!AbilityCategoriesToProcess.Contains(category))
+                    continue;
 
-                if (matchingAbility is not null)
+                foreach (var abilityData in abilitiesList)
                 {
-                    matchingAbility.IsPassive ??= abilityData.IsPassive;
-                    matchingAbility.LifeCost ??= abilityData.LifeCost;
-                    matchingAbility.IsToggle ??= abilityData.IsToggle;
+                    if (string.IsNullOrWhiteSpace(abilityData.NameId))
+                        continue;
 
-                    if (abilityData.Charges is not null)
+                    var isTrait = string.Equals(abilityData.AbilityType, "Trait", StringComparison.OrdinalIgnoreCase);
+                    AbilityTypeToHotkey.TryGetValue(abilityData.AbilityType ?? string.Empty, out var hotkey);
+
+                    var ability = new Ability
                     {
-                        matchingAbility.ChargesMax ??= abilityData.Charges.CountMax;
-                        matchingAbility.RechargeTime ??= abilityData.Charges.RecastCooldown;
-                    }
+                        Hero = hero,
+                        AbilityId = abilityData.NameId,
+                        Uid = abilityData.ButtonId ?? abilityData.NameId,
+                        Name = abilityData.NameId, // Overwritten by gamestrings below
+                        Icon = abilityData.Icon,
+                        Type = category,
+                        Hotkey = hotkey,
+                        IsTrait = isTrait,
+                        IsPassive = abilityData.IsPassive,
+                        IsToggle = abilityData.IsToggle,
+                        LifeCost = abilityData.LifeCost,
+                        ChargesMax = abilityData.Charges?.CountMax,
+                        RechargeTime = abilityData.Charges?.RecastCooldown,
+                    };
+
+                    hero.Abilities.Add(ability);
                 }
             }
         }
 
-        // Enrich talents with heroes-data
+        // Create talents from heroes-data level keys
         if (heroData.Talents is not null)
         {
-            foreach (var (talentId, talentData) in heroData.Talents)
+            foreach (var (levelKey, talentsList) in heroData.Talents)
             {
-                var matchingTalent = hero.Talents.FirstOrDefault(t =>
-                    t.TalentTreeId == talentId ||
-                    t.TooltipId == talentId ||
-                    t.Name.Equals(talentData.Name, StringComparison.OrdinalIgnoreCase));
+                if (!LevelKeyToInt.TryGetValue(levelKey, out var level))
+                    continue;
 
-                if (matchingTalent is not null)
+                for (var i = 0; i < talentsList.Count; i++)
                 {
-                    matchingTalent.IsQuest ??= talentData.IsQuest;
+                    var talentData = talentsList[i];
+                    if (string.IsNullOrWhiteSpace(talentData.NameId))
+                        continue;
+
+                    var talent = new Talent
+                    {
+                        Hero = hero,
+                        TalentTreeId = talentData.NameId,
+                        TooltipId = talentData.ButtonId ?? talentData.NameId,
+                        Name = talentData.NameId, // Overwritten by gamestrings below
+                        Icon = talentData.Icon,
+                        Type = talentData.AbilityType,
+                        Level = level,
+                        Sort = talentData.Sort ?? i,
+                        IsQuest = talentData.IsQuest,
+                        IsStackable = talentData.IsStackable,
+                    };
 
                     if (talentData.AbilityTalentLinkIds is not null && talentData.AbilityTalentLinkIds.Count > 0)
                     {
-                        matchingTalent.AbilityTalentLinkIdsJson ??= JsonSerializer.Serialize(talentData.AbilityTalentLinkIds);
+                        talent.AbilityLinksJson = JsonSerializer.Serialize(talentData.AbilityTalentLinkIds);
+                        talent.AbilityTalentLinkIdsJson = talent.AbilityLinksJson;
                     }
 
-                    matchingTalent.IsStackable ??= talentData.IsStackable;
+                    hero.Talents.Add(talent);
                 }
             }
         }
 
-        // Apply gamestrings to talents (after heroes-data enrichment)
-        if (gamestrings is not null && hero.Talents.Any())
+        // Apply gamestrings to overwrite placeholder names/descriptions
+        if (gamestrings is not null)
         {
-            try
+            if (hero.Abilities.Count > 0)
             {
-                var matchCount = gamestringsParser.ApplyGamestringsToTalents(
-                    hero.Talents,
-                    gamestrings);
-
-                logger.LogDebug("Matched {Count}/{Total} talents to gamestrings for {Hero}",
-                    matchCount, hero.Talents.Count, hero.Name);
+                var abilityMatches = gamestringsParser.ApplyGamestringsToAbilities(hero.Abilities, gamestrings);
+                logger.LogDebug("Matched {Count}/{Total} abilities to gamestrings for {Hero}",
+                    abilityMatches, hero.Abilities.Count, hero.Name);
             }
-            catch (Exception ex)
+
+            if (hero.Talents.Count > 0)
             {
-                logger.LogWarning(ex, "Failed to apply gamestrings to {Hero}", hero.Name);
+                var talentMatches = gamestringsParser.ApplyGamestringsToTalents(hero.Talents, gamestrings);
+                logger.LogDebug("Matched {Count}/{Total} talents to gamestrings for {Hero}",
+                    talentMatches, hero.Talents.Count, hero.Name);
             }
         }
 
@@ -279,47 +379,87 @@ public sealed partial class HeroesDataSyncService(
     }
 
     /// <summary>
-    /// Extracts the build number from a herodata file name.
-    /// Example: "herodata_76003_localized.json" → "76003"
+    /// Logs a warning for heroes in the database that were not present in the current heroes-data JSON.
+    /// These are heroes that were not updated during this sync — they may be stale.
     /// </summary>
-    [GeneratedRegex(@"_(\d+)_")]
-    private static partial Regex BuildNumberRegex();
-
-    private static string ExtractBuildNumber(string fileName)
+    private async Task WarnAboutStaleHeroesAsync(DateTime syncStartTime, CancellationToken cancellationToken)
     {
-        var match = BuildNumberRegex().Match(fileName);
-        if (!match.Success)
+        try
         {
-            throw new ArgumentException($"Invalid herodata file name format: {fileName}", nameof(fileName));
-        }
+            var staleHeroes = await dbContext.Heroes
+                .Where(h => h.LastSyncedAt < syncStartTime)
+                .Select(h => h.Name)
+                .ToListAsync(cancellationToken);
 
-        return match.Groups[1].Value;
+            if (staleHeroes.Count > 0)
+            {
+                logger.LogWarning("The following {Count} heroes were not found in heroes-data and were NOT updated: {Heroes}",
+                    staleHeroes.Count, string.Join(", ", staleHeroes));
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to check for stale heroes");
+        }
+    }
+
+    /// <summary>
+    /// Derives a URL-friendly ShortName from a camelCase HyperlinkId.
+    /// For example: "LiMing" → "li-ming", "DVa" → "d.va" (via override table).
+    /// </summary>
+    private static string DeriveShortName(string hyperlinkId)
+    {
+        if (ShortNameOverrides.TryGetValue(hyperlinkId, out var known))
+            return known;
+
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < hyperlinkId.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(hyperlinkId[i]) && char.IsLower(hyperlinkId[i - 1]))
+                sb.Append('-');
+            sb.Append(char.ToLowerInvariant(hyperlinkId[i]));
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Extracts the numeric build number from a version directory name.
+    /// Example: "2.55.15.96477" → 96477
+    /// </summary>
+    private static int ParseBuildNum(string dirName)
+    {
+        var parts = dirName.Split('.');
+        return int.TryParse(parts[^1], out var n) ? n : 0;
     }
 
     #region Data Models for heroes-data JSON
 
-    private class GitHubFileInfo
+    private sealed class GitHubFileInfo
     {
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
     }
 
-    private class HeroesDataHero
+    private sealed class HeroesDataHero
     {
         public string? Name { get; set; }
         public string? HyperlinkId { get; set; }
+        public string? AttributeId { get; set; }
+        public string? Franchise { get; set; }
+        public string? ReleaseDate { get; set; }
+        public List<string>? Descriptors { get; set; }
         public HeroesDataLife? Life { get; set; }
         public HeroesDataEnergy? Energy { get; set; }
         public HeroesDataShield? Shield { get; set; }
         public double? Speed { get; set; }
         public double? Sight { get; set; }
-        public Dictionary<string, HeroesDataWeapon>? Weapons { get; set; }
-        public Dictionary<string, HeroesDataAbility>? Abilities { get; set; }
-        public Dictionary<string, HeroesDataTalent>? Talents { get; set; }
+        public List<HeroesDataWeapon>? Weapons { get; set; }
+        public Dictionary<string, List<HeroesDataAbility>>? Abilities { get; set; }
+        public Dictionary<string, List<HeroesDataTalent>>? Talents { get; set; }
     }
 
-    private class HeroesDataLife
+    private sealed class HeroesDataLife
     {
         public double? LifeMax { get; set; }
         public double? LifeRegenRate { get; set; }
@@ -327,47 +467,55 @@ public sealed partial class HeroesDataSyncService(
         public double? LifeRegenRateScaling { get; set; }
     }
 
-    private class HeroesDataEnergy
+    private sealed class HeroesDataEnergy
     {
         public double? EnergyMax { get; set; }
         public double? EnergyRegenRate { get; set; }
     }
 
-    private class HeroesDataShield
+    private sealed class HeroesDataShield
     {
         public double? ShieldMax { get; set; }
         public double? ShieldRegenRate { get; set; }
         public double? ShieldRegenDelay { get; set; }
     }
 
-    private class HeroesDataWeapon
+    private sealed class HeroesDataWeapon
     {
         public double? Range { get; set; }
         public double? DamageScaling { get; set; }
         public double? AttackSpeed { get; set; }
     }
 
-    private class HeroesDataAbility
+    private sealed class HeroesDataAbility
     {
-        public string? Name { get; set; }
+        public string? NameId { get; set; }
+        public string? ButtonId { get; set; }
+        public string? Icon { get; set; }
+        public string? AbilityType { get; set; }
         public bool? IsPassive { get; set; }
-        public double? LifeCost { get; set; }
         public bool? IsToggle { get; set; }
+        public double? LifeCost { get; set; }
         public HeroesDataCharges? Charges { get; set; }
     }
 
-    private class HeroesDataCharges
+    private sealed class HeroesDataTalent
+    {
+        public string? NameId { get; set; }
+        public string? ButtonId { get; set; }
+        public string? Icon { get; set; }
+        public string? AbilityType { get; set; }
+        public bool? IsActive { get; set; }
+        public bool? IsQuest { get; set; }
+        public int? Sort { get; set; }
+        public List<string>? AbilityTalentLinkIds { get; set; }
+        public bool? IsStackable { get; set; }
+    }
+
+    private sealed class HeroesDataCharges
     {
         public int? CountMax { get; set; }
         public double? RecastCooldown { get; set; }
-    }
-
-    private class HeroesDataTalent
-    {
-        public string? Name { get; set; }
-        public bool? IsQuest { get; set; }
-        public List<string>? AbilityTalentLinkIds { get; set; }
-        public bool? IsStackable { get; set; }
     }
 
     #endregion

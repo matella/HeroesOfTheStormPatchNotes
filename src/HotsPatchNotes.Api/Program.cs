@@ -67,10 +67,6 @@ builder.Services.AddHttpClient<IBattlegroundScraper, BattlegroundScraper>(client
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
 });
-builder.Services.AddHttpClient<IHeroScraper, HeroScraper>(client =>
-{
-    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
-});
 builder.Services.AddHttpClient<IHeroesDataSyncService, HeroesDataSyncService>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
@@ -82,6 +78,11 @@ builder.Services.AddHttpClient<IS2MAParserService, S2MAParserService>(client =>
 builder.Services.AddHttpClient<IS2MAHeroParserService, S2MAHeroParserService>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+});
+builder.Services.AddHttpClient<IGamedataXmlEnrichmentService, GamedataXmlEnrichmentService>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
+    client.Timeout = TimeSpan.FromSeconds(60);
 });
 builder.Services.AddHttpClient<IGitHubSyncService, GitHubSyncService>(client =>
 {

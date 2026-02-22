@@ -56,6 +56,12 @@ public abstract class TestBase : IDisposable
         return new S2MAHeroParserService(context, httpClient, logger);
     }
 
+    protected IGamedataXmlEnrichmentService CreateGamedataXmlEnrichmentService(HotsDbContext context, HttpClient httpClient)
+    {
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<GamedataXmlEnrichmentService>.Instance;
+        return new GamedataXmlEnrichmentService(context, httpClient, logger);
+    }
+
     protected virtual void SeedTestData(HotsDbContext context)
     {
         // Add sample heroes

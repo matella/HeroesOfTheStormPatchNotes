@@ -24,7 +24,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         Mock<IImageDownloadService>? imageDownloadService = null,
         Mock<IHeroesDataSyncService>? heroesDataSyncService = null,
         Mock<IGamedataXmlEnrichmentService>? gamedataXmlEnrichmentService = null,
-        Mock<IS2MAParserService>? s2maParserService = null,
+        Mock<IGamedataMapSyncService>? gamedataMapSyncService = null,
         Mock<IS2MAHeroParserService>? s2maHeroParserService = null)
     {
         htmlService ??= new Mock<IHtmlContentService>();
@@ -32,12 +32,16 @@ public sealed class GitHubSyncServiceTests : TestBase
         imageDownloadService ??= new Mock<IImageDownloadService>();
         heroesDataSyncService ??= new Mock<IHeroesDataSyncService>();
         gamedataXmlEnrichmentService ??= new Mock<IGamedataXmlEnrichmentService>();
-        s2maParserService ??= new Mock<IS2MAParserService>();
+        gamedataMapSyncService ??= new Mock<IGamedataMapSyncService>();
         s2maHeroParserService ??= new Mock<IS2MAHeroParserService>();
 
         // Default setups: return non-null results so Phase 2/3 don't NPE
         gamedataXmlEnrichmentService
             .Setup(s => s.EnrichHeroesFromGamedataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HotsPatchNotes.Shared.DTOs.SyncResultDto { Success = true });
+
+        gamedataMapSyncService
+            .Setup(s => s.SyncBattlegroundsFromGamedataAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new HotsPatchNotes.Shared.DTOs.SyncResultDto { Success = true });
 
         s2maHeroParserService
@@ -53,7 +57,7 @@ public sealed class GitHubSyncServiceTests : TestBase
             imageDownloadService.Object,
             heroesDataSyncService.Object,
             gamedataXmlEnrichmentService.Object,
-            s2maParserService.Object,
+            gamedataMapSyncService.Object,
             s2maHeroParserService.Object);
     }
 
@@ -226,21 +230,22 @@ public sealed class GitHubSyncServiceTests : TestBase
         // Arrange
         using var context = CreateContext();
 
-        // Add existing battleground
+        // Add existing battleground (as if Gamedata already synced it)
         var existingBattleground = new Battleground
         {
             ShortName = "cursed-hollow",
             Name = "Cursed Hollow",
             MapType = "3-Lane",
-            Description = "Old description",
-            IsInRotation = false
+            Description = "Gamedata description",
+            Objective = "Gamedata objective",
+            IsInRotation = true
         };
         context.Battlegrounds.Add(existingBattleground);
         await context.SaveChangesAsync();
 
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockGamedataMapSyncService = new Mock<IGamedataMapSyncService>();
 
         var battlegroundInfo = new BattlegroundBasicInfo
         {
@@ -254,8 +259,8 @@ public sealed class GitHubSyncServiceTests : TestBase
 
         var battlegroundDetails = new BattlegroundDetailInfo
         {
-            Description = "Updated description",
-            ObjectiveDetails = "Updated objective details"
+            ObjectiveTiming = "3:00 minutes",
+            Tips = "Focus on tributes as a team"
         };
 
         mockBattlegroundScraper
@@ -270,31 +275,20 @@ public sealed class GitHubSyncServiceTests : TestBase
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
             .Returns<string>(html => html);
 
-        // Mock S2MA parser to successfully update the battleground
-        mockS2MAParserService
-            .Setup(s => s.SyncBattlegroundsFromS2MAAsync(It.IsAny<CancellationToken>()))
-            .Callback<CancellationToken>(async (ct) =>
-            {
-                // S2MA parser updates the existing battleground with new data
-                var bg = await context.Battlegrounds.FirstOrDefaultAsync(b => b.ShortName == "cursed-hollow", ct);
-                if (bg is not null)
-                {
-                    bg.Description = "Updated description";
-                    bg.Objective = "Updated objective details";
-                    await context.SaveChangesAsync(ct);
-                }
-            })
+        // Gamedata sync returns success (record already in DB from setup above)
+        mockGamedataMapSyncService
+            .Setup(s => s.SyncBattlegroundsFromGamedataAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new HotsPatchNotes.Shared.DTOs.SyncResultDto
             {
                 Success = true,
                 HeroesUpdated = 1,
-                Message = "Synced 1 battlegrounds from S2MA"
+                Message = "Synced 1 battlegrounds from Gamedata"
             });
 
         var service = BuildService(context,
             htmlService: mockHtmlService,
             battlegroundScraper: mockBattlegroundScraper,
-            s2maParserService: mockS2MAParserService);
+            gamedataMapSyncService: mockGamedataMapSyncService);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
@@ -304,8 +298,13 @@ public sealed class GitHubSyncServiceTests : TestBase
 
         var updated = await context.Battlegrounds.FirstOrDefaultAsync(b => b.ShortName == "cursed-hollow");
         Assert.NotNull(updated);
-        Assert.Equal("Updated description", updated.Description);
-        Assert.Equal("Updated objective details", updated.Objective);
+
+        // Gamedata-owned fields remain (wiki doesn't overwrite them)
+        Assert.Equal("Gamedata description", updated.Description);
+        Assert.Equal("Gamedata objective", updated.Objective);
+
+        // Wiki-enriched timing field should be populated by Phase 2
+        Assert.Equal("3:00 minutes", updated.ObjectiveTiming);
     }
 
     [Fact]
@@ -315,7 +314,7 @@ public sealed class GitHubSyncServiceTests : TestBase
         using var context = CreateContext();
         var mockBattlegroundScraper = new Mock<IBattlegroundScraper>();
         var mockHtmlService = new Mock<IHtmlContentService>();
-        var mockS2MAParserService = new Mock<IS2MAParserService>();
+        var mockGamedataMapSyncService = new Mock<IGamedataMapSyncService>();
 
         var battlegroundInfo = new BattlegroundBasicInfo
         {
@@ -337,23 +336,23 @@ public sealed class GitHubSyncServiceTests : TestBase
             .Setup(s => s.SanitizeHtml(It.IsAny<string>()))
             .Returns<string>(html => html);
 
-        mockS2MAParserService
-            .Setup(s => s.SyncBattlegroundsFromS2MAAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("S2MA parse error"));
+        // Gamedata sync succeeds but wiki scraper throws on details
+        mockGamedataMapSyncService
+            .Setup(s => s.SyncBattlegroundsFromGamedataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HotsPatchNotes.Shared.DTOs.SyncResultDto { Success = true, HeroesUpdated = 0 });
 
         var service = BuildService(context,
             htmlService: mockHtmlService,
             battlegroundScraper: mockBattlegroundScraper,
-            s2maParserService: mockS2MAParserService);
+            gamedataMapSyncService: mockGamedataMapSyncService);
 
         // Act
         var result = await service.SyncBattlegroundsAsync(CancellationToken.None);
 
-        // Assert - service should handle error gracefully
+        // Assert - service should handle wiki scraper error gracefully
         Assert.NotNull(result);
-        Assert.True(result.Success); // Overall success despite individual failures
-        Assert.Equal(2, result.Errors.Count);
-        Assert.Contains(result.Errors, e => e.Contains("S2MA parse error") || e.Contains("S2MA sync failed"));
+        Assert.True(result.Success); // Overall success despite individual wiki failures
+        Assert.NotEmpty(result.Errors);
         Assert.Contains(result.Errors, e => e.Contains("Network error"));
     }
 

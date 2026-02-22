@@ -62,7 +62,7 @@ builder.Services.AddHttpClient<IImageDownloadService, ImageDownloadService>(clie
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// HttpClient for GitHub API, BattlegroundScraper, HeroScraper, HeroesDataSyncService, and S2MAParserService
+// HttpClient for GitHub API, BattlegroundScraper, HeroScraper, HeroesDataSyncService, and GamedataMapSyncService
 builder.Services.AddHttpClient<IBattlegroundScraper, BattlegroundScraper>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
@@ -71,7 +71,7 @@ builder.Services.AddHttpClient<IHeroesDataSyncService, HeroesDataSyncService>(cl
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
 });
-builder.Services.AddHttpClient<IS2MAParserService, S2MAParserService>(client =>
+builder.Services.AddHttpClient<IGamedataMapSyncService, GamedataMapSyncService>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "HotsPatchNotes-API/1.0");
 });

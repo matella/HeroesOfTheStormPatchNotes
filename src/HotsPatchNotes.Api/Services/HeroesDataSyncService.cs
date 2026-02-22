@@ -20,7 +20,7 @@ public sealed partial class HeroesDataSyncService(
     ILogger<HeroesDataSyncService> logger) : IHeroesDataSyncService
 {
     private const string HeroesDataDirApiUrl = "https://api.github.com/repos/HeroesToolChest/heroes-data/contents/heroesdata";
-    private const string HeroesDataRawBaseUrl = "https://raw.githubusercontent.com/HeroesToolChest/heroes-data/main";
+    private const string HeroesDataRawBaseUrl = "https://raw.githubusercontent.com/HeroesToolChest/heroes-data/master";
 
     // Ability categories from heroes-data JSON to create abilities from
     private static readonly HashSet<string> AbilityCategoriesToProcess =
@@ -99,7 +99,7 @@ public sealed partial class HeroesDataSyncService(
             logger.LogInformation("Parsed {Count} heroes from heroes-data", heroesData.Count);
 
             // Fetch gamestrings (graceful degradation — sync continues without them)
-            Dictionary<string, GamestringEntry>? gamestrings = null;
+            GamestringsResult? gamestrings = null;
             try
             {
                 gamestrings = await gamestringsParser.FetchAndParseGamestringsAsync(
@@ -108,7 +108,9 @@ public sealed partial class HeroesDataSyncService(
                     cancellationToken);
 
                 if (gamestrings is not null)
-                    logger.LogInformation("Fetched {Count} gamestring entries for {DirName}", gamestrings.Count, dirName);
+                    logger.LogInformation(
+                        "Fetched {AbilCount} abiltalent and {UnitCount} unit gamestring entries for {DirName}",
+                        gamestrings.AbilTalent.Count, gamestrings.Unit.Count, dirName);
                 else
                     logger.LogWarning("No gamestrings fetched for {DirName}, continuing without them", dirName);
             }
@@ -175,7 +177,8 @@ public sealed partial class HeroesDataSyncService(
             var latest = buildDirs.FirstOrDefault();
             if (latest == default) return null;
 
-            var fileUrl = $"{HeroesDataRawBaseUrl}/heroesdata/{latest.DirName}/data/herodata_{latest.DirName}_localized.json";
+            var buildNum = latest.DirName.Split('.')[^1]; // Extract "96477" from "2.55.15.96477"
+            var fileUrl = $"{HeroesDataRawBaseUrl}/heroesdata/{latest.DirName}/data/herodata_{buildNum}_localized.json";
             return (latest.DirName, fileUrl);
         }
         catch (Exception ex)
@@ -193,7 +196,7 @@ public sealed partial class HeroesDataSyncService(
     private async Task CreateOrUpdateHeroAsync(
         string heroId,
         HeroesDataHero heroData,
-        Dictionary<string, GamestringEntry>? gamestrings,
+        GamestringsResult? gamestrings,
         CancellationToken cancellationToken)
     {
         var hyperlinkId = heroData.HyperlinkId ?? heroId;
@@ -246,6 +249,30 @@ public sealed partial class HeroesDataSyncService(
 
         if (heroData.Descriptors is not null && heroData.Descriptors.Count > 0)
             hero.TagsJson ??= JsonSerializer.Serialize(heroData.Descriptors);
+
+        // Apply hero-level metadata from the gamestrings unit section (covers all 90 heroes)
+        // heroId is the top-level key in the herodata JSON (e.g. "Amazon" for Cassia),
+        // which matches the key format used in the gamestrings unit section.
+        if (gamestrings is not null && gamestrings.Unit.TryGetValue(heroId, out var unitEntry))
+        {
+            if (!string.IsNullOrWhiteSpace(unitEntry.Role))
+                hero.Role ??= unitEntry.Role;
+
+            if (!string.IsNullOrWhiteSpace(unitEntry.ExpandedRole))
+                hero.ExpandedRole ??= unitEntry.ExpandedRole;
+
+            if (!string.IsNullOrWhiteSpace(unitEntry.Type))
+                hero.Type ??= unitEntry.Type;
+
+            if (!string.IsNullOrWhiteSpace(unitEntry.Difficulty))
+                hero.Difficulty ??= unitEntry.Difficulty;
+
+            if (!string.IsNullOrWhiteSpace(unitEntry.Title))
+                hero.Title ??= unitEntry.Title;
+
+            if (!string.IsNullOrWhiteSpace(unitEntry.Description))
+                hero.Description ??= unitEntry.Description;
+        }
 
         // Stats (null-coalescing — not overwriting values set by other enrichment)
         if (heroData.Life is not null)
@@ -362,14 +389,14 @@ public sealed partial class HeroesDataSyncService(
         {
             if (hero.Abilities.Count > 0)
             {
-                var abilityMatches = gamestringsParser.ApplyGamestringsToAbilities(hero.Abilities, gamestrings);
+                var abilityMatches = gamestringsParser.ApplyGamestringsToAbilities(hero.Abilities, gamestrings.AbilTalent);
                 logger.LogDebug("Matched {Count}/{Total} abilities to gamestrings for {Hero}",
                     abilityMatches, hero.Abilities.Count, hero.Name);
             }
 
             if (hero.Talents.Count > 0)
             {
-                var talentMatches = gamestringsParser.ApplyGamestringsToTalents(hero.Talents, gamestrings);
+                var talentMatches = gamestringsParser.ApplyGamestringsToTalents(hero.Talents, gamestrings.AbilTalent);
                 logger.LogDebug("Matched {Count}/{Total} talents to gamestrings for {Hero}",
                     talentMatches, hero.Talents.Count, hero.Name);
             }
@@ -461,9 +488,16 @@ public sealed partial class HeroesDataSyncService(
 
     private sealed class HeroesDataLife
     {
+        [JsonPropertyName("amount")]
         public double? LifeMax { get; set; }
+
+        [JsonPropertyName("regenRate")]
         public double? LifeRegenRate { get; set; }
+
+        [JsonPropertyName("scale")]
         public double? LifeScaling { get; set; }
+
+        [JsonPropertyName("regenScale")]
         public double? LifeRegenRateScaling { get; set; }
     }
 

@@ -28,7 +28,7 @@ else
 
         <div class="hero-header">
             <div class="hero-portrait">
-                <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? hero.ShortName + ".png")"
+                <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower() + ".png")"
                      alt="@hero.Name" />
             </div>
             <div class="hero-title">

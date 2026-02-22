@@ -160,8 +160,8 @@ public class GamestringsParserTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.NotEmpty(result);
-        Assert.True(result.ContainsKey("TestAbility") || result.ContainsKey("TestAbilityButton"));
+        Assert.NotEmpty(result.AbilTalent);
+        Assert.True(result.AbilTalent.ContainsKey("TestAbility") || result.AbilTalent.ContainsKey("TestAbilityButton"));
     }
 
     [Fact]

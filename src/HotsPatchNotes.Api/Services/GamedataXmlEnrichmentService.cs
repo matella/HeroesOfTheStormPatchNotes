@@ -22,13 +22,6 @@ public sealed class GamedataXmlEnrichmentService(
     private const string HeroXmlUrlPattern =
         "https://raw.githubusercontent.com/jamiephan/HeroesOfTheStorm_Gamedata/master/mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/{0}data/{0}data.xml";
 
-    // Mapping for heroes where GitHub folder name differs from database ShortName
-    private static readonly Dictionary<string, string> HeroFolderToShortName =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["dva"] = "d.va",
-            ["liming"] = "li-ming",
-        };
 
     public async Task<SyncResultDto> EnrichHeroesFromGamedataAsync(CancellationToken cancellationToken = default)
     {
@@ -58,11 +51,13 @@ public sealed class GamedataXmlEnrichmentService(
 
                     var gamedataInfo = ParseHeroXml(xmlContent);
 
-                    var shortName = HeroFolderToShortName.TryGetValue(folderName, out var mapped)
-                        ? mapped
-                        : folderName.ToLowerInvariant();
+                    if (string.IsNullOrWhiteSpace(gamedataInfo.HyperlinkId))
+                    {
+                        logger.LogDebug("No CHero id found in Gamedata XML for folder: {FolderName}", folderName);
+                        continue;
+                    }
 
-                    var enriched = await EnrichHeroAsync(shortName, gamedataInfo, cancellationToken);
+                    var enriched = await EnrichHeroAsync(gamedataInfo.HyperlinkId, gamedataInfo, cancellationToken);
                     if (enriched)
                         enrichedCount++;
                 }
@@ -146,25 +141,22 @@ public sealed class GamedataXmlEnrichmentService(
 
             if (heroElement is not null)
             {
-                // Try to determine attack type from unit attributes
-                var unitType = heroElement.Descendants("UnitCategory")
-                    .FirstOrDefault()?.Attribute("value")?.Value
-                    ?? heroElement.Attribute("unitCategory")?.Value;
+                // Extract HyperlinkId from the CHero id attribute — used to look up the hero in the DB
+                info.HyperlinkId = heroElement.Attribute("id")?.Value;
 
-                if (!string.IsNullOrWhiteSpace(unitType))
-                {
-                    if (unitType.Contains("Melee", StringComparison.OrdinalIgnoreCase))
-                        info.AttackType = "Melee";
-                    else if (unitType.Contains("Ranged", StringComparison.OrdinalIgnoreCase))
-                        info.AttackType = "Ranged";
-                }
+                // Determine attack type: <Melee value="1" /> present means Melee, absent means Ranged
+                var meleeElement = heroElement.Descendants("Melee").FirstOrDefault();
+                info.AttackType = meleeElement?.Attribute("value")?.Value == "1" ? "Melee" : "Ranged";
 
-                // Try to read role from descriptors/flags
+                // Read legacy role
                 var roleElement = heroElement.Descendants("Role").FirstOrDefault();
                 if (roleElement is not null)
-                {
                     info.Role = roleElement.Attribute("value")?.Value;
-                }
+
+                // Read modern expanded role (Healer, Tank, Bruiser, etc.)
+                var expandedRoleElement = heroElement.Descendants("ExpandedRole").FirstOrDefault();
+                if (expandedRoleElement is not null)
+                    info.ExpandedRole = expandedRoleElement.Attribute("value")?.Value;
             }
 
             // Extract ability data from CAbil* elements
@@ -218,17 +210,17 @@ public sealed class GamedataXmlEnrichmentService(
     }
 
     private async Task<bool> EnrichHeroAsync(
-        string heroShortName,
+        string hyperlinkId,
         GamedataHeroInfo gamedataInfo,
         CancellationToken cancellationToken)
     {
         var hero = await dbContext.Heroes
             .Include(h => h.Abilities)
-            .FirstOrDefaultAsync(h => h.ShortName == heroShortName, cancellationToken);
+            .FirstOrDefaultAsync(h => h.HyperlinkId == hyperlinkId, cancellationToken);
 
         if (hero is null)
         {
-            logger.LogDebug("Hero not found for Gamedata enrichment: {ShortName} (skipping)", heroShortName);
+            logger.LogDebug("Hero not found for Gamedata enrichment: {HyperlinkId} (skipping)", hyperlinkId);
             return false;
         }
 
@@ -263,8 +255,8 @@ public sealed class GamedataXmlEnrichmentService(
                 dbAbility.ManaCost ??= gamedataAbility.ManaCost.Value.ToString("0.##");
         }
 
-        logger.LogDebug("Enriched {ShortName} with Gamedata XML ({Abilities} abilities processed)",
-            heroShortName, gamedataInfo.Abilities.Count);
+        logger.LogDebug("Enriched {HyperlinkId} with Gamedata XML ({Abilities} abilities processed)",
+            hyperlinkId, gamedataInfo.Abilities.Count);
 
         return true;
     }
@@ -288,6 +280,7 @@ public sealed class GamedataXmlEnrichmentService(
 
     private sealed class GamedataHeroInfo
     {
+        public string? HyperlinkId { get; set; }
         public string? Role { get; set; }
         public string? ExpandedRole { get; set; }
         public string? AttackType { get; set; }

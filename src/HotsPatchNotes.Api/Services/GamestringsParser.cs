@@ -7,7 +7,7 @@ namespace HotsPatchNotes.Api.Services;
 
 public interface IGamestringsParser
 {
-    Task<Dictionary<string, GamestringEntry>?> FetchAndParseGamestringsAsync(
+    Task<GamestringsResult?> FetchAndParseGamestringsAsync(
         string dirName,
         string locale = "enus",
         CancellationToken cancellationToken = default);
@@ -28,7 +28,7 @@ public sealed partial class GamestringsParser(
 {
     // dirName is the full version string e.g. "2.55.15.96477"
     // buildNum is the last numeric segment e.g. "96477"
-    private const string GamestringsUrlPattern = "https://raw.githubusercontent.com/HeroesToolChest/heroes-data/main/heroesdata/{0}/gamestrings/gamestrings_{1}_{2}.json";
+    private const string GamestringsUrlPattern = "https://raw.githubusercontent.com/HeroesToolChest/heroes-data/master/heroesdata/{0}/gamestrings/gamestrings_{1}_{2}.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -37,7 +37,7 @@ public sealed partial class GamestringsParser(
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public async Task<Dictionary<string, GamestringEntry>?> FetchAndParseGamestringsAsync(
+    public async Task<GamestringsResult?> FetchAndParseGamestringsAsync(
         string dirName,
         string locale = "enus",
         CancellationToken cancellationToken = default)
@@ -52,63 +52,20 @@ public sealed partial class GamestringsParser(
             var jsonContent = await httpClient.GetStringAsync(url, cancellationToken);
             var gamestringFile = JsonSerializer.Deserialize<GamestringFile>(jsonContent, JsonOptions);
 
-            if (gamestringFile?.Gamestrings?.AbilTalent is null)
+            if (gamestringFile?.Gamestrings is null)
             {
-                logger.LogWarning("No abiltalent gamestrings found in build dir {DirName}", dirName);
+                logger.LogWarning("No gamestrings found in build dir {DirName}", dirName);
                 return null;
             }
 
-            var result = new Dictionary<string, GamestringEntry>(StringComparer.OrdinalIgnoreCase);
+            var abilTalentEntries = ParseAbilTalentSection(gamestringFile.Gamestrings.AbilTalent, dirName);
+            var unitEntries = ParseUnitSection(gamestringFile.Gamestrings.Unit);
 
-            var names = gamestringFile.Gamestrings.AbilTalent.Name ?? new Dictionary<string, string>();
-            var fullDescriptions = gamestringFile.Gamestrings.AbilTalent.Full ?? new Dictionary<string, string>();
-            var shortDescriptions = gamestringFile.Gamestrings.AbilTalent.Short ?? new Dictionary<string, string>();
+            logger.LogInformation(
+                "Parsed {AbilCount} abiltalent and {UnitCount} unit gamestring entries from build dir {DirName}",
+                abilTalentEntries.Count, unitEntries.Count, dirName);
 
-            var allKeys = names.Keys
-                .Union(fullDescriptions.Keys)
-                .Union(shortDescriptions.Keys)
-                .Distinct();
-
-            foreach (var key in allKeys)
-            {
-                var parsedKey = ParseGamestringKey(key);
-                if (parsedKey is null)
-                {
-                    logger.LogTrace("Skipping malformed gamestring key: {Key}", key);
-                    continue;
-                }
-
-                var name = names.GetValueOrDefault(key, string.Empty);
-                var fullDescription = fullDescriptions.GetValueOrDefault(key, string.Empty);
-                var shortDescription = shortDescriptions.GetValueOrDefault(key, string.Empty);
-
-                var sanitizedName = string.IsNullOrWhiteSpace(name)
-                    ? string.Empty
-                    : htmlContentService.SanitizeGamestring(name);
-
-                var sanitizedFull = string.IsNullOrWhiteSpace(fullDescription)
-                    ? string.Empty
-                    : htmlContentService.SanitizeGamestring(fullDescription);
-
-                var sanitizedShort = string.IsNullOrWhiteSpace(shortDescription)
-                    ? null
-                    : htmlContentService.SanitizeGamestring(shortDescription);
-
-                if (!string.IsNullOrWhiteSpace(sanitizedName) || !string.IsNullOrWhiteSpace(sanitizedFull))
-                {
-                    var entry = new GamestringEntry(sanitizedName, sanitizedFull, sanitizedShort);
-
-                    result[parsedKey.NameId] = entry;
-
-                    if (!string.Equals(parsedKey.NameId, parsedKey.ButtonId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        result[parsedKey.ButtonId] = entry;
-                    }
-                }
-            }
-
-            logger.LogInformation("Parsed {Count} gamestring entries from build dir {DirName}", result.Count, dirName);
-            return result;
+            return new GamestringsResult(abilTalentEntries, unitEntries);
         }
         catch (HttpRequestException ex)
         {
@@ -241,6 +198,107 @@ public sealed partial class GamestringsParser(
     }
 
     /// <summary>
+    /// Parses the abiltalent section into a lookup dictionary keyed by NameId and ButtonId.
+    /// </summary>
+    private Dictionary<string, GamestringEntry> ParseAbilTalentSection(
+        GamestringAbilTalent? abilTalent,
+        string dirName)
+    {
+        var result = new Dictionary<string, GamestringEntry>(StringComparer.OrdinalIgnoreCase);
+
+        if (abilTalent is null)
+        {
+            logger.LogWarning("No abiltalent gamestrings found in build dir {DirName}", dirName);
+            return result;
+        }
+
+        var names = abilTalent.Name ?? [];
+        var fullDescriptions = abilTalent.Full ?? [];
+        var shortDescriptions = abilTalent.Short ?? [];
+
+        var allKeys = names.Keys
+            .Union(fullDescriptions.Keys)
+            .Union(shortDescriptions.Keys)
+            .Distinct();
+
+        foreach (var key in allKeys)
+        {
+            var parsedKey = ParseGamestringKey(key);
+            if (parsedKey is null)
+            {
+                logger.LogTrace("Skipping malformed gamestring key: {Key}", key);
+                continue;
+            }
+
+            var name = names.GetValueOrDefault(key, string.Empty);
+            var fullDescription = fullDescriptions.GetValueOrDefault(key, string.Empty);
+            var shortDescription = shortDescriptions.GetValueOrDefault(key, string.Empty);
+
+            var sanitizedName = string.IsNullOrWhiteSpace(name)
+                ? string.Empty
+                : htmlContentService.SanitizeGamestring(name);
+
+            var sanitizedFull = string.IsNullOrWhiteSpace(fullDescription)
+                ? string.Empty
+                : htmlContentService.SanitizeGamestring(fullDescription);
+
+            var sanitizedShort = string.IsNullOrWhiteSpace(shortDescription)
+                ? null
+                : htmlContentService.SanitizeGamestring(shortDescription);
+
+            if (!string.IsNullOrWhiteSpace(sanitizedName) || !string.IsNullOrWhiteSpace(sanitizedFull))
+            {
+                var entry = new GamestringEntry(sanitizedName, sanitizedFull, sanitizedShort);
+
+                result[parsedKey.NameId] = entry;
+
+                if (!string.Equals(parsedKey.NameId, parsedKey.ButtonId, StringComparison.OrdinalIgnoreCase))
+                    result[parsedKey.ButtonId] = entry;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Parses the unit section into a lookup dictionary keyed by HyperlinkId (hero identifier).
+    /// Each entry contains hero-level metadata: role, expandedRole, type, difficulty, title, description.
+    /// </summary>
+    private Dictionary<string, HeroGamestringEntry> ParseUnitSection(GamestringUnit? unit)
+    {
+        var result = new Dictionary<string, HeroGamestringEntry>(StringComparer.OrdinalIgnoreCase);
+
+        if (unit is null)
+            return result;
+
+        // Collect all hero keys from any available sub-dict
+        var allKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dict in new[] { unit.Role, unit.ExpandedRole, unit.Type, unit.Difficulty, unit.Title, unit.Description }
+                     .Where(d => d is not null))
+        {
+            foreach (var k in dict!.Keys)
+                allKeys.Add(k);
+        }
+
+        foreach (var heroKey in allKeys)
+        {
+            var entry = new HeroGamestringEntry(
+                Role: unit.Role?.GetValueOrDefault(heroKey),
+                ExpandedRole: unit.ExpandedRole?.GetValueOrDefault(heroKey),
+                Type: unit.Type?.GetValueOrDefault(heroKey),
+                Difficulty: unit.Difficulty?.GetValueOrDefault(heroKey),
+                Title: unit.Title?.GetValueOrDefault(heroKey),
+                Description: string.IsNullOrWhiteSpace(unit.Description?.GetValueOrDefault(heroKey))
+                    ? null
+                    : htmlContentService.SanitizeGamestring(unit.Description.GetValueOrDefault(heroKey)!));
+
+            result[heroKey] = entry;
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Parses a gamestring key in format: "NameId|ButtonId|AbilityType|IsPassive"
     /// Example: "AbathurCombatStyleBombardStrain|AbathurLocustStrainBombardStrainTalent|Trait|False"
     /// </summary>
@@ -292,6 +350,7 @@ public sealed partial class GamestringsParser(
     private class GamestringRoot
     {
         public GamestringAbilTalent? AbilTalent { get; set; }
+        public GamestringUnit? Unit { get; set; }
     }
 
     private class GamestringAbilTalent
@@ -301,13 +360,45 @@ public sealed partial class GamestringsParser(
         public Dictionary<string, string>? Short { get; set; }
     }
 
+    private class GamestringUnit
+    {
+        public Dictionary<string, string>? Role { get; set; }
+
+        [JsonPropertyName("expandedrole")]
+        public Dictionary<string, string>? ExpandedRole { get; set; }
+
+        public Dictionary<string, string>? Type { get; set; }
+        public Dictionary<string, string>? Difficulty { get; set; }
+        public Dictionary<string, string>? Title { get; set; }
+        public Dictionary<string, string>? Description { get; set; }
+    }
+
     #endregion
 }
 
 /// <summary>
-/// Represents a parsed gamestring entry with name and descriptions.
+/// Combined result from parsing a gamestrings JSON file.
+/// Contains ability/talent entries (keyed by NameId/ButtonId) and hero-level unit entries (keyed by HyperlinkId).
+/// </summary>
+public record GamestringsResult(
+    Dictionary<string, GamestringEntry> AbilTalent,
+    Dictionary<string, HeroGamestringEntry> Unit);
+
+/// <summary>
+/// Represents a parsed gamestring entry with name and descriptions for abilities/talents.
 /// </summary>
 public record GamestringEntry(string Name, string Description, string? ShortDescription);
+
+/// <summary>
+/// Represents hero-level metadata extracted from the gamestrings unit section.
+/// </summary>
+public record HeroGamestringEntry(
+    string? Role,
+    string? ExpandedRole,
+    string? Type,
+    string? Difficulty,
+    string? Title,
+    string? Description);
 
 /// <summary>
 /// Represents the parsed components of a gamestring key.

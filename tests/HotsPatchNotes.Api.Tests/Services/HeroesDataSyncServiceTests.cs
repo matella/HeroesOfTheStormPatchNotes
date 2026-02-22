@@ -43,7 +43,9 @@ public sealed class HeroesDataSyncServiceTests : TestBase
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<string, GamestringEntry>());
+            .ReturnsAsync(new GamestringsResult(
+                new Dictionary<string, GamestringEntry>(),
+                new Dictionary<string, HeroGamestringEntry>()));
 
         var service = new HeroesDataSyncService(
             context,

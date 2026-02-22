@@ -38,6 +38,9 @@ public sealed partial class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlC
             // 2. Strip color tags: <c val="bfd4fd">text</c> → text
             result = GamestringColorTagRegex().Replace(result, "$1");
 
+            // 2b. Convert scaling notation: 350~~0.04~~ → 350<span class="scaling">(+4% per level)</span>
+            result = ReplaceScalingNotation(result);
+
             // 3. Strip styled spans: <s val="..." name="...">text</s> → text
             result = GamestringStyledSpanRegex().Replace(result, "$1");
 
@@ -82,6 +85,31 @@ public sealed partial class HtmlContentService(HtmlSanitizer sanitizer) : IHtmlC
     /// </summary>
     [GeneratedRegex(@"<img\s+[^>]*/>", RegexOptions.IgnoreCase, matchTimeoutMilliseconds: 1000)]
     private static partial Regex GamestringImageTagRegex();
+
+    /// <summary>
+    /// Matches gamestring scaling notation: ~~{number}~~ (e.g., ~~0.04~~)
+    /// Captures the decimal scaling coefficient in group 1 for conversion to a percentage.
+    /// </summary>
+    [GeneratedRegex(@"~~([\d.]+)~~", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex GamestringScalingNotationRegex();
+
+    /// <summary>
+    /// Converts gamestring scaling notation to a styled span.
+    /// Example: 350~~0.04~~ → 350<span class="scaling">(+4% per level)</span>
+    /// </summary>
+    private static string ReplaceScalingNotation(string input) =>
+        GamestringScalingNotationRegex().Replace(input, match =>
+        {
+            if (double.TryParse(match.Groups[1].Value,
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var scale))
+            {
+                var pct = (scale * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                return $"<span class=\"scaling\">(+{pct}% per level)</span>";
+            }
+            return string.Empty; // fallback: strip if unparseable
+        });
 
     public static HtmlSanitizer CreateSanitizer()
     {

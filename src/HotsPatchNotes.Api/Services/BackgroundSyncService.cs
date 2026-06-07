@@ -1,3 +1,6 @@
+using HotsPatchNotes.Api.Data;
+using Microsoft.EntityFrameworkCore;
+
 namespace HotsPatchNotes.Api.Services;
 
 public sealed class BackgroundSyncService : BackgroundService
@@ -15,7 +18,10 @@ public sealed class BackgroundSyncService : BackgroundService
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _syncInterval = syncInterval ?? TimeSpan.FromHours(6);
+        // HotS patches are infrequent, so a daily refresh is plenty (override via SYNC_INTERVAL_HOURS).
+        var envHours = Environment.GetEnvironmentVariable("SYNC_INTERVAL_HOURS");
+        _syncInterval = syncInterval
+            ?? (int.TryParse(envHours, out var h) && h > 0 ? TimeSpan.FromHours(h) : TimeSpan.FromHours(24));
         _initialDelay = initialDelay ?? TimeSpan.FromSeconds(10);
     }
 
@@ -23,9 +29,19 @@ public sealed class BackgroundSyncService : BackgroundService
     {
         _logger.LogInformation("Background sync service started. Sync interval: {Interval}", _syncInterval);
 
-        // Initial sync on startup (with a small delay to let the app start)
+        // Initial sync on startup (with a small delay to let the app start) — but SKIP it when the
+        // database already has data (it persists in the volume), so a restart doesn't re-fetch
+        // everything. The periodic sync below still keeps it fresh.
         await Task.Delay(_initialDelay, stoppingToken);
-        await PerformSyncAsync(stoppingToken);
+        if (await HasExistingDataAsync(stoppingToken))
+        {
+            _logger.LogInformation("Existing data found — skipping initial sync; periodic sync still runs.");
+        }
+        else
+        {
+            _logger.LogInformation("No data yet — performing initial sync.");
+            await PerformSyncAsync(stoppingToken);
+        }
 
         // Periodic sync
         while (!stoppingToken.IsCancellationRequested)
@@ -47,6 +63,21 @@ public sealed class BackgroundSyncService : BackgroundService
         }
 
         _logger.LogInformation("Background sync service stopped");
+    }
+
+    private async Task<bool> HasExistingDataAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<HotsDbContext>();
+            return await db.Heroes.AnyAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not check existing data; will sync to be safe.");
+            return false;
+        }
     }
 
     private async Task PerformSyncAsync(CancellationToken cancellationToken)

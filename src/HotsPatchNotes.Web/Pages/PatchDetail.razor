@@ -60,7 +60,12 @@
                     <nav class="toc">
                         @foreach (var item in patch.TableOfContents.Where(t => t.HeadingLevel <= 2))
                         {
+                            @{ var tocCls = patch.Sections.FirstOrDefault(s => s.Anchor == item.Anchor)?.Classification; }
                             <a href="#@item.Anchor" class="toc-item level-@item.HeadingLevel @GetTocTypeClass(item.SectionType)">
+                                @if (!string.IsNullOrEmpty(tocCls))
+                                {
+                                    <span class="toc-dot dot-@tocCls.ToLower()"></span>
+                                }
                                 @item.Title
                             </a>
                         }
@@ -80,7 +85,12 @@
                                     <h1 id="@sec.Anchor">@sec.EntityName</h1>
                                     break;
                                 case 2:
-                                    <h2 id="@sec.Anchor">@sec.EntityName</h2>
+                                    <h2 id="@sec.Anchor">@sec.EntityName
+                                        @if (!string.IsNullOrEmpty(sec.Classification))
+                                        {
+                                            <span class="bdg b-@sec.Classification.ToLower()">@sec.Classification</span>
+                                        }
+                                    </h2>
                                     break;
                                 case 3:
                                     <h3 id="@sec.Anchor">@sec.EntityName</h3>

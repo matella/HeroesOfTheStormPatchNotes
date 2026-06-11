@@ -28,7 +28,8 @@ else
 
         <div class="hero-header">
             <div class="hero-portrait">
-                <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower() + ".png")"
+                <img class="universe-ring u-@((hero.Universe ?? "nexus").ToLower().Replace(" ", ""))"
+                     src="@(hero.Icon != null && hero.Icon.StartsWith("/") ? hero.Icon : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png")"
                      alt="@hero.Name" />
             </div>
             <div class="hero-title">
@@ -342,6 +343,16 @@ else
                                     @if (firstSection.LiveDate.HasValue)
                                     {
                                         <span class="patch-date">@firstSection.LiveDate.Value.ToString("MMM d, yyyy")</span>
+                                    }
+                                    @{ var cls = patchGroup.Select(s => s.Classification).FirstOrDefault(c => !string.IsNullOrEmpty(c)); }
+                                    @if (!string.IsNullOrEmpty(cls))
+                                    {
+                                        <span class="bdg b-@cls.ToLower()">@cls</span>
+                                    }
+                                    @{ var summary = patchGroup.Select(s => s.ShortSummary).FirstOrDefault(s => !string.IsNullOrEmpty(s)); }
+                                    @if (!string.IsNullOrEmpty(summary))
+                                    {
+                                        <span class="mono timeline-inline-summary">@summary</span>
                                     }
                                 </div>
                                 <div class="patch-item-right">

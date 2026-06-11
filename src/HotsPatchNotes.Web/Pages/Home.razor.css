@@ -1,187 +1,40 @@
-.heroes-page {
-    padding: 1rem 0;
-}
+.heroes-page { padding: 8px 0 40px; }
+.page-header { text-align: center; margin-bottom: 18px; }
+.page-header h1 { font-size: 2rem; letter-spacing: .04em; margin: 0; }
+.subtitle { color: var(--text-secondary); font-size: .85rem; margin-top: 4px; }
 
-.page-header {
-    text-align: center;
-    margin-bottom: 2rem;
-}
+.filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+           justify-content: center; margin-bottom: 22px; }
+.search-box input { background: var(--bg-tertiary); border: 1px solid var(--hairline-strong);
+    color: var(--text-primary); border-radius: 8px; padding: 9px 14px; min-width: 260px;
+    font-family: inherit; font-size: .9rem; }
+.search-box input:focus { outline: none; border-color: var(--accent-primary); }
+.filter-group { display: flex; align-items: center; gap: 6px; }
+.filter-group label { color: var(--text-muted); font-size: .75rem; text-transform: uppercase;
+    letter-spacing: .06em; }
+.filter-group select { background: var(--bg-tertiary); border: 1px solid var(--hairline-strong);
+    color: var(--text-primary); border-radius: 8px; padding: 8px 10px; font-family: inherit; }
 
-.page-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-    background: linear-gradient(90deg, #00d4ff, #00ff88);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
+.heroes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 18px 10px; }
+.hero-card { display: flex; flex-direction: column; align-items: center; gap: 7px;
+    text-decoration: none; padding: 6px 2px; border-radius: 10px;
+    transition: transform .12s ease, background .12s ease; }
+.hero-card:hover { transform: translateY(-3px); background: var(--bg-secondary); }
+.hero-icon img { width: 64px; height: 64px; display: block; }
+.hero-card:hover .hero-icon img { box-shadow: 0 0 0 3px rgba(127,119,221,.25); }
+.hero-info { text-align: center; }
+.hero-name { font-size: .8rem; font-weight: 600; color: var(--text-primary); margin: 0; }
+.hero-role { font-size: .65rem; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: .05em; }
 
-.subtitle {
-    color: #888;
-    font-size: 1.1rem;
-}
+.loading, .no-results { text-align: center; color: var(--text-secondary); padding: 60px 0; }
+.spinner { width: 28px; height: 28px; border: 3px solid var(--hairline-strong);
+    border-top-color: var(--accent-primary); border-radius: 50%; margin: 0 auto 12px;
+    animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.filters {
-    display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 2rem;
-    padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    align-items: center;
-}
-
-.search-box {
-    flex: 1;
-    min-width: 250px;
-}
-
-.search-box input {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.3);
-    color: #fff;
-    font-size: 1rem;
-}
-
-.search-box input::placeholder {
-    color: #888;
-}
-
-.search-box input:focus {
-    outline: none;
-    border-color: #00d4ff;
-    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.2);
-}
-
-.filter-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.filter-group label {
-    color: #888;
-    font-weight: 500;
-}
-
-.filter-group select {
-    padding: 0.75rem 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.3);
-    color: #fff;
-    font-size: 1rem;
-    cursor: pointer;
-}
-
-.filter-group select:focus {
-    outline: none;
-    border-color: #00d4ff;
-}
-
-.loading {
-    text-align: center;
-    padding: 4rem 2rem;
-}
-
-.spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top-color: #00d4ff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.no-results {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: #888;
-}
-
-.heroes-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 1.5rem;
-}
-
-.hero-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-    text-decoration: none;
-    color: inherit;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.hero-card:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: #00d4ff;
-    transform: translateY(-4px);
-    box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
-}
-
-.hero-icon {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 1rem;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-}
-
-.hero-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.hero-name {
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
-    color: #fff;
-}
-
-.hero-role {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.role-tank { background: rgba(59, 130, 246, 0.3); color: #93c5fd; }
-.role-bruiser { background: rgba(234, 179, 8, 0.3); color: #fde047; }
-.role-healer { background: rgba(34, 197, 94, 0.3); color: #86efac; }
-.role-support { background: rgba(168, 85, 247, 0.3); color: #d8b4fe; }
-.role-melee-assassin { background: rgba(239, 68, 68, 0.3); color: #fca5a5; }
-.role-ranged-assassin { background: rgba(249, 115, 22, 0.3); color: #fdba74; }
-
-@media (max-width: 768px) {
-    .filters {
-        flex-direction: column;
-    }
-    
-    .search-box {
-        width: 100%;
-    }
-    
-    .heroes-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 1rem;
-    }
+@media (max-width: 640px) {
+    .heroes-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+    .hero-icon img { width: 52px; height: 52px; }
 }

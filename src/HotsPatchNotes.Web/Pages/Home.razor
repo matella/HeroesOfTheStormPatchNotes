@@ -7,8 +7,8 @@
 
 <div class="heroes-page">
     <div class="page-header">
-        <h1>Heroes of the Storm</h1>
-        <p class="subtitle">Browse all @heroes.Count heroes and their abilities, talents, and patch history</p>
+        <h1>Nexus Codex</h1>
+        <p class="subtitle">@heroes.Count heroes · their kits, and every change since the 2014 alpha</p>
     </div>
 
     <div class="filters">
@@ -61,7 +61,8 @@
             {
                 <a href="/hero/@hero.ShortName" class="hero-card">
                     <div class="hero-icon">
-                        <img src="https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/@(hero.Icon ?? new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower() + ".png")"
+                        <img class="universe-ring u-@((hero.Universe ?? "nexus").ToLower().Replace(" ", ""))"
+                             src="@(hero.Icon != null && hero.Icon.StartsWith("/") ? hero.Icon : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png")"
                              alt="@hero.Name"
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2250%22 fill=%22%23fff%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-size=%2240%22>?</text></svg>'" />
                     </div>

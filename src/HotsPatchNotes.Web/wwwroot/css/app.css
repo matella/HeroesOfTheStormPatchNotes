@@ -4,34 +4,34 @@
 
 :root {
     /* Color Palette - Dark Theme */
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #12121a;
-    --bg-tertiary: #1a1a24;
-    --bg-elevated: #22222e;
+    --bg-primary: #0e1016;
+    --bg-secondary: #13141d;
+    --bg-tertiary: #16181f;
+    --bg-elevated: #1a1d2a;
     
     /* Text Colors */
-    --text-primary: #f0f0f5;
-    --text-secondary: #a0a0b0;
-    --text-muted: #666680;
+    --text-primary: #e8eaf2;
+    --text-secondary: #8d93a8;
+    --text-muted: #5d6275;
     
     /* Accent Colors */
-    --accent-primary: #00d4ff;
-    --accent-secondary: #00ff88;
-    --accent-warning: #ffb400;
-    --accent-danger: #ff4040;
-    --accent-ptr: #ff8800;
+    --accent-primary: #7F77DD;
+    --accent-secondary: #5DCAA5;
+    --accent-warning: #EF9F27;
+    --accent-danger: #E24B4A;
+    --accent-ptr: #FAC775;
     
     /* Universe Colors */
-    --universe-warcraft: #ffb400;
-    --universe-starcraft: #0096ff;
-    --universe-diablo: #ff4040;
-    --universe-overwatch: #ff9600;
-    --universe-nexus: #c850ff;
+    --universe-warcraft: #EF9F27;
+    --universe-starcraft: #378ADD;
+    --universe-diablo: #E24B4A;
+    --universe-overwatch: #D85A30;
+    --universe-nexus: #AFA9EC;
     
     /* Semantic Colors */
-    --success: #00c864;
+    --success: #5DCAA5;
     --error: #ef4444;
-    --info: #00d4ff;
+    --info: #7F77DD;
     
     /* Spacing Scale */
     --space-xs: 0.25rem;
@@ -65,7 +65,7 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 20px rgba(0, 212, 255, 0.3);
+    --shadow-glow: 0 0 20px rgba(127, 119, 221, 0.35);
     
     /* Transitions */
     --transition-fast: 150ms ease;
@@ -112,7 +112,7 @@ a:hover {
 
 /* Selection */
 ::selection {
-    background: rgba(0, 212, 255, 0.3);
+    background: rgba(127, 119, 221, 0.35);
     color: var(--text-primary);
 }
 
@@ -189,3 +189,56 @@ a:hover {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+
+
+/* ── Nexus Codex shared components ───────────────────────────────────────── */
+:root {
+    --hairline: #1a1d2a;
+    --hairline-strong: #232636;
+}
+.bdg { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+       letter-spacing: .04em; display: inline-block; vertical-align: middle; }
+.b-buff { background: #173404; color: #C0DD97; }
+.b-nerf { background: #501313; color: #F7C1C1; }
+.b-mixed { background: #2b2416; color: #FAC775; }
+.b-rework { background: #26215C; color: #CECBF6; }
+.b-bugfix { background: var(--hairline); color: var(--text-secondary); }
+.b-live { background: #16202c; color: #85B7EB; }
+.b-ptr { background: #2b2416; color: #FAC775; }
+.b-hotfix { background: #2b1f16; color: #F0997B; }
+.b-new { background: #04342C; color: #5DCAA5; }
+
+.universe-ring { border-radius: 50%; object-fit: cover; background: var(--bg-tertiary);
+                 border: 2.5px solid var(--text-muted); }
+.u-warcraft  { border-color: var(--universe-warcraft); }
+.u-starcraft { border-color: var(--universe-starcraft); }
+.u-diablo    { border-color: var(--universe-diablo); }
+.u-overwatch { border-color: var(--universe-overwatch); }
+.u-nexus     { border-color: var(--universe-nexus); }
+.u-warcraft-text  { color: var(--universe-warcraft); }
+.u-starcraft-text { color: var(--universe-starcraft); }
+.u-diablo-text    { color: var(--universe-diablo); }
+.u-overwatch-text { color: var(--universe-overwatch); }
+.u-nexus-text     { color: var(--universe-nexus); }
+
+.mono { font-family: var(--font-mono); }
+.diff-old { color: var(--text-secondary); }
+.diff-up { color: #C0DD97; }
+.diff-up-pct { color: #5DCAA5; }
+.diff-down { color: #F09595; }
+.diff-down-pct { color: #E24B4A; }
+
+.kick { color: var(--text-muted); font-size: 11px; letter-spacing: .08em;
+        text-transform: uppercase; }
+.pill-filter { font-size: 12px; color: var(--text-secondary);
+               border: 1px solid var(--hairline-strong); border-radius: 14px;
+               padding: 4px 12px; background: none; cursor: pointer; font-family: inherit; }
+.pill-filter:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.pill-filter.active { color: var(--bg-primary); background: var(--accent-primary);
+                      border-color: var(--accent-primary); }
+
+.timeline { border-left: 2px solid var(--hairline-strong); padding-left: 14px; }
+.timeline-item { margin-bottom: 14px; }
+.timeline-meta { color: var(--text-secondary); font-size: 12px; margin-left: 6px; }
+.timeline-summary { color: #cfd3e0; font-size: 13.5px; margin: 4px 0 0;
+                    font-family: var(--font-mono); }

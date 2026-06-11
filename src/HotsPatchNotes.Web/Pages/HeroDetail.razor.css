@@ -729,3 +729,6 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+::deep .timeline-inline-summary { color: #cfd3e0; font-size: .78rem; margin-left: 8px; }
+.hero-portrait img { width: 84px; height: 84px; }

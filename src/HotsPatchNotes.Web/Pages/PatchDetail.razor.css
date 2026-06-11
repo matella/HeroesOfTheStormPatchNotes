@@ -369,3 +369,10 @@
         padding: 1rem;
     }
 }
+
+.toc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    margin-right: 6px; background: var(--text-muted); }
+.dot-buff { background: #C0DD97; } .dot-nerf { background: #F09595; }
+.dot-mixed { background: #FAC775; } .dot-rework { background: #CECBF6; }
+.dot-bugfix { background: #5d6275; }
+::deep h2 .bdg { margin-left: 10px; vertical-align: middle; }

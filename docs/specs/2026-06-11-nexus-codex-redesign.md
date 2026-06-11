@@ -62,7 +62,11 @@ navigateur — les 7 écrans cibles avec les tokens exacts.
   anneau couleur univers, filtres rôle/univers (pills), recherche. Clic → fiche.
 - **F4 — Fiche héros.** Bandeau teinté univers : portrait 64px, nom, rôle·univers ; jauges
   santé/dégâts/difficulté ; **timeline des changements** (B4) avec badges et diffs mono ;
-  bouton « voir le patch complet ».
+  bouton « voir le patch complet ». Puis le **kit complet** (maquette 2b) : CAPACITÉS en grille
+  2 col. (keycap Q/W/E/Trait + nom + description courte) ; TALENTS PAR NIVEAU en chips (heroics
+  niv 10 accentués violet, niveaux secondaires repliés) ; FONCTIONNE AVEC / CONTRÉ PAR en
+  mini-avatars (SynergiesJson/CounteredByJson) ; lore & astuces repliés. Multi-formes : un
+  sous-onglet par forme (FormatFormName existant).
 - **F5 — Patches.** Liste chronologique groupée PAR ANNÉE (jusqu'à l'alpha 2014), pills de
   filtre par type (Tous/Live/PTR/Hotfix/Alpha-Beta), chaque ligne : date mono + badge type + nom
   + résumé « N héros · M cartes » (compté depuis les PatchSections). Détail (F5b, maquette 4b) :
@@ -79,6 +83,11 @@ navigateur — les 7 écrans cibles avec les tokens exacts.
   timeline des changements de la carte (PatchSections type Map, badges + diffs).
 - **F7 — About.** Crédits sources (heroespatchnotes, Nexus Patch Notes, BlueTracker) + Blizzard
   disclaimer.
+- **F8 — Admin (4 pages existantes restylées, maquette 8).** Même langage visuel, version outil :
+  header « NEXUS CODEX / admin » ; Dashboard = cartes métriques (héros / patchs / cartes+images /
+  sections classifiées) + boutons Resync (tout / patchs / images) + journal des derniers syncs
+  (badges SYNC OK / PARTIEL avec lien d'inspection des sections en fallback). AdminHeroes/Patches/
+  Battlegrounds = tables denses mêmes tokens.
 
 ## Phases & acceptation
 1. **P1 Backend data** (B1+B2+backfill) — accept : `PatchSection` non vide pour ≥250 patches ;

@@ -109,6 +109,12 @@ Le stream-overlay (repo Hots-Overlay, Node :8086) consomme l'API Codex (même bo
 - Dépend de P2 (classification + endpoints) ; côté overlay = un composant + un fetch. Résumé court
   par héros : nouvelle donnée `short_summary` calculée en B3 (la plus grosse variation de la
   section, formatée « <capacité> <delta%> »).
+- **Distribution (option validée)** : l'instance LOCALE (:8086, source OBS) lit l'API Codex en
+  direct ; pour l'instance AZURE (extension Twitch, qui ne voit pas le box), le sync Codex POUSSE
+  après chaque import un JSON condensé (~2 Ko : dernier patch, héros classifiés + short_summary,
+  carte) vers un endpoint authentifié de l'app Azure (`POST /api/patch-digest`, secret partagé
+  dans les app-settings de la pipeline). L'overlay Azure le sert en cache local — zéro exposition
+  publique de l'API du box.
 
 ## Hors scope (plus tard)
 Winrates/pick rates (pas de source de stats live fiable post-maintenance) · comparateur de héros ·

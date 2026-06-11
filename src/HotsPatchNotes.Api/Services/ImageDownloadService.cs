@@ -12,6 +12,10 @@ public sealed class ImageDownloadService(
     ILogger<ImageDownloadService> logger) : IImageDownloadService
 {
     private const string ImagesFolder = "images";
+
+    // WebRootPath is null when the publish output has no wwwroot — fall back and create it.
+    private string WebRoot => environment.WebRootPath
+        ?? Path.Combine(environment.ContentRootPath, "wwwroot");
     private static readonly string[] SupportedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
     public async Task<string?> DownloadImageAsync(
@@ -44,7 +48,7 @@ public sealed class ImageDownloadService(
             }
 
             // Ensure directory exists
-            var categoryPath = Path.Combine(environment.WebRootPath, ImagesFolder, category);
+            var categoryPath = Path.Combine(WebRoot, ImagesFolder, category);
             Directory.CreateDirectory(categoryPath);
 
             // Download image
@@ -82,7 +86,7 @@ public sealed class ImageDownloadService(
     public string? GetLocalImagePath(string category, string fileName)
     {
         var safeFileName = SanitizeFileName(fileName);
-        var categoryPath = Path.Combine(environment.WebRootPath, ImagesFolder, category);
+        var categoryPath = Path.Combine(WebRoot, ImagesFolder, category);
 
         // Check for any supported extension
         foreach (var ext in SupportedExtensions)

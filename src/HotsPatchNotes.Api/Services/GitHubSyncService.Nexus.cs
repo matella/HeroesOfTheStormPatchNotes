@@ -260,8 +260,11 @@ public sealed partial class GitHubSyncService
 
             if (category == "heroes")
             {
+                var normalizedSlug = slug.Replace("-", "");
                 var hero = await dbContext.Heroes.FirstOrDefaultAsync(
-                    h => h.ShortName == slug, ct);
+                    h => h.ShortName == slug || h.ShortName == normalizedSlug, ct);
+                hero ??= (await dbContext.Heroes.ToListAsync(ct)).FirstOrDefault(
+                    h => Slugify(h.Name) == slug);
                 if (hero is not null && string.IsNullOrEmpty(hero.Icon))
                 {
                     hero.Icon = local;

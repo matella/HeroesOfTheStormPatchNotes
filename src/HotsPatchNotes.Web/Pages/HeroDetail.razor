@@ -24,105 +24,133 @@ else if (hero == null)
 else
 {
     <div class="hero-detail">
-        <a href="/" class="back-link">← Back to Heroes</a>
+        <a href="/" class="back-link">← Héros</a>
 
-        <div class="hero-header">
-            <div class="hero-portrait">
-                <img class="universe-ring u-@((hero.Universe ?? "nexus").ToLower().Replace(" ", ""))"
-                     src="@(hero.Icon != null && hero.Icon.StartsWith("/") ? hero.Icon : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png")"
-                     alt="@hero.Name" />
-            </div>
-            <div class="hero-title">
+        <div class="hero-codex" style="border-left-color: var(--universe-@UniverseSlug)">
+            <aside class="hero-side">
+                <div class="hero-portrait">
+                    <img class="universe-ring u-@UniverseSlug"
+                         src="@(hero.Icon != null && hero.Icon.StartsWith("/") ? hero.Icon : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png")"
+                         alt="@hero.Name" />
+                </div>
                 <h1>@hero.Name</h1>
                 @if (!string.IsNullOrEmpty(hero.Title))
                 {
                     <p class="hero-subtitle">@hero.Title</p>
                 }
-                <div class="hero-meta">
-                    <span class="role role-@(hero.ExpandedRole?.ToLower().Replace(" ", "-"))">@hero.ExpandedRole</span>
-                    <span class="type">@hero.Type</span>
-                    @if (!string.IsNullOrEmpty(hero.Universe))
-                    {
-                        <span class="universe">@hero.Universe</span>
-                    }
-                    @if (!string.IsNullOrEmpty(hero.Difficulty))
-                    {
-                        <span class="difficulty">@hero.Difficulty</span>
-                    }
-                    @if (hero.ReleaseDate.HasValue)
-                    {
-                        <span class="release">Released @hero.ReleaseDate.Value.ToString("MMM d, yyyy")</span>
-                    }
-                </div>
-                @if (hero.Tags.Any())
+                <p class="hero-role-line u-@UniverseSlug-text">
+                    @hero.ExpandedRole?.ToUpper()@(hero.Universe is null ? "" : " · " + hero.Universe.ToUpper())
+                </p>
+
+                @if (hero.BaseHealth.HasValue)
                 {
-                    <div class="hero-tags">
-                        @foreach (var tag in hero.Tags)
+                    <div class="gauge-label">Santé</div>
+                    <div class="gauge"><div style="width:@HealthPct%; background:#1D9E75;"></div></div>
+                }
+                @if (DamagePct is not null)
+                {
+                    <div class="gauge-label">Dégâts</div>
+                    <div class="gauge"><div style="width:@DamagePct%; background:#D85A30;"></div></div>
+                }
+                @if (DifficultyPct is not null)
+                {
+                    <div class="gauge-label">Difficulté</div>
+                    <div class="gauge"><div style="width:@DifficultyPct%; background:var(--accent-primary);"></div></div>
+                }
+
+                @if (HasBaseStats())
+                {
+                    <dl class="side-stats mono">
+                        @if (hero.BaseHealth.HasValue) { <dt>santé</dt> <dd>@hero.BaseHealth</dd> }
+                        @if (hero.HealthRegen.HasValue) { <dt>régén.</dt> <dd>@hero.HealthRegen.Value.ToString("F1")/s</dd> }
+                        @if (hero.BaseMana.HasValue) { <dt>mana</dt> <dd>@hero.BaseMana</dd> }
+                        @if (hero.BaseAttackDamage.HasValue) { <dt>dégâts</dt> <dd>@hero.BaseAttackDamage.Value.ToString("F0")</dd> }
+                        @if (hero.AttackSpeed.HasValue) { <dt>vitesse</dt> <dd>@hero.AttackSpeed.Value.ToString("F2")</dd> }
+                        @if (hero.AttackRange.HasValue) { <dt>portée</dt> <dd>@hero.AttackRange.Value.ToString("F1")</dd> }
+                    </dl>
+                }
+
+                @if (heroPatches.Any())
+                {
+                    <p class="change-count">@heroPatches.GroupBy(p => p.PatchId).Count() changements depuis @FirstChangeYear</p>
+                }
+                @if (hero.ReleaseDate.HasValue)
+                {
+                    <p class="release-line">sorti le @hero.ReleaseDate.Value.ToString("yyyy-MM-dd")</p>
+                }
+            </aside>
+
+            <section class="hero-history">
+                <p class="kick">Historique des changements</p>
+
+                @if (loadingPatches)
+                {
+                    <p class="loading-text">Chargement de l'historique…</p>
+                }
+                else if (!heroPatches.Any())
+                {
+                    <p class="no-patches">Aucun changement archivé pour ce héros.</p>
+                }
+                else
+                {
+                    <div class="patch-filters">
+                        <button class="pill-filter small @(selectedPatchType == null ? "active" : "")"
+                                @onclick='() => selectedPatchType = null'>
+                            Tous
+                        </button>
+                        @foreach (var type in GetAvailablePatchTypes())
                         {
-                            <span class="tag">@FormatTag(tag)</span>
+                            <button class="pill-filter small @(selectedPatchType == type ? "active" : "")"
+                                    @onclick='() => selectedPatchType = type'>
+                                @type
+                            </button>
+                        }
+                    </div>
+
+                    <div class="timeline">
+                        @foreach (var patchGroup in GetFilteredPatches())
+                        {
+                            var firstSection = patchGroup.First();
+                            var isExpanded = expandedPatches.Contains(firstSection.PatchId);
+                            <div class="timeline-item">
+                                <div class="timeline-head" @onclick="() => TogglePatch(firstSection.PatchId)">
+                                    @{ var cls = patchGroup.Select(s => s.Classification).FirstOrDefault(c => !string.IsNullOrEmpty(c)); }
+                                    @if (!string.IsNullOrEmpty(cls))
+                                    {
+                                        <span class="bdg b-@cls.ToLower()">@cls</span>
+                                    }
+                                    <span class="timeline-meta">
+                                        @(firstSection.LiveDate?.ToString("yyyy-MM-dd") ?? "")
+                                        @if (!string.IsNullOrEmpty(firstSection.PatchType))
+                                        {
+                                            <span> · @firstSection.PatchType</span>
+                                        }
+                                    </span>
+                                    <span class="expand-icon">@(isExpanded ? "⌃" : "⌄")</span>
+                                </div>
+                                @{ var summary = patchGroup.Select(s => s.ShortSummary).FirstOrDefault(s => !string.IsNullOrEmpty(s)); }
+                                @if (!string.IsNullOrEmpty(summary))
+                                {
+                                    <p class="timeline-summary">@summary</p>
+                                }
+                                @if (isExpanded)
+                                {
+                                    <div class="timeline-expanded">
+                                        @foreach (var section in patchGroup.OrderBy(s => s.Order))
+                                        {
+                                            <div class="patch-section-content">
+                                                @((MarkupString)DiffColorizer.Colorize(StripReturnLinks(section.Content)))
+                                            </div>
+                                        }
+                                        <a class="see-patch" href="/patch/@firstSection.InternalId">voir le patch complet →</a>
+                                    </div>
+                                }
+                            </div>
                         }
                     </div>
                 }
-            </div>
+            </section>
         </div>
-
-        @if (HasBaseStats())
-        {
-            <div class="base-stats">
-                <h3>Base Stats</h3>
-                <div class="stats-grid">
-                    @if (hero.BaseHealth.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Health</span>
-                            <span class="stat-value">@hero.BaseHealth</span>
-                        </div>
-                    }
-                    @if (hero.HealthRegen.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Health Regen</span>
-                            <span class="stat-value">@hero.HealthRegen.Value.ToString("F2")/s</span>
-                        </div>
-                    }
-                    @if (hero.BaseMana.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Mana</span>
-                            <span class="stat-value">@hero.BaseMana</span>
-                        </div>
-                    }
-                    @if (hero.ManaRegen.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Mana Regen</span>
-                            <span class="stat-value">@hero.ManaRegen.Value.ToString("F2")/s</span>
-                        </div>
-                    }
-                    @if (hero.BaseAttackDamage.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Attack Damage</span>
-                            <span class="stat-value">@hero.BaseAttackDamage.Value.ToString("F0")</span>
-                        </div>
-                    }
-                    @if (hero.AttackSpeed.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Attack Speed</span>
-                            <span class="stat-value">@hero.AttackSpeed.Value.ToString("F2")</span>
-                        </div>
-                    }
-                    @if (hero.AttackRange.HasValue)
-                    {
-                        <div class="stat-item">
-                            <span class="stat-label">Attack Range</span>
-                            <span class="stat-value">@hero.AttackRange.Value.ToString("F1")</span>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
 
         <div class="section">
             <div class="section-header">
@@ -296,91 +324,6 @@ else
             }
         </div>
 
-        <div class="section patch-history-section">
-            <div class="section-header">
-                <h2>Patch History</h2>
-                @if (heroPatches.Any())
-                {
-                    <span class="patch-count">@GetFilteredPatchCount() patches</span>
-                }
-            </div>
-
-            @if (loadingPatches)
-            {
-                <p class="loading-text">Loading patch history...</p>
-            }
-            else if (!heroPatches.Any())
-            {
-                <p class="no-patches">No patch history found for this hero.</p>
-            }
-            else
-            {
-                <div class="patch-filters">
-                    <button class="filter-btn @(selectedPatchType == null ? "active" : "")"
-                            @onclick='() => selectedPatchType = null'>
-                        All
-                    </button>
-                    @foreach (var type in GetAvailablePatchTypes())
-                    {
-                        <button class="filter-btn @(selectedPatchType == type ? "active" : "")"
-                                @onclick='() => selectedPatchType = type'>
-                            @type
-                        </button>
-                    }
-                </div>
-
-                <div class="patch-history-list">
-                    @foreach (var patchGroup in GetFilteredPatches())
-                    {
-                        var firstSection = patchGroup.First();
-                        var isExpanded = expandedPatches.Contains(firstSection.PatchId);
-                        <div class="patch-item">
-                            <div class="patch-item-header" @onclick="() => TogglePatch(firstSection.PatchId)">
-                                <div class="patch-item-left">
-                                    <a href="/patch/@firstSection.InternalId" class="patch-name" @onclick:stopPropagation="true">
-                                        @firstSection.PatchName
-                                    </a>
-                                    @if (firstSection.LiveDate.HasValue)
-                                    {
-                                        <span class="patch-date">@firstSection.LiveDate.Value.ToString("MMM d, yyyy")</span>
-                                    }
-                                    @{ var cls = patchGroup.Select(s => s.Classification).FirstOrDefault(c => !string.IsNullOrEmpty(c)); }
-                                    @if (!string.IsNullOrEmpty(cls))
-                                    {
-                                        <span class="bdg b-@cls.ToLower()">@cls</span>
-                                    }
-                                    @{ var summary = patchGroup.Select(s => s.ShortSummary).FirstOrDefault(s => !string.IsNullOrEmpty(s)); }
-                                    @if (!string.IsNullOrEmpty(summary))
-                                    {
-                                        <span class="mono timeline-inline-summary">@summary</span>
-                                    }
-                                </div>
-                                <div class="patch-item-right">
-                                    @if (!string.IsNullOrEmpty(firstSection.PatchType))
-                                    {
-                                        <span class="patch-type-badge type-@GetPatchTypeCssClass(firstSection.PatchType)">
-                                            @firstSection.PatchType
-                                        </span>
-                                    }
-                                    <span class="expand-icon">@(isExpanded ? "▾" : "▸")</span>
-                                </div>
-                            </div>
-                            @if (isExpanded)
-                            {
-                                <div class="patch-item-content">
-                                    @foreach (var section in patchGroup.OrderBy(s => s.Order))
-                                    {
-                                        <div class="patch-section-content">
-                                            @((MarkupString)StripReturnLinks(section.Content))
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            }
-        </div>
     </div>
 }
 
@@ -501,6 +444,35 @@ else
                hero.AttackSpeed.HasValue || hero.AttackRange.HasValue ||
                hero.HealthRegen.HasValue || hero.BaseMana.HasValue || hero.ManaRegen.HasValue);
     }
+
+    private string UniverseSlug => (hero?.Universe ?? "nexus").ToLower().Replace(" ", "");
+
+    // gauge percentages — coarse normalizations over the roster's observed ranges
+    private int HealthPct => (int)Math.Clamp((hero!.BaseHealth!.Value - 1100.0) / (3400.0 - 1100.0) * 100, 6, 100);
+
+    private int? DamagePct
+    {
+        get
+        {
+            if (hero?.BaseAttackDamage is not { } dmg)
+                return null;
+            var dps = dmg * (hero.AttackSpeed ?? 1.0);
+            return (int)Math.Clamp((dps - 20.0) / (180.0 - 20.0) * 100, 6, 100);
+        }
+    }
+
+    private int? DifficultyPct => hero?.Difficulty?.ToLowerInvariant() switch
+    {
+        "easy" => 25,
+        "medium" => 50,
+        "hard" => 75,
+        "very hard" => 95,
+        _ => null,
+    };
+
+    private int FirstChangeYear =>
+        heroPatches.Where(p => p.LiveDate.HasValue).Select(p => p.LiveDate!.Value.Year)
+            .DefaultIfEmpty(2014).Min();
 
     private void SelectTalent(int level, int choice)
     {

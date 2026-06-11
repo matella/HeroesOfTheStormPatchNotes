@@ -40,6 +40,25 @@ public sealed class PatchRepository(HotsDbContext context) : IPatchRepository
         return (items, totalCount);
     }
 
+    public async Task<Dictionary<int, PatchSectionCounts>> GetSectionCountsAsync(
+        IReadOnlyCollection<int> patchIds,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await context.PatchSections
+            .Where(s => patchIds.Contains(s.PatchId))
+            .GroupBy(s => new { s.PatchId, s.SectionType })
+            .Select(g => new { g.Key.PatchId, g.Key.SectionType, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(r => r.PatchId)
+            .ToDictionary(
+                g => g.Key,
+                g => new PatchSectionCounts(
+                    g.Where(r => r.SectionType == "Hero").Sum(r => r.Count),
+                    g.Where(r => r.SectionType == "Map" || r.SectionType == "Battleground").Sum(r => r.Count)));
+    }
+
     public async Task<Patch?> GetByInternalIdAsync(string internalId, CancellationToken cancellationToken = default)
     {
         return await context.Patches

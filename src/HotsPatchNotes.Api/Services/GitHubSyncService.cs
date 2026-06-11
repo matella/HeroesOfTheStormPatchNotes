@@ -1326,6 +1326,8 @@ public sealed partial class GitHubSyncService(
                 result.Message += $"; {wikiSyncedCount} additional battlegrounds from wiki";
             result.Success = true;
 
+            await CanonicalizeBattlegroundsAsync(cancellationToken);
+
             logger.LogInformation("Battleground sync complete: {Count} total battlegrounds", result.HeroesUpdated);
         }
         catch (Exception ex)
@@ -1336,6 +1338,76 @@ public sealed partial class GitHubSyncService(
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Display names from Gamedata are compact internal ids ("CursedHollow", "HoldOut") and the wiki
+    /// phase can create duplicates under a second ShortName ("Blackheart&amp;#39;s Bay"). Rename every
+    /// row to its canonical in-game name and merge duplicates (keeping the richest fields). Idempotent.
+    /// </summary>
+    public async Task CanonicalizeBattlegroundsAsync(CancellationToken cancellationToken = default)
+    {
+        // canonical names keyed by normalized (lowercase, no spaces/apostrophes) variants
+        var canonical = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["alteracvalley"] = "Alterac Pass",
+            ["alteracpass"] = "Alterac Pass",
+            ["battlefieldofeternity"] = "Battlefield of Eternity",
+            ["blackheartsbay"] = "Blackheart's Bay",
+            ["cursedhollow"] = "Cursed Hollow",
+            ["dragonshire"] = "Dragon Shire",
+            ["gardenofterror"] = "Garden of Terror",
+            ["hanamura"] = "Hanamura Temple",
+            ["hanamuratemple"] = "Hanamura Temple",
+            ["hauntedmines"] = "Haunted Mines",
+            ["holdout"] = "Braxis Holdout",
+            ["braxisholdout"] = "Braxis Holdout",
+            ["infernalshrines"] = "Infernal Shrines",
+            ["lostcavern"] = "Lost Cavern",
+            ["skytemple"] = "Sky Temple",
+            ["tombofthespiderqueen"] = "Tomb of the Spider Queen",
+            ["towersofdoom"] = "Towers of Doom",
+            ["volskaya"] = "Volskaya Foundry",
+            ["volskayafoundry"] = "Volskaya Foundry",
+            ["warheadjunction"] = "Warhead Junction",
+        };
+
+        var all = await dbContext.Battlegrounds.ToListAsync(cancellationToken);
+        foreach (var bg in all)
+        {
+            var key = Repositories.BattlegroundRepository.NormalizeName(bg.Name);
+            if (canonical.TryGetValue(key, out var name) && bg.Name != name)
+                bg.Name = name;
+            else if (!canonical.ContainsKey(key))
+                bg.Name = System.Net.WebUtility.HtmlDecode(bg.Name);
+        }
+
+        // Merge duplicates that now share a canonical name: keep the row with an image (else lowest
+        // id), fill its missing fields from the others, delete the rest.
+        foreach (var group in all.GroupBy(b => b.Name).Where(g => g.Count() > 1))
+        {
+            var keep = group.OrderByDescending(b => !string.IsNullOrEmpty(b.ImageUrl))
+                .ThenBy(b => b.Id).First();
+            foreach (var dupe in group.Where(b => b != keep))
+            {
+                keep.Description = Longest(keep.Description, dupe.Description);
+                keep.Objective = Longest(keep.Objective, dupe.Objective);
+                keep.ObjectiveTiming ??= dupe.ObjectiveTiming;
+                keep.MercCamps = Longest(keep.MercCamps, dupe.MercCamps);
+                keep.BossInfo = Longest(keep.BossInfo, dupe.BossInfo);
+                keep.Tips = Longest(keep.Tips, dupe.Tips);
+                keep.ImageUrl ??= dupe.ImageUrl;
+                keep.Universe ??= dupe.Universe;
+                keep.MapType ??= dupe.MapType;
+                keep.ReleaseDate ??= dupe.ReleaseDate;
+                dbContext.Battlegrounds.Remove(dupe);
+                logger.LogInformation("Merged duplicate battleground {Dupe} into {Keep}", dupe.ShortName, keep.ShortName);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        static string? Longest(string? a, string? b) => (b?.Length ?? 0) > (a?.Length ?? 0) ? b : a;
     }
 
     #endregion

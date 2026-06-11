@@ -1,10 +1,7 @@
-.about-page { max-width: 680px; margin: 0 auto; padding: 24px 0 60px; }
-.about-page h1 { font-size: 1.6rem; margin: 0 0 10px; }
-.about-page p { color: var(--text-secondary); font-size: .92rem; line-height: 1.65; }
-.about-page a { color: var(--accent-primary); text-decoration: none; }
-.about-page a:hover { text-decoration: underline; }
-.about-page h2 { font-size: .75rem; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--text-muted); margin: 26px 0 8px; border-bottom: 1px solid var(--hairline);
-    padding-bottom: 6px; }
-.about-page ul { color: var(--text-secondary); font-size: .88rem; line-height: 1.8;
-    padding-left: 18px; }
+.about-page { max-width: 620px; padding: 16px 0 60px; }
+.about-page h1 { font-size: 15px; font-weight: 500; margin: 0 0 8px; }
+.about-lede { color: var(--text-secondary); font-size: 12.5px; line-height: 1.6;
+    margin: 0 0 14px; }
+.source-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.source-pills .pill-filter { color: #cfd3e0; text-decoration: none; }
+.disclaimer { color: var(--text-muted); font-size: 10.5px; margin: 16px 0 0; }

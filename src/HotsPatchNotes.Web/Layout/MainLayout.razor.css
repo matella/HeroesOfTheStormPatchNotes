@@ -1,24 +1,36 @@
 .page { display: flex; flex-direction: column; min-height: 100vh; }
 .top-header { border-bottom: 1px solid var(--hairline-strong); background: var(--bg-primary);
     position: sticky; top: 0; z-index: 50; }
-.top-header .container { display: flex; align-items: center; gap: 22px; padding: 13px 24px;
+.top-header .container { display: flex; align-items: center; gap: 18px; padding: 11px 24px;
     max-width: 1100px; margin: 0 auto; }
 .brand { text-decoration: none; }
-.brand-text { color: var(--text-primary); font-weight: 700; letter-spacing: .08em;
-    font-size: .95rem; }
-.nav-links { display: flex; gap: 18px; align-items: center; margin-left: 6px; }
-.nav-link { color: var(--text-secondary); font-size: .85rem; text-decoration: none;
-    padding-bottom: 2px; border-bottom: 2px solid transparent; }
+.brand-text { color: var(--text-primary); font-weight: 500; letter-spacing: .05em;
+    font-size: 13px; white-space: nowrap; }
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-link { color: var(--text-secondary); font-size: 12px; text-decoration: none;
+    padding-bottom: 2px; border-bottom: 2px solid transparent; white-space: nowrap; }
 .nav-link:hover { color: var(--text-primary); }
 .nav-link.active, .nav-link:focus { color: var(--text-primary);
     border-bottom-color: var(--accent-primary); }
-.nav-admin { margin-left: auto; color: var(--text-muted); font-size: .75rem; }
+.header-search { margin-left: auto; }
+.header-search input { background: none; border: 1px solid var(--hairline-strong);
+    color: var(--text-primary); border-radius: 6px; padding: 4px 10px; font-size: 11px;
+    font-family: inherit; width: 170px; }
+.header-search input::placeholder { color: var(--text-muted); }
+.header-search input:focus { outline: none; border-color: var(--accent-primary); }
+.nav-admin { color: var(--text-muted); font-size: 11px; }
 
 .main-content { flex: 1; }
 .main-content .container { max-width: 1100px; margin: 0 auto; padding: 18px 24px; }
 
 .footer { border-top: 1px solid var(--hairline); margin-top: 30px; }
-.footer .container { max-width: 1100px; margin: 0 auto; padding: 16px 24px; }
-.footer p { color: var(--text-muted); font-size: .75rem; margin: 0; }
+.footer .container { max-width: 1100px; margin: 0 auto; padding: 14px 24px; }
+.footer p { color: var(--text-muted); font-size: 11px; margin: 0; }
 .footer a { color: var(--text-secondary); text-decoration: none; }
 .footer a:hover { color: var(--accent-primary); }
+
+@media (max-width: 720px) {
+    .top-header .container { flex-wrap: wrap; gap: 10px; }
+    .header-search { order: 3; flex: 1; margin-left: 0; }
+    .header-search input { width: 100%; }
+}

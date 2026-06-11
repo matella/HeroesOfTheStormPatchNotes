@@ -19,6 +19,7 @@ public sealed partial class PatchService(IPatchRepository patchRepository) : IPa
         CancellationToken cancellationToken = default)
     {
         var (items, totalCount) = await patchRepository.GetAllAsync(patchType, source, page, pageSize, cancellationToken);
+        var counts = await patchRepository.GetSectionCountsAsync(items.Select(p => p.Id).ToList(), cancellationToken);
 
         var patches = items.Select(p => new PatchSummaryDto
         {
@@ -28,10 +29,13 @@ public sealed partial class PatchService(IPatchRepository patchRepository) : IPa
             PatchType = p.PatchType,
             GameVersion = p.GameVersion,
             LiveDate = p.LiveDate,
+            PtrDate = p.PtrDate,
             OfficialLink = p.OfficialLink,
             AlternateLink = p.AlternateLink,
             Source = p.Source,
-            HasContent = p.Content != null
+            HasContent = p.Content != null,
+            HeroCount = counts.GetValueOrDefault(p.Id)?.HeroCount ?? 0,
+            MapCount = counts.GetValueOrDefault(p.Id)?.MapCount ?? 0
         }).ToList();
 
         return new PagedResultDto<PatchSummaryDto>

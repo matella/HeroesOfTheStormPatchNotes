@@ -3,39 +3,32 @@
 @using HotsPatchNotes.Web.Services
 @inject IBattlegroundService BattlegroundService
 
-<PageTitle>Battlegrounds - HotS Patch Notes</PageTitle>
+<PageTitle>Battlegrounds - Nexus Codex</PageTitle>
 
 <div class="battlegrounds-page">
-    <div class="page-header">
-        <h1>Battlegrounds</h1>
-        <p class="subtitle">Explore the maps of the Nexus</p>
+    <div class="filter-bar">
+        <button class="pill-filter @(showRotation == null ? "active" : "")"
+                @onclick="() => FilterByRotation(null)">Toutes</button>
+        <button class="pill-filter @(showRotation == true ? "active" : "")"
+                @onclick="() => FilterByRotation(true)">En rotation</button>
+        <button class="pill-filter @(showRotation == false ? "active" : "")"
+                @onclick="() => FilterByRotation(false)">Hors rotation</button>
+        <span class="map-total">@filteredBattlegrounds.Count() cartes</span>
     </div>
 
     @if (loading)
     {
         <div class="loading">
             <div class="spinner"></div>
-            <p>Loading battlegrounds...</p>
+            <p>Chargement des battlegrounds…</p>
         </div>
     }
     else if (!battlegrounds.Any())
     {
-        <div class="empty-state">
-            <p>No battlegrounds found.</p>
-            <p class="hint">Battleground data will be added soon.</p>
-        </div>
+        <div class="empty-state"><p>Aucun battleground.</p></div>
     }
     else
     {
-        <div class="filters">
-            <button class="filter-btn @(showRotation == null ? "active" : "")" 
-                    @onclick="() => FilterByRotation(null)">All Maps</button>
-            <button class="filter-btn @(showRotation == true ? "active" : "")" 
-                    @onclick="() => FilterByRotation(true)">In Rotation</button>
-            <button class="filter-btn @(showRotation == false ? "active" : "")" 
-                    @onclick="() => FilterByRotation(false)">Out of Rotation</button>
-        </div>
-
         <div class="battlegrounds-grid">
             @foreach (var map in filteredBattlegrounds)
             {
@@ -43,32 +36,15 @@
                     <div class="map-image">
                         @if (!string.IsNullOrEmpty(map.ImageUrl))
                         {
-                            <img src="@map.ImageUrl" alt="@map.Name" />
+                            <img src="@map.ImageUrl" alt="@map.Name" loading="lazy" />
                         }
                         else
                         {
-                            <div class="placeholder-image">🗺️</div>
-                        }
-                        @if (!map.IsInRotation)
-                        {
-                            <span class="rotation-badge">Out of Rotation</span>
+                            <div class="placeholder-image"></div>
                         }
                     </div>
-                    <div class="map-info">
-                        <h3>@map.Name</h3>
-                        @if (!string.IsNullOrEmpty(map.MapType))
-                        {
-                            <span class="map-type">@map.MapType</span>
-                        }
-                        @if (!string.IsNullOrEmpty(map.Universe))
-                        {
-                            <span class="universe universe-@(map.Universe?.ToLower())">@map.Universe</span>
-                        }
-                        @if (!string.IsNullOrEmpty(map.Description))
-                        {
-                            <p class="description">@TruncateDescription(map.Description)</p>
-                        }
-                    </div>
+                    <p class="map-name">@map.Name</p>
+                    <p class="map-sub">@MetaLine(map)</p>
                 </a>
             }
         </div>
@@ -80,8 +56,8 @@
     private bool loading = true;
     private bool? showRotation = null;
 
-    private IEnumerable<BattlegroundSummaryDto> filteredBattlegrounds => 
-        showRotation.HasValue 
+    private IEnumerable<BattlegroundSummaryDto> filteredBattlegrounds =>
+        showRotation.HasValue
             ? battlegrounds.Where(b => b.IsInRotation == showRotation.Value)
             : battlegrounds;
 
@@ -102,10 +78,17 @@
         showRotation = inRotation;
     }
 
-    private string TruncateDescription(string description)
+    private static string MetaLine(BattlegroundSummaryDto map)
     {
-        if (description.Length <= 120)
-            return description;
-        return description.Substring(0, 117) + "...";
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(map.MapType) && map.MapType.EndsWith("-Lane"))
+            parts.Add(map.MapType.Replace("-Lane", " voies"));
+        else if (!string.IsNullOrEmpty(map.MapType))
+            parts.Add(map.MapType);
+        if (map.ChangeCount > 0)
+            parts.Add(map.ChangeCount > 1 ? $"{map.ChangeCount} changements" : "1 changement");
+        if (!map.IsInRotation)
+            parts.Add("hors rotation");
+        return string.Join(" · ", parts);
     }
 }

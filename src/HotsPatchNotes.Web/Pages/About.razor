@@ -1,53 +1,23 @@
 @page "/about"
 
-<PageTitle>About - HotS Patch Notes</PageTitle>
+<PageTitle>À propos - Nexus Codex</PageTitle>
 
 <div class="about-page">
-    <h1>About HotS Patch Notes</h1>
-    
-    <div class="card">
-        <h2>What is this?</h2>
-        <p>
-            HotS Patch Notes is a community project that provides a comprehensive database 
-            of Heroes of the Storm heroes, their abilities, talents, and patch history.
-        </p>
-        <p>
-            This website is a modern rewrite of <a href="https://heroespatchnotes.com" target="_blank">heroespatchnotes.com</a>, 
-            built with Blazor WebAssembly and ASP.NET Core.
-        </p>
+    <h1>Nexus Codex</h1>
+    <p class="about-lede">
+        L'encyclopédie des patchs de Heroes of the Storm — plus de 300 patchs archivés depuis
+        l'alpha 2014, l'historique de chaque héros et de chaque champ de bataille, présentés en
+        diffs lisibles.
+    </p>
+
+    <div class="source-pills">
+        <a class="pill-filter" href="https://github.com/heroespatchnotes" target="_blank" rel="noopener">données : heroespatchnotes ↗</a>
+        <a class="pill-filter" href="https://nexus-patch-notes.github.io" target="_blank" rel="noopener">archive : Nexus Patch Notes ↗</a>
+        <a class="pill-filter" href="https://www.heroespatchnotes.com/blizztracker.html" target="_blank" rel="noopener">veille : BlueTracker ↗</a>
     </div>
 
-    <div class="card">
-        <h2>Data Sources</h2>
-        <p>All data is sourced from the heroespatchnotes GitHub organization:</p>
-        <ul>
-            <li>
-                <a href="https://github.com/heroespatchnotes/heroes-talents" target="_blank">heroes-talents</a> - 
-                Hero abilities, talents, and icons in JSON format
-            </li>
-            <li>
-                <a href="https://github.com/heroespatchnotes/heroes-patch-data" target="_blank">heroes-patch-data</a> - 
-                Patch version history
-            </li>
-        </ul>
-    </div>
-
-    <div class="card">
-        <h2>Technology Stack</h2>
-        <ul>
-            <li><strong>Frontend:</strong> Blazor WebAssembly (.NET 10)</li>
-            <li><strong>Backend:</strong> ASP.NET Core Web API</li>
-            <li><strong>Database:</strong> SQLite with Entity Framework Core</li>
-            <li><strong>Data Sync:</strong> Periodic synchronization from GitHub repositories</li>
-        </ul>
-    </div>
-
-    <div class="card">
-        <h2>Disclaimer</h2>
-        <p>
-            This is a fan-made project and is not affiliated with or endorsed by Blizzard Entertainment. 
-            Heroes of the Storm, Blizzard Entertainment, and all related properties are trademarks 
-            or registered trademarks of Blizzard Entertainment, Inc.
-        </p>
-    </div>
+    <p class="disclaimer">
+        Projet non affilié à Blizzard Entertainment. Heroes of the Storm™ est une marque de
+        Blizzard Entertainment, Inc.
+    </p>
 </div>

@@ -56,6 +56,18 @@ public sealed class SyncController(IGitHubSyncService syncService, ILogger<SyncC
     }
 
     /// <summary>
+    /// Trigger a battleground sync (Gamedata + wiki enrichment + name canonicalization).
+    /// </summary>
+    [HttpPost("battlegrounds")]
+    public async Task<ActionResult<SyncResultDto>> SyncBattlegroundsAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Starting battlegrounds sync...");
+        var result = await syncService.SyncBattlegroundsAsync(cancellationToken);
+
+        return result.Success ? Ok(result) : StatusCode(207, result);
+    }
+
+    /// <summary>
     /// Trigger a sync of patch data from BlueTracker web scraping.
     /// </summary>
     [HttpPost("patches/bluetracker")]

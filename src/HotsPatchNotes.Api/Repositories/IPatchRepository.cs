@@ -23,6 +23,13 @@ public interface IPatchRepository
     Task<Patch?> GetByInternalIdAsync(string internalId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets hero/map section counts for a set of patches (patch id -> counts).
+    /// </summary>
+    Task<Dictionary<int, PatchSectionCounts>> GetSectionCountsAsync(
+        IReadOnlyCollection<int> patchIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets all distinct patch types.
     /// </summary>
     Task<List<string>> GetPatchTypesAsync(CancellationToken cancellationToken = default);
@@ -49,3 +56,6 @@ public interface IPatchRepository
         string heroName,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>Per-patch counts of hero and map sections (patch-list summaries).</summary>
+public sealed record PatchSectionCounts(int HeroCount, int MapCount);

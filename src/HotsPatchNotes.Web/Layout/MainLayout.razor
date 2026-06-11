@@ -1,5 +1,6 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @using HotsPatchNotes.Web.Components
+@inject NavigationManager Navigation
 
 <div class="page">
     <header class="top-header">
@@ -8,12 +9,16 @@
                 <span class="brand-text">NEXUS CODEX</span>
             </a>
             <nav class="nav-links">
-                <a href="/" class="nav-link">Heroes</a>
+                <a href="/" class="nav-link">Héros</a>
+                <a href="/patches" class="nav-link">Patchs</a>
                 <a href="/battlegrounds" class="nav-link">Battlegrounds</a>
-                <a href="/patches" class="nav-link">Patch Notes</a>
-                <a href="/about" class="nav-link">About</a>
-                <a href="/admin" class="nav-link nav-admin">Admin</a>
+                <a href="/about" class="nav-link">À propos</a>
             </nav>
+            <form class="header-search" @onsubmit="SearchHero" @onsubmit:preventDefault="true">
+                <input type="search" placeholder="⌕ rechercher un héros…"
+                       @bind="searchTerm" @bind:event="oninput" />
+            </form>
+            <a href="/admin" class="nav-link nav-admin">admin</a>
         </div>
     </header>
 
@@ -27,7 +32,17 @@
 
     <footer class="footer">
         <div class="container">
-            <p>Data: <a href="https://github.com/heroespatchnotes" target="_blank">heroespatchnotes</a> · <a href="https://nexus-patch-notes.github.io" target="_blank">Nexus Patch Notes</a> · BlueTracker. Not affiliated with Blizzard Entertainment.</p>
+            <p>données : <a href="https://github.com/heroespatchnotes" target="_blank">heroespatchnotes</a> · archive : <a href="https://nexus-patch-notes.github.io" target="_blank">Nexus Patch Notes</a> · veille : BlueTracker — projet non affilié à Blizzard Entertainment.</p>
         </div>
     </footer>
 </div>
+
+@code {
+    private string searchTerm = "";
+
+    private void SearchHero()
+    {
+        var q = searchTerm?.Trim() ?? "";
+        Navigation.NavigateTo(string.IsNullOrEmpty(q) ? "/" : $"/?q={Uri.EscapeDataString(q)}");
+    }
+}

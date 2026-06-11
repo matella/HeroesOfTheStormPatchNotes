@@ -1,145 +1,76 @@
 @page "/patches"
-@using System.Globalization
 @using HotsPatchNotes.Shared.DTOs
 @using HotsPatchNotes.Web.Services
 @inject IPatchService PatchService
 @inject NavigationManager Navigation
 
-<PageTitle>Patch Notes - HotS Patch Notes</PageTitle>
+<PageTitle>Patchs - Nexus Codex</PageTitle>
 
 <div class="patches-page">
-    <div class="page-header">
-        <h1>Patch Notes History</h1>
-        <p class="subtitle">Browse the complete history of Heroes of the Storm patches</p>
-    </div>
-
-    <div class="filters">
-        <div class="filter-group">
-            <label>Type:</label>
-            <select @bind="selectedType" @bind:after="LoadPatches">
-                <option value="">All Types</option>
-                @foreach (var type in patchTypes)
-                {
-                    <option value="@type">@type</option>
-                }
-            </select>
-        </div>
+    <div class="filter-bar">
+        @foreach (var bucket in FilterBuckets)
+        {
+            <button class="pill-filter @(selectedBucket == bucket ? "active" : "")"
+                    @onclick="() => SetBucket(bucket)">@bucket</button>
+        }
+        <span class="patch-total">@visibleRows.Count patchs</span>
     </div>
 
     @if (loading)
     {
         <div class="loading">
             <div class="spinner"></div>
-            <p>Loading patches...</p>
+            <p>Chargement des patchs…</p>
         </div>
     }
-    else if (patches.Items.Count == 0)
+    else if (visibleRows.Count == 0)
     {
-        <div class="no-results">
-            <p>No patches found.</p>
-        </div>
+        <div class="no-results"><p>Aucun patch.</p></div>
     }
     else
     {
         <div class="patches-list">
             @{ int? yearCursor = null; }
-            @foreach (var patch in patches.Items)
+            @foreach (var row in visibleRows)
             {
-                var patchYear = patch.LiveDate?.Year;
-                if (patchYear != yearCursor)
+                var rowYear = row.Date?.Year;
+                if (rowYear != yearCursor)
                 {
-                    yearCursor = patchYear;
-                    <div class="year-sep">@(patchYear?.ToString() ?? "Undated")</div>
+                    yearCursor = rowYear;
+                    <div class="year-sep">@(rowYear?.ToString() ?? "Sans date")</div>
                 }
-                <div class="patch-card" @onclick="() => ViewPatch(patch.InternalId)">
-                    <div class="patch-header">
-                        <h3>@(patch.PatchName ?? patch.InternalId)</h3>
-                        <div class="patch-badges">
-                            <span class="patch-type type-@(patch.PatchType?.ToLower().Replace(" ", "-"))">
-                                @patch.PatchType
-                            </span>
-                            @if (patch.HasContent)
-                            {
-                                
-                            }
-                        </div>
-                    </div>
-                    <div class="patch-meta">
-                        @if (!string.IsNullOrEmpty(patch.GameVersion))
-                        {
-                            <span class="version">v@patch.GameVersion</span>
-                        }
-                        @if (patch.LiveDate.HasValue)
-                        {
-                            <span class="date">@patch.LiveDate.Value.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</span>
-                        }
-                        @if (!string.IsNullOrEmpty(patch.Source))
-                        {
-                            <span class="source">@patch.Source</span>
-                        }
-                    </div>
-                    <div class="patch-links" @onclick:stopPropagation="true">
-                        @if (!string.IsNullOrEmpty(patch.OfficialLink))
-                        {
-                            <a href="@patch.OfficialLink" target="_blank" rel="noopener" class="link-btn">
-                                Official notes ↗
-                            </a>
-                        }
-                        @if (!string.IsNullOrEmpty(patch.AlternateLink))
-                        {
-                            <a href="@patch.AlternateLink" target="_blank" rel="noopener" class="link-btn secondary">
-                                Alternate ↗
-                            </a>
-                        }
-                        <button class="link-btn view-btn" @onclick="() => ViewPatch(patch.InternalId)">
-                            View Details →
-                        </button>
-                    </div>
-                </div>
+                <a class="patch-row" href="/patch/@row.InternalId">
+                    <span class="mono p-date">@FormatShortDate(row.Date)</span>
+                    <span class="bdg @row.BadgeClass">@row.Badge</span>
+                    <span class="p-name">@row.Name</span>
+                    <span class="p-counts">@CountsLabel(row) ›</span>
+                </a>
             }
         </div>
-
-        @if (patches.TotalPages > 1)
-        {
-            <div class="pagination">
-                <button @onclick="PreviousPage" disabled="@(!patches.HasPreviousPage)" class="page-btn">
-                    ← Previous
-                </button>
-                <span class="page-info">
-                    Page @patches.Page of @patches.TotalPages (@patches.TotalCount total)
-                </span>
-                <button @onclick="NextPage" disabled="@(!patches.HasNextPage)" class="page-btn">
-                    Next →
-                </button>
-            </div>
-        }
     }
 </div>
 
 @code {
-    private PagedResultDto<PatchSummaryDto> patches = new();
-    private List<string> patchTypes = new();
+    private static readonly string[] FilterBuckets = ["Tous", "Live", "PTR", "Hotfix", "Alpha/Beta"];
+    private static readonly string[] FrMonths =
+        ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+
+    private sealed record PatchRow(
+        string InternalId, string Name, string Bucket, string Badge, string BadgeClass,
+        DateTime? Date, int HeroCount, int MapCount);
+
+    private List<PatchRow> allRows = [];
+    private List<PatchRow> visibleRows = [];
     private bool loading = true;
-    
-    private string selectedType = "";
-    private int currentPage = 1;
-    private const int PageSize = 20;
+    private string selectedBucket = "Tous";
 
     protected override async Task OnInitializedAsync()
     {
-        patchTypes = await PatchService.GetPatchTypesAsync();
-        await LoadPatches();
-    }
-
-    private async Task LoadPatches()
-    {
-        loading = true;
         try
         {
-            patches = await PatchService.GetPatchesAsync(
-                string.IsNullOrEmpty(selectedType) ? null : selectedType,
-                currentPage,
-                PageSize);
+            var page = await PatchService.GetPatchesAsync(null, 1, 1000);
+            allRows = Merge(page.Items);
+            ApplyFilter();
         }
         finally
         {
@@ -147,39 +78,96 @@
         }
     }
 
-    private void ViewPatch(string internalId)
+    private void SetBucket(string bucket)
     {
-        Navigation.NavigateTo($"/patch/{internalId}");
+        selectedBucket = bucket;
+        ApplyFilter();
     }
 
-    private async Task PreviousPage()
+    private void ApplyFilter()
     {
-        if (patches.HasPreviousPage)
+        visibleRows = selectedBucket == "Tous"
+            ? allRows
+            : allRows.Where(r => r.Bucket == selectedBucket).ToList();
+    }
+
+    /// <summary>
+    /// One row per patch: the archive (nexus) and Blizzard's feed both carry the same patch —
+    /// merge same-day/same-bucket entries, linking to the section-rich one (the diff view)
+    /// while keeping Blizzard's human title.
+    /// </summary>
+    private static List<PatchRow> Merge(List<PatchSummaryDto> items)
+    {
+        var rows = new List<PatchRow>();
+        foreach (var group in items
+            .GroupBy(p => (Date: (p.LiveDate ?? p.PtrDate)?.Date, Bucket: BucketOf(p.PatchType)))
+            .OrderByDescending(g => g.Key.Date ?? DateTime.MinValue))
         {
-            currentPage--;
-            await LoadPatches();
+            var members = group.ToList();
+            var primary = members
+                .OrderByDescending(p => p.HeroCount + p.MapCount)
+                .ThenByDescending(p => p.HasContent)
+                .First();
+            var titled = members.FirstOrDefault(p => p.Source != "nexus" && !string.IsNullOrEmpty(p.PatchName))
+                         ?? primary;
+            rows.Add(new PatchRow(
+                primary.InternalId,
+                CleanName(titled.PatchName, group.Key.Bucket),
+                group.Key.Bucket,
+                BadgeOf(group.Key.Bucket),
+                BadgeClassOf(group.Key.Bucket),
+                group.Key.Date,
+                members.Max(p => p.HeroCount),
+                members.Max(p => p.MapCount)));
         }
+        return rows;
     }
 
-    private async Task NextPage()
+    private static string BucketOf(string? patchType) => patchType switch
     {
-        if (patches.HasNextPage)
-        {
-            currentPage++;
-            await LoadPatches();
-        }
+        "PTR" => "PTR",
+        "Hotfix Patch" => "Hotfix",
+        "Alpha Patch" or "Beta Patch" => "Alpha/Beta",
+        _ => "Live",
+    };
+
+    private static string BadgeOf(string bucket) => bucket switch
+    {
+        "PTR" => "PTR",
+        "Hotfix" => "HOTFIX",
+        "Alpha/Beta" => "ALPHA·BETA",
+        _ => "LIVE",
+    };
+
+    private static string BadgeClassOf(string bucket) => bucket switch
+    {
+        "PTR" => "b-ptr",
+        "Hotfix" => "b-hotfix",
+        "Alpha/Beta" => "b-bugfix",
+        _ => "b-live",
+    };
+
+    private static string CleanName(string? name, string bucket)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return bucket + " Patch";
+        var n = name.Trim();
+        if (n.StartsWith("Heroes of the Storm ", StringComparison.OrdinalIgnoreCase))
+            n = n["Heroes of the Storm ".Length..];
+        var dash = n.LastIndexOf(" - ", StringComparison.Ordinal);
+        if (dash > 0 && n[(dash + 3)..].Any(char.IsDigit))
+            n = n[..dash];
+        return n;
     }
 
-    private string GetPatchTypeIcon(string? patchType)
+    private static string FormatShortDate(DateTime? date) =>
+        date is null ? "—" : $"{date.Value.Day} {FrMonths[date.Value.Month - 1]}";
+
+    private static string CountsLabel(PatchRow row)
     {
-        return (patchType?.ToLowerInvariant()) switch
-        {
-            "balance update" => "⚖️",
-            "major patch" => "🎮",
-            "hotfix patch" => "🔧",
-            "ptr" => "🧪",
-            "patch notes" => "📋",
-            _ => "📝"
-        };
+        var parts = new List<string>();
+        if (row.HeroCount > 0) parts.Add($"{row.HeroCount} héros");
+        if (row.MapCount > 0) parts.Add(row.MapCount > 1 ? $"{row.MapCount} cartes" : "1 carte");
+        return parts.Count > 0 ? string.Join(" · ", parts) : "";
     }
 }

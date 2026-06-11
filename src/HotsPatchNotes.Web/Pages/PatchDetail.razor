@@ -3,114 +3,160 @@
 @using HotsPatchNotes.Shared.DTOs
 @using HotsPatchNotes.Web.Services
 @inject IPatchService PatchService
+@inject IHeroService HeroService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
-<PageTitle>@(patch?.PatchName ?? "Patch Details") - HotS Patch Notes</PageTitle>
+<PageTitle>@(patch?.PatchName ?? "Patch") - Nexus Codex</PageTitle>
 
 <div class="patch-detail-page">
     @if (isLoading)
     {
         <div class="loading">
             <div class="spinner"></div>
-            <p>Loading patch notes...</p>
+            <p>Chargement du patch…</p>
         </div>
     }
     else if (patch == null)
     {
         <div class="not-found">
-            <h2>Patch Not Found</h2>
-            <p>The patch you're looking for doesn't exist.</p>
-            <a href="/patches" class="back-link">← Back to Patches</a>
+            <h2>Patch introuvable</h2>
+            <a href="/patches" class="back-link">← Retour aux patchs</a>
         </div>
     }
     else
     {
-        <div class="patch-header">
-            <a href="/patches" class="back-link">← Back to Patches</a>
-            
-            <h1 id="return">@patch.PatchName</h1>
-            
-            <div class="patch-meta">
-                @if (!string.IsNullOrEmpty(patch.PatchType))
-                {
-                    <span class="patch-type @GetPatchTypeClass(patch.PatchType)">
-                        <span class="patch-type-icon">@GetPatchTypeIcon(patch.PatchType)</span>
-                        @patch.PatchType
-                    </span>
-                }
-                @if (patch.LiveDate.HasValue)
-                {
-                    <span class="patch-date">@patch.LiveDate.Value.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</span>
-                }
+        <a href="/patches" class="back-link">← Patchs</a>
+
+        <div class="patch-header" id="return">
+            <div class="ph-row">
+                <h1>@patch.PatchName</h1>
+                <span class="bdg @BadgeClass">@Badge</span>
                 @if (!string.IsNullOrEmpty(patch.OfficialLink))
                 {
                     <a href="@patch.OfficialLink" target="_blank" rel="noopener" class="official-link">
-                        Official Patch Notes ↗
+                        notes officielles Blizzard ↗
                     </a>
                 }
             </div>
+            <p class="ph-sub">
+                @if (patch.LiveDate.HasValue)
+                {
+                    <span class="mono">@patch.LiveDate.Value.ToString("yyyy-MM-dd")</span>
+                }
+                @if (heroSections.Count > 0)
+                {
+                    <span> · @heroSections.Count héros</span>
+                }
+                @if (mapSections.Count > 0)
+                {
+                    <span> · @(mapSections.Count > 1 ? $"{mapSections.Count} cartes" : "1 carte")</span>
+                }
+            </p>
         </div>
 
         <div class="patch-layout">
-            @if (patch.TableOfContents.Count > 0)
+            @if (visibleSections.Count > 0)
             {
                 <aside class="toc-sidebar">
-                    <h3>Navigation</h3>
-                    <nav class="toc">
-                        @foreach (var item in patch.TableOfContents.Where(t => t.HeadingLevel <= 2))
+                    <p class="kick">Sommaire</p>
+                    @foreach (var item in generalSections)
+                    {
+                        <a class="toc-item" @onclick="() => ScrollToAsync(item.Anchor)">@item.EntityName</a>
+                    }
+                    @if (heroSections.Count > 0)
+                    {
+                        <p class="kick toc-group">Héros · @heroSections.Count</p>
+                        @foreach (var item in heroSections)
                         {
-                            var tocCls = patch.Sections.FirstOrDefault(s => s.Anchor == item.Anchor)?.Classification;
-                            <a href="javascript:void(0)" @onclick="() => ScrollToAsync(item.Anchor)" class="toc-item level-@item.HeadingLevel @GetTocTypeClass(item.SectionType)">
-                                @if (!string.IsNullOrEmpty(tocCls))
-                                {
-                                    <span class="toc-dot dot-@tocCls.ToLower()"></span>
-                                }
-                                @item.Title
+                            <a class="toc-item" @onclick="() => ScrollToAsync(item.Anchor)">
+                                <span class="toc-dot dot-@DotClass(item.Classification)"></span>@item.EntityName
                             </a>
                         }
-                    </nav>
+                    }
+                    @if (mapSections.Count > 0)
+                    {
+                        <p class="kick toc-group">Cartes · @mapSections.Count</p>
+                        @foreach (var item in mapSections)
+                        {
+                            <a class="toc-item" @onclick="() => ScrollToAsync(item.Anchor)">
+                                <span class="toc-dot dot-rework"></span>@item.EntityName
+                            </a>
+                        }
+                    }
+                    @if (bugfixSections.Count > 0)
+                    {
+                        <p class="kick toc-group">Autre</p>
+                        @foreach (var item in bugfixSections)
+                        {
+                            <a class="toc-item" @onclick="() => ScrollToAsync(item.Anchor)">@item.EntityName</a>
+                        }
+                    }
                 </aside>
             }
 
             <div class="patch-content">
-                @if (patch.Sections.Count > 0)
+                @if (visibleSections.Count > 0)
                 {
-                    @foreach (var sec in patch.Sections)
+                    @foreach (var sec in visibleSections)
                     {
-                        <div class="patch-section level-@sec.HeadingLevel type-@sec.SectionType.ToLower()">
-                            @switch (sec.HeadingLevel)
+                        var kind = KindOf(sec);
+                        <div class="patch-section level-@sec.HeadingLevel kind-@kind" id="@sec.Anchor">
+                            @if (kind == "hero")
                             {
-                                case 1:
-                                    <h1 id="@sec.Anchor">@sec.EntityName</h1>
-                                    break;
-                                case 2:
-                                    <h2 id="@sec.Anchor">@sec.EntityName
-                                        @if (!string.IsNullOrEmpty(sec.Classification))
+                                var hero = LookupHero(sec);
+                                <div class="hero-block-head">
+                                    @if (hero is not null)
+                                    {
+                                        <img class="universe-ring u-@Slug(hero.Universe)" src="@IconUrl(hero)"
+                                             alt="@sec.EntityName" loading="lazy" />
+                                    }
+                                    <div class="hero-block-id">
+                                        <p class="hero-block-name">@sec.EntityName
+                                            @if (!string.IsNullOrEmpty(sec.Classification))
+                                            {
+                                                <span class="bdg b-@sec.Classification.ToLower()">@sec.Classification</span>
+                                            }
+                                        </p>
+                                        @if (hero is not null)
                                         {
-                                            <span class="bdg b-@sec.Classification.ToLower()">@sec.Classification</span>
+                                            <p class="hero-block-role u-@Slug(hero.Universe)-text">
+                                                @hero.ExpandedRole?.ToUpper() · @hero.Universe?.ToUpper()
+                                            </p>
                                         }
-                                    </h2>
-                                    break;
-                                case 3:
-                                    <h3 id="@sec.Anchor">@sec.EntityName</h3>
-                                    break;
-                                case 4:
-                                    <h4 id="@sec.Anchor">@sec.EntityName</h4>
-                                    break;
-                                default:
-                                    <h5 id="@sec.Anchor">@sec.EntityName</h5>
-                                    break;
+                                    </div>
+                                    @if (hero is not null)
+                                    {
+                                        <a class="hero-block-link" href="/hero/@hero.ShortName">voir la fiche &amp; son historique →</a>
+                                    }
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(sec.EntityName))
+                            {
+                                switch (sec.HeadingLevel)
+                                {
+                                    case 1:
+                                    case 2:
+                                        <h2 class="sec-title">@sec.EntityName
+                                            @if (!string.IsNullOrEmpty(sec.Classification))
+                                            {
+                                                <span class="bdg b-@sec.Classification.ToLower()">@sec.Classification</span>
+                                            }
+                                        </h2>
+                                        break;
+                                    case 3:
+                                        <h3 class="sec-title">@sec.EntityName</h3>
+                                        break;
+                                    default:
+                                        <h4 class="sec-title">@sec.EntityName</h4>
+                                        break;
+                                }
                             }
                             @if (!string.IsNullOrWhiteSpace(sec.Content))
                             {
                                 <div class="section-content">
-                                    @((MarkupString)sec.Content)
+                                    @((MarkupString)Colorized(sec))
                                 </div>
-                            }
-                            @if (sec.HeadingLevel >= 2)
-                            {
-                                <button @onclick="ScrollToTop" class="return-link">↑ Return to Top</button>
                             }
                         </div>
                     }
@@ -118,20 +164,16 @@
                 else if (!string.IsNullOrEmpty(patch.Content))
                 {
                     <div class="content-body">
-                        @((MarkupString)patch.Content)
+                        @((MarkupString)DiffColorizer.Colorize(patch.Content))
                     </div>
                 }
                 else
                 {
                     <div class="no-content">
-                        <p>Full patch notes content not available.</p>
+                        <p>Contenu indisponible.</p>
                         @if (!string.IsNullOrEmpty(patch.OfficialLink))
                         {
-                            <p>
-                                <a href="@patch.OfficialLink" target="_blank" rel="noopener">
-                                    View official patch notes on Blizzard's website →
-                                </a>
-                            </p>
+                            <p><a href="@patch.OfficialLink" target="_blank" rel="noopener">notes officielles ↗</a></p>
                         }
                     </div>
                 }
@@ -141,72 +183,125 @@
 </div>
 
 @code {
-    private async Task ScrollToAsync(string anchor)
-        => await JSRuntime.InvokeVoidAsync("scrollToId", anchor);
-
     [Parameter]
     public string InternalId { get; set; } = string.Empty;
 
     private ReconstructedPatchDto? patch;
     private bool isLoading = true;
+    private Dictionary<string, HeroSummaryDto> heroByKey = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, string> colorizedCache = new();
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadPatch();
-    }
+    private List<PatchSectionDto> visibleSections = [];
+    private List<PatchSectionDto> generalSections = [];
+    private List<PatchSectionDto> heroSections = [];
+    private List<PatchSectionDto> mapSections = [];
+    private List<PatchSectionDto> bugfixSections = [];
 
     protected override async Task OnParametersSetAsync()
     {
-        await LoadPatch();
-    }
-
-    private async Task LoadPatch()
-    {
         isLoading = true;
-        patch = await PatchService.GetPatchAsync(InternalId);
-        isLoading = false;
-    }
-
-    private string GetPatchTypeClass(string patchType)
-    {
-        return patchType.ToLowerInvariant() switch
+        colorizedCache.Clear();
+        try
         {
-            "balance update" => "type-balance",
-            "major patch" => "type-major",
-            "hotfix patch" => "type-hotfix",
-            "ptr" => "type-ptr",
-            _ => "type-default"
-        };
-    }
-
-    private string GetPatchTypeIcon(string patchType)
-    {
-        return patchType.ToLowerInvariant() switch
+            if (heroByKey.Count == 0)
+            {
+                var heroes = await HeroService.GetHeroesAsync();
+                foreach (var h in heroes)
+                {
+                    heroByKey[h.ShortName] = h;
+                    heroByKey.TryAdd(h.Name, h);
+                }
+            }
+            patch = await PatchService.GetPatchAsync(InternalId);
+            BuildIndex();
+        }
+        finally
         {
-            "balance update" => "⚖️",
-            "major patch" => "🎮",
-            "hotfix patch" => "🔧",
-            "ptr" => "🧪",
-            "patch notes" => "📋",
-            _ => "📝"
-        };
+            isLoading = false;
+        }
     }
 
-    private string GetTocTypeClass(string sectionType)
+    private void BuildIndex()
     {
-        return sectionType.ToLowerInvariant() switch
+        visibleSections = [];
+        generalSections = [];
+        heroSections = [];
+        mapSections = [];
+        bugfixSections = [];
+        if (patch is null)
+            return;
+
+        foreach (var sec in patch.Sections.OrderBy(s => s.Order))
         {
-            "general" => "toc-general",
-            "map" => "toc-map",
-            "balance" => "toc-balance",
-            "bugfix" => "toc-bugfix",
-            "hero" => "toc-hero",
-            _ => ""
-        };
+            // the source HTML embeds its own "Quick Navigation" block — ours replaces it
+            if (sec.EntityName.Contains("navigation", StringComparison.OrdinalIgnoreCase))
+                continue;
+            visibleSections.Add(sec);
+            switch (KindOf(sec))
+            {
+                case "hero": heroSections.Add(sec); break;
+                case "map": mapSections.Add(sec); break;
+                case "bugfix": bugfixSections.Add(sec); break;
+                default:
+                    if (sec.HeadingLevel <= 2 && !string.IsNullOrEmpty(sec.EntityName))
+                        generalSections.Add(sec);
+                    break;
+            }
+        }
     }
 
-    private async Task ScrollToTop()
+    private static string KindOf(PatchSectionDto sec) => sec.SectionType.ToLowerInvariant() switch
     {
-        await JSRuntime.InvokeVoidAsync("scrollToAnchor", "return");
+        "hero" => "hero",
+        "map" or "battleground" => "map",
+        "bugfix" => "bugfix",
+        _ => "general",
+    };
+
+    private static string DotClass(string classification) =>
+        string.IsNullOrEmpty(classification) ? "none" : classification.ToLowerInvariant();
+
+    private HeroSummaryDto? LookupHero(PatchSectionDto sec)
+    {
+        if (sec.HeroShortName is not null && heroByKey.TryGetValue(sec.HeroShortName, out var h))
+            return h;
+        return heroByKey.GetValueOrDefault(sec.EntityName);
     }
+
+    private string Colorized(PatchSectionDto sec)
+    {
+        if (!colorizedCache.TryGetValue(sec.Id, out var html))
+        {
+            html = DiffColorizer.Colorize(sec.Content);
+            colorizedCache[sec.Id] = html;
+        }
+        return html;
+    }
+
+    private static string Slug(string? s) => (s ?? "nexus").ToLower().Replace(" ", "");
+
+    private static string IconUrl(HeroSummaryDto hero) =>
+        hero.Icon != null && hero.Icon.StartsWith("/")
+            ? hero.Icon
+            : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png";
+
+    private string Badge => patch?.PatchType switch
+    {
+        "PTR" => "PTR",
+        "Hotfix Patch" => "HOTFIX",
+        "Alpha Patch" or "Beta Patch" => "ALPHA·BETA",
+        "Balance Update" => "BALANCE",
+        _ => "LIVE",
+    };
+
+    private string BadgeClass => patch?.PatchType switch
+    {
+        "PTR" => "b-ptr",
+        "Hotfix Patch" => "b-hotfix",
+        "Alpha Patch" or "Beta Patch" => "b-bugfix",
+        _ => "b-live",
+    };
+
+    private async Task ScrollToAsync(string anchor)
+        => await JSRuntime.InvokeVoidAsync("scrollToId", anchor);
 }

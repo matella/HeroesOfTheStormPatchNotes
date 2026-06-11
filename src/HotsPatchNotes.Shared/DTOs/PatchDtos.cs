@@ -11,10 +11,13 @@ public class PatchSummaryDto
     public string? PatchType { get; set; }
     public string? GameVersion { get; set; }
     public DateTime? LiveDate { get; set; }
+    public DateTime? PtrDate { get; set; }
     public string? OfficialLink { get; set; }
     public string? AlternateLink { get; set; }
     public string? Source { get; set; }
     public bool HasContent { get; set; }
+    public int HeroCount { get; set; }
+    public int MapCount { get; set; }
 }
 
 /// <summary>

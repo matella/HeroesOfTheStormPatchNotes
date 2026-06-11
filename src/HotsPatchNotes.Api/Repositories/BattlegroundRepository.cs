@@ -64,12 +64,14 @@ public sealed class BattlegroundRepository(HotsDbContext context) : IBattlegroun
         int? limit = null,
         CancellationToken cancellationToken = default)
     {
-        var nameLower = battlegroundName.ToLowerInvariant();
+        // Nexus sections use SectionType "Map" and human names ("Cursed Hollow"); battleground rows
+        // may carry compact names ("CursedHollow") — compare on a normalized key.
+        var key = NormalizeName(battlegroundName);
 
         var query = context.PatchSections
             .Include(ps => ps.Patch)
-            .Where(ps => ps.SectionType == Constants.SectionTypes.Battleground &&
-                ps.EntityName.ToLower() == nameLower)
+            .Where(ps => ps.SectionType == "Map" || ps.SectionType == Constants.SectionTypes.Battleground)
+            .Where(ps => ps.EntityName.ToLower().Replace(" ", "").Replace("'", "") == key)
             .OrderByDescending(ps => ps.Patch!.LiveDate);
 
         if (limit.HasValue)
@@ -79,4 +81,16 @@ public sealed class BattlegroundRepository(HotsDbContext context) : IBattlegroun
 
         return await query.ToListAsync(cancellationToken);
     }
+
+    public async Task<List<string>> GetMapSectionNamesAsync(CancellationToken cancellationToken = default)
+    {
+        return await context.PatchSections
+            .Where(ps => ps.SectionType == "Map" || ps.SectionType == Constants.SectionTypes.Battleground)
+            .Select(ps => ps.EntityName)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Lowercase, no spaces/apostrophes — the comparison key used for map-section matching.</summary>
+    public static string NormalizeName(string name) =>
+        System.Net.WebUtility.HtmlDecode(name).ToLowerInvariant().Replace(" ", "").Replace("'", "").Replace("’", "");
 }

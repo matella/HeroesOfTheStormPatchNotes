@@ -18,7 +18,19 @@ public sealed class BattlegroundService(IBattlegroundRepository battlegroundRepo
     {
         var battlegrounds = await battlegroundRepository.GetAllAsync(inRotation, universe, cancellationToken);
 
-        return battlegrounds.Select(MapToSummaryDto).ToList();
+        // Per-map change counts: count Map sections grouped by the same normalized key the
+        // detail-view matching uses, so list counts and timelines agree.
+        var sectionNames = await battlegroundRepository.GetMapSectionNamesAsync(cancellationToken);
+        var counts = sectionNames
+            .GroupBy(BattlegroundRepository.NormalizeName)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return battlegrounds.Select(b =>
+        {
+            var dto = MapToSummaryDto(b);
+            dto.ChangeCount = counts.GetValueOrDefault(BattlegroundRepository.NormalizeName(b.Name));
+            return dto;
+        }).ToList();
     }
 
     public async Task<BattlegroundDetailDto?> GetBattlegroundAsync(string shortName, CancellationToken cancellationToken = default)
@@ -104,13 +116,7 @@ public sealed class BattlegroundService(IBattlegroundRepository battlegroundRepo
 
         var patchSections = await battlegroundRepository.GetPatchSectionsAsync(battleground.Name, null, cancellationToken);
 
-        return patchSections.Select(ps => new BattlegroundPatchDto
-        {
-            PatchId = ps.PatchId,
-            PatchName = ps.Patch!.PatchName,
-            LiveDate = ps.Patch.LiveDate,
-            Content = ps.Content
-        }).ToList();
+        return patchSections.Select(MapToPatchDto).ToList();
     }
 
     public async Task<bool> ExistsAsync(string shortName, CancellationToken cancellationToken = default)
@@ -152,13 +158,22 @@ public sealed class BattlegroundService(IBattlegroundRepository battlegroundRepo
             ReleaseDate = battleground.ReleaseDate,
             Event = battleground.Event,
             Universe = battleground.Universe,
-            RecentPatches = patchSections.Select(ps => new BattlegroundPatchDto
-            {
-                PatchId = ps.PatchId,
-                PatchName = ps.Patch!.PatchName,
-                LiveDate = ps.Patch.LiveDate,
-                Content = ps.Content
-            }).ToList()
+            RecentPatches = patchSections.Select(MapToPatchDto).ToList()
+        };
+    }
+
+    private static BattlegroundPatchDto MapToPatchDto(PatchSection ps)
+    {
+        return new BattlegroundPatchDto
+        {
+            PatchId = ps.PatchId,
+            InternalId = ps.Patch!.InternalId,
+            PatchName = ps.Patch.PatchName,
+            PatchType = ps.Patch.PatchType,
+            LiveDate = ps.Patch.LiveDate ?? ps.Patch.PtrDate,
+            Content = ps.Content,
+            Classification = ps.Classification,
+            ShortSummary = ps.ShortSummary
         };
     }
 }

@@ -1,43 +1,30 @@
-﻿@page "/"
+@page "/"
 @using HotsPatchNotes.Shared.DTOs
 @using HotsPatchNotes.Web.Services
 @inject IHeroService HeroService
+@inject NavigationManager Navigation
+@implements IDisposable
 
-<PageTitle>Heroes - HotS Patch Notes</PageTitle>
+<PageTitle>Héros - Nexus Codex</PageTitle>
 
 <div class="heroes-page">
-    <div class="page-header">
-        <h1>Nexus Codex</h1>
-        <p class="subtitle">@heroes.Count heroes · their kits, and every change since the 2014 alpha</p>
-    </div>
-
-    <div class="filters">
-        <div class="search-box">
-            <input type="text" 
-                   placeholder="Search heroes..." 
-                   @bind="searchTerm" 
-                   @bind:event="oninput"
-                   @onkeyup="FilterHeroes" />
+    <div class="filter-bar">
+        <div class="pill-row">
+            <button class="pill-filter @(selectedRole == "" ? "active" : "")"
+                    @onclick='() => SetRole("")'>Tous</button>
+            @foreach (var role in roles)
+            {
+                <button class="pill-filter @(selectedRole == role ? "active" : "")"
+                        @onclick="() => SetRole(role)">@role</button>
+            }
         </div>
-        
-        <div class="filter-group">
-            <label>Role:</label>
-            <select @bind="selectedRole" @bind:after="FilterHeroes">
-                <option value="">All Roles</option>
-                @foreach (var role in roles)
-                {
-                    <option value="@role">@role</option>
-                }
-            </select>
-        </div>
-
-        <div class="filter-group">
-            <label>Type:</label>
-            <select @bind="selectedType" @bind:after="FilterHeroes">
-                <option value="">All Types</option>
-                <option value="Melee">Melee</option>
-                <option value="Ranged">Ranged</option>
-            </select>
+        <div class="pill-row universe-row">
+            @foreach (var uni in universes)
+            {
+                <button class="pill-filter u-pill @(selectedUniverse == uni ? "active" : "") u-@Slug(uni)-text"
+                        @onclick="() => SetUniverse(uni)">@uni</button>
+            }
+            <span class="hero-count">@filteredHeroes.Count héros</span>
         </div>
     </div>
 
@@ -45,13 +32,13 @@
     {
         <div class="loading">
             <div class="spinner"></div>
-            <p>Loading heroes...</p>
+            <p>Chargement des héros…</p>
         </div>
     }
     else if (filteredHeroes.Count == 0)
     {
         <div class="no-results">
-            <p>No heroes found matching your criteria.</p>
+            <p>Aucun héros ne correspond à « @searchTerm ».</p>
         </div>
     }
     else
@@ -59,17 +46,14 @@
         <div class="heroes-grid">
             @foreach (var hero in filteredHeroes)
             {
-                <a href="/hero/@hero.ShortName" class="hero-card">
+                <a href="/hero/@hero.ShortName" class="hero-card" title="@hero.Name — @hero.ExpandedRole">
                     <div class="hero-icon">
-                        <img class="universe-ring u-@((hero.Universe ?? "nexus").ToLower().Replace(" ", ""))"
-                             src="@(hero.Icon != null && hero.Icon.StartsWith("/") ? hero.Icon : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png")"
-                             alt="@hero.Name"
+                        <img class="universe-ring u-@Slug(hero.Universe)"
+                             src="@IconUrl(hero)"
+                             alt="@hero.Name" loading="lazy"
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2250%22 fill=%22%23fff%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-size=%2240%22>?</text></svg>'" />
                     </div>
-                    <div class="hero-info">
-                        <h3 class="hero-name">@hero.Name</h3>
-                        <span class="hero-role role-@(hero.ExpandedRole?.ToLower().Replace(" ", "-"))">@hero.ExpandedRole</span>
-                    </div>
+                    <span class="hero-name">@hero.Name</span>
                 </a>
             }
         </div>
@@ -80,25 +64,68 @@
     private List<HeroSummaryDto> heroes = new();
     private List<HeroSummaryDto> filteredHeroes = new();
     private List<string> roles = new();
+    private static readonly string[] universes = ["Warcraft", "StarCraft", "Diablo", "Overwatch", "Nexus"];
     private bool loading = true;
-    
+
     private string searchTerm = "";
     private string selectedRole = "";
-    private string selectedType = "";
+    private string selectedUniverse = "";
 
     protected override async Task OnInitializedAsync()
     {
+        Navigation.LocationChanged += OnLocationChanged;
         try
         {
             heroes = await HeroService.GetHeroesAsync();
             roles = await HeroService.GetRolesAsync();
-            filteredHeroes = heroes;
+            ReadQuery();
+            FilterHeroes();
         }
         finally
         {
             loading = false;
         }
     }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        ReadQuery();
+        FilterHeroes();
+        StateHasChanged();
+    }
+
+    private void ReadQuery()
+    {
+        searchTerm = "";
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = pair.IndexOf('=');
+            if (eq > 0 && pair[..eq] == "q")
+                searchTerm = Uri.UnescapeDataString(pair[(eq + 1)..].Replace('+', ' '));
+        }
+    }
+
+    private void SetRole(string role)
+    {
+        selectedRole = role;
+        FilterHeroes();
+    }
+
+    private void SetUniverse(string uni)
+    {
+        selectedUniverse = selectedUniverse == uni ? "" : uni;
+        FilterHeroes();
+    }
+
+    private static string Slug(string? s) => (s ?? "nexus").ToLower().Replace(" ", "");
+
+    private static string IconUrl(HeroSummaryDto hero) =>
+        hero.Icon != null && hero.Icon.StartsWith("/")
+            ? hero.Icon
+            : $"https://raw.githubusercontent.com/heroespatchnotes/heroes-talents/master/images/heroes/{new string(hero.Name.Where(char.IsLetterOrDigit).ToArray()).ToLower()}.png";
 
     private void FilterHeroes()
     {
@@ -107,14 +134,14 @@
             var matchesSearch = string.IsNullOrWhiteSpace(searchTerm) ||
                 h.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                 h.ShortName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase);
-            
+
             var matchesRole = string.IsNullOrWhiteSpace(selectedRole) ||
                 h.ExpandedRole == selectedRole || h.Role == selectedRole;
-            
-            var matchesType = string.IsNullOrWhiteSpace(selectedType) ||
-                h.Type == selectedType;
 
-            return matchesSearch && matchesRole && matchesType;
+            var matchesUniverse = string.IsNullOrWhiteSpace(selectedUniverse) ||
+                string.Equals(h.Universe, selectedUniverse, StringComparison.OrdinalIgnoreCase);
+
+            return matchesSearch && matchesRole && matchesUniverse;
         }).ToList();
     }
 }

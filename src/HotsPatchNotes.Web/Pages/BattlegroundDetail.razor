@@ -2,126 +2,117 @@
 @using HotsPatchNotes.Shared.DTOs
 @using HotsPatchNotes.Web.Services
 @inject IBattlegroundService BattlegroundService
-@inject NavigationManager Navigation
 
-<PageTitle>@(battleground?.Name ?? "Battleground") - HotS Patch Notes</PageTitle>
+<PageTitle>@(battleground?.Name ?? "Battleground") - Nexus Codex</PageTitle>
 
 @if (loading)
 {
     <div class="loading">
         <div class="spinner"></div>
-        <p>Loading battleground...</p>
+        <p>Chargement…</p>
     </div>
 }
 else if (battleground == null)
 {
     <div class="not-found">
-        <h2>Battleground Not Found</h2>
-        <p>The battleground "@ShortName" could not be found.</p>
-        <a href="/battlegrounds" class="btn-back">← Back to Battlegrounds</a>
+        <h2>Battleground introuvable</h2>
+        <a href="/battlegrounds" class="back-link">← Retour aux battlegrounds</a>
     </div>
 }
 else
 {
     <div class="battleground-detail">
-        <a href="/battlegrounds" class="back-link">← Back to Battlegrounds</a>
-        
-        <div class="battleground-header">
-            <div class="header-content">
+        <a href="/battlegrounds" class="back-link">← Battlegrounds</a>
+
+        <div class="bg-banner" style="@BannerStyle">
+            <div class="bg-banner-id">
                 <h1>@battleground.Name</h1>
-                <div class="meta">
-                    @if (!string.IsNullOrEmpty(battleground.MapType))
-                    {
-                        <span class="map-type">@battleground.MapType</span>
-                    }
-                    @if (!string.IsNullOrEmpty(battleground.Universe))
-                    {
-                        <span class="universe universe-@(battleground.Universe?.ToLower())">@battleground.Universe</span>
-                    }
-                    @if (!battleground.IsInRotation)
-                    {
-                        <span class="rotation-status out">Out of Rotation</span>
-                    }
-                    else
-                    {
-                        <span class="rotation-status in">In Rotation</span>
-                    }
-                    @if (battleground.ReleaseDate.HasValue)
-                    {
-                        <span class="release-date">Released @battleground.ReleaseDate.Value.ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</span>
-                    }
-                </div>
-                @if (!string.IsNullOrEmpty(battleground.Description))
+                <p class="bg-realm">@RealmLine</p>
+            </div>
+            <div class="bg-banner-badges">
+                @if (battleground.IsInRotation)
                 {
-                    <p class="description">@battleground.Description</p>
+                    <span class="bdg b-buff">EN ROTATION</span>
+                }
+                else
+                {
+                    <span class="bdg b-nerf">HORS ROTATION</span>
+                }
+                @if (Lanes is not null)
+                {
+                    <span class="bdg b-bugfix">@Lanes VOIES</span>
                 }
             </div>
-            @if (!string.IsNullOrEmpty(battleground.ImageUrl))
-            {
-                <div class="header-image">
-                    <img src="@battleground.ImageUrl" alt="@battleground.Name" />
-                </div>
-            }
         </div>
 
-        <div class="content-sections">
-            @if (!string.IsNullOrEmpty(battleground.Objective))
-            {
-                <div class="section">
-                    <h2 class="kick">OBJECTIVE</h2>
-                    <p>@battleground.Objective</p>
+        <div class="bg-columns">
+            <div class="bg-info">
+                @if (!string.IsNullOrEmpty(battleground.Description)
+                     && battleground.Description != battleground.Objective)
+                {
+                    <p class="bg-desc">@battleground.Description</p>
+                }
+                @if (!string.IsNullOrEmpty(battleground.Objective))
+                {
+                    <p class="kick">Objectif</p>
+                    <div class="bg-text">@Render(battleground.Objective)</div>
                     @if (!string.IsNullOrEmpty(battleground.ObjectiveTiming))
                     {
-                        <p class="timing"><strong>Timing:</strong> @battleground.ObjectiveTiming</p>
+                        <p class="bg-timing">@battleground.ObjectiveTiming</p>
                     }
-                </div>
-            }
+                }
+                @if (!string.IsNullOrEmpty(battleground.MercCamps))
+                {
+                    <p class="kick">Mercenaires &amp; boss</p>
+                    <div class="bg-text">@Render(battleground.MercCamps)</div>
+                }
+                @if (!string.IsNullOrEmpty(battleground.BossInfo))
+                {
+                    <div class="bg-text">@Render(battleground.BossInfo)</div>
+                }
+                @if (!string.IsNullOrEmpty(battleground.Tips))
+                {
+                    <p class="kick">Conseil</p>
+                    <div class="bg-text bg-tips">@Render(battleground.Tips)</div>
+                }
+            </div>
 
-            @if (!string.IsNullOrEmpty(battleground.MercCamps))
-            {
-                <div class="section">
-                    <h2 class="kick">MERCENARY CAMPS</h2>
-                    <div class="formatted-content">@((MarkupString)FormatContent(battleground.MercCamps))</div>
-                </div>
-            }
-
-            @if (!string.IsNullOrEmpty(battleground.BossInfo))
-            {
-                <div class="section">
-                    <h2 class="kick">BOSS</h2>
-                    <div class="formatted-content">@((MarkupString)FormatContent(battleground.BossInfo))</div>
-                </div>
-            }
-
-            @if (!string.IsNullOrEmpty(battleground.Tips))
-            {
-                <div class="section">
-                    <h2 class="kick">TIPS &amp; STRATEGY</h2>
-                    <div class="formatted-content">@((MarkupString)FormatContent(battleground.Tips))</div>
-                </div>
-            }
-
-            @if (battleground.RecentPatches.Any())
-            {
-                <div class="section patch-history">
-                    <h2 class="kick">MAP CHANGES</h2>
-                    <div class="patches-list">
+            <div class="bg-changes">
+                <p class="kick">Changements de la carte</p>
+                @if (!battleground.RecentPatches.Any())
+                {
+                    <p class="no-changes">Aucun changement archivé pour cette carte.</p>
+                }
+                else
+                {
+                    <div class="timeline">
                         @foreach (var patch in battleground.RecentPatches)
                         {
-                            <div class="patch-item">
-                                <div class="patch-header">
-                                    <a href="/patch/@patch.PatchId" class="patch-name">@(patch.PatchName ?? $"Patch #{patch.PatchId}")</a>
-                                    @if (patch.LiveDate.HasValue)
+                            <div class="timeline-item">
+                                @if (!string.IsNullOrEmpty(patch.Classification))
+                                {
+                                    <span class="bdg b-@patch.Classification.ToLower()">@patch.Classification</span>
+                                }
+                                <a class="timeline-meta" href="/patch/@patch.InternalId">
+                                    @(patch.LiveDate?.ToString("yyyy-MM-dd") ?? patch.PatchName)
+                                    @if (patch.LiveDate.HasValue && !string.IsNullOrEmpty(patch.PatchName))
                                     {
-                                        <span class="patch-date">@patch.LiveDate.Value.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                        <span> · @patch.PatchName</span>
                                     }
-                                </div>
-                                <div class="patch-content">@((MarkupString)FormatContent(patch.Content))</div>
+                                </a>
+                                @if (!string.IsNullOrEmpty(patch.ShortSummary))
+                                {
+                                    <p class="timeline-summary">@patch.ShortSummary</p>
+                                }
+                                <details class="timeline-details">
+                                    <summary>détail</summary>
+                                    <div class="timeline-content">@((MarkupString)DiffColorizer.Colorize(patch.Content))</div>
+                                </details>
                             </div>
                         }
                     </div>
-                </div>
-            }
+                }
+            </div>
         </div>
     </div>
 }
@@ -146,53 +137,56 @@ else
         }
     }
 
-    private string FormatContent(string content)
+    private string BannerStyle =>
+        string.IsNullOrEmpty(battleground?.ImageUrl)
+            ? ""
+            : $"background-image: linear-gradient(rgba(14,16,22,.55), rgba(14,16,22,.88)), url('{battleground.ImageUrl}');";
+
+    private string RealmLine
     {
-        if (string.IsNullOrEmpty(content))
-            return "";
-
-        var lines = content.Split('\n');
-        var result = new System.Text.StringBuilder();
-        bool inList = false;
-
-        foreach (var line in lines)
+        get
         {
-            var trimmed = line.Trim();
-            if (string.IsNullOrEmpty(trimmed))
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(battleground?.Universe))
+                parts.Add(battleground.Universe.ToUpper());
+            if (battleground?.ReleaseDate is { } d)
+                parts.Add(d.Year.ToString());
+            return string.Join(" · ", parts);
+        }
+    }
+
+    private string? Lanes =>
+        battleground?.MapType is { } t && t.EndsWith("-Lane") ? t.Replace("-Lane", "") : null;
+
+    /// <summary>Wiki fields hold sanitized HTML; older rows hold plain text — render either.</summary>
+    private MarkupString Render(string content) =>
+        (MarkupString)(content.Contains('<') ? content : PlainToHtml(content));
+
+    private static string PlainToHtml(string content)
+    {
+        var lines = content.Split('\n');
+        var sb = new System.Text.StringBuilder();
+        var inList = false;
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0)
             {
-                if (inList)
-                {
-                    result.Append("</ul>");
-                    inList = false;
-                }
+                if (inList) { sb.Append("</ul>"); inList = false; }
                 continue;
             }
-
-            if (trimmed.StartsWith("- ") || trimmed.StartsWith("* "))
+            if (line.StartsWith("- ") || line.StartsWith("* "))
             {
-                if (!inList)
-                {
-                    result.Append("<ul>");
-                    inList = true;
-                }
-                result.Append($"<li>{System.Net.WebUtility.HtmlEncode(trimmed.Substring(2))}</li>");
+                if (!inList) { sb.Append("<ul>"); inList = true; }
+                sb.Append($"<li>{System.Net.WebUtility.HtmlEncode(line[2..])}</li>");
             }
             else
             {
-                if (inList)
-                {
-                    result.Append("</ul>");
-                    inList = false;
-                }
-                result.Append($"<p>{System.Net.WebUtility.HtmlEncode(trimmed)}</p>");
+                if (inList) { sb.Append("</ul>"); inList = false; }
+                sb.Append($"<p>{System.Net.WebUtility.HtmlEncode(line)}</p>");
             }
         }
-
-        if (inList)
-        {
-            result.Append("</ul>");
-        }
-
-        return result.ToString();
+        if (inList) sb.Append("</ul>");
+        return sb.ToString();
     }
 }

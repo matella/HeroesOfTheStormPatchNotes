@@ -42,4 +42,9 @@ public interface IBattlegroundRepository
         string battlegroundName,
         int? limit = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the entity names of all map-type patch sections (for per-map change counts).
+    /// </summary>
+    Task<List<string>> GetMapSectionNamesAsync(CancellationToken cancellationToken = default);
 }

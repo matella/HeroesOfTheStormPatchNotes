@@ -13,6 +13,7 @@ public class BattlegroundSummaryDto
     public string? ImageUrl { get; set; }
     public bool IsInRotation { get; set; }
     public string? Universe { get; set; }
+    public int ChangeCount { get; set; }
 }
 
 /// <summary>
@@ -44,9 +45,13 @@ public class BattlegroundDetailDto
 public class BattlegroundPatchDto
 {
     public int PatchId { get; set; }
+    public string InternalId { get; set; } = string.Empty;
     public string? PatchName { get; set; }
+    public string? PatchType { get; set; }
     public DateTime? LiveDate { get; set; }
     public string Content { get; set; } = string.Empty;
+    public string Classification { get; set; } = string.Empty;
+    public string ShortSummary { get; set; } = string.Empty;
 }
 
 /// <summary>

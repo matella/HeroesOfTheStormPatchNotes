@@ -82,7 +82,7 @@
     {
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(map.MapType) && map.MapType.EndsWith("-Lane"))
-            parts.Add(map.MapType.Replace("-Lane", " voies"));
+            parts.Add(map.MapType == "1-Lane" ? "1 voie" : map.MapType.Replace("-Lane", " voies"));
         else if (!string.IsNullOrEmpty(map.MapType))
             parts.Add(map.MapType);
         if (map.ChangeCount > 0)

@@ -98,12 +98,36 @@
     /// </summary>
     private static List<PatchRow> Merge(List<PatchSummaryDto> items)
     {
+        // The archive (nexus) and Blizzard's feed publish the same patch with up to one day of
+        // date skew — cluster same-bucket entries ≤1 day apart when exactly one side is nexus.
+        var sorted = items
+            .Select(p => (Patch: p, Date: (p.LiveDate ?? p.PtrDate)?.Date, Bucket: BucketOf(p.PatchType)))
+            .OrderByDescending(x => x.Date ?? DateTime.MinValue)
+            .ToList();
+
         var rows = new List<PatchRow>();
-        foreach (var group in items
-            .GroupBy(p => (Date: (p.LiveDate ?? p.PtrDate)?.Date, Bucket: BucketOf(p.PatchType)))
-            .OrderByDescending(g => g.Key.Date ?? DateTime.MinValue))
+        var used = new bool[sorted.Count];
+        for (var i = 0; i < sorted.Count; i++)
         {
-            var members = group.ToList();
+            if (used[i])
+                continue;
+            var members = new List<PatchSummaryDto> { sorted[i].Patch };
+            for (var j = i + 1; j < sorted.Count; j++)
+            {
+                if (used[j] || sorted[j].Bucket != sorted[i].Bucket)
+                    continue;
+                if (sorted[i].Date is not { } a || sorted[j].Date is not { } b)
+                    continue;
+                if ((a - b).TotalDays > 1)
+                    break;
+                var jIsNexus = sorted[j].Patch.Source == "nexus";
+                if (members.Any(m => (m.Source == "nexus") != jIsNexus))
+                {
+                    members.Add(sorted[j].Patch);
+                    used[j] = true;
+                }
+            }
+
             var primary = members
                 .OrderByDescending(p => p.HeroCount + p.MapCount)
                 .ThenByDescending(p => p.HasContent)
@@ -112,15 +136,15 @@
                          ?? primary;
             rows.Add(new PatchRow(
                 primary.InternalId,
-                CleanName(titled.PatchName, group.Key.Bucket),
-                group.Key.Bucket,
-                BadgeOf(group.Key.Bucket),
-                BadgeClassOf(group.Key.Bucket),
-                group.Key.Date,
+                CleanName(titled.PatchName, sorted[i].Bucket),
+                sorted[i].Bucket,
+                BadgeOf(sorted[i].Bucket),
+                BadgeClassOf(sorted[i].Bucket),
+                members.Select(m => (m.LiveDate ?? m.PtrDate)?.Date).Min(),
                 members.Max(p => p.HeroCount),
                 members.Max(p => p.MapCount)));
         }
-        return rows;
+        return rows.OrderByDescending(r => r.Date ?? DateTime.MinValue).ToList();
     }
 
     private static string BucketOf(string? patchType) => patchType switch
@@ -157,6 +181,21 @@
         var dash = n.LastIndexOf(" - ", StringComparison.Ordinal);
         if (dash > 0 && n[(dash + 3)..].Any(char.IsDigit))
             n = n[..dash];
+        // archive auto-names ("2026-05-11 Live") — the date is already the row's first column
+        var m = System.Text.RegularExpressions.Regex.Match(n, @"^\d{4}-\d{2}-\d{2} (\w+)$");
+        if (m.Success)
+        {
+            n = m.Groups[1].Value switch
+            {
+                "Live" => "Live Patch",
+                "Ptr" => "PTR Patch",
+                "Hotfix" => "Hotfix",
+                "Revert" => "Revert",
+                "Alpha" => "Alpha Patch",
+                "Beta" => "Beta Patch",
+                var k => k + " Patch",
+            };
+        }
         return n;
     }
 

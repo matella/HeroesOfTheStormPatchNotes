@@ -154,7 +154,7 @@ else
 
         <div class="section">
             <div class="section-header">
-                <h2>Abilities</h2>
+                <h2>Capacités</h2>
                 <button class="toggle-btn" @onclick="() => showAbilities = !showAbilities">
                     @(showAbilities ? "▾ Collapse" : "▸ Expand")
                 </button>
@@ -526,8 +526,8 @@ else
 
     private string FormatFormName(string formName)
     {
-        if (formName == hero?.Name) return "Base Abilities";
-        return formName + " Abilities";
+        if (formName == hero?.Name) return "Forme de base";
+        return formName;
     }
 
     private int GetAbilityOrder(AbilityDto ability)

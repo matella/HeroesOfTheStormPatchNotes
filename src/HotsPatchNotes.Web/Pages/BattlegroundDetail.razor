@@ -95,7 +95,8 @@ else
                                 }
                                 <a class="timeline-meta" href="/patch/@patch.InternalId">
                                     @(patch.LiveDate?.ToString("yyyy-MM-dd") ?? patch.PatchName)
-                                    @if (patch.LiveDate.HasValue && !string.IsNullOrEmpty(patch.PatchName))
+                                    @if (patch.LiveDate.HasValue && !string.IsNullOrEmpty(patch.PatchName)
+                                         && !patch.PatchName.StartsWith(patch.LiveDate.Value.ToString("yyyy-MM-dd")))
                                     {
                                         <span> · @patch.PatchName</span>
                                     }

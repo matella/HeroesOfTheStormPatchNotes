@@ -93,6 +93,7 @@ public sealed partial class GitHubSyncService(
             var patchResult = await SyncPatchesFromGitHubAsync(cancellationToken);
             var nexusResult = await SyncPatchesFromNexusAsync(cancellationToken);
             await BackfillNexusSectionsAsync(cancellationToken);
+            await ClassifyUnclassifiedSectionsAsync(cancellationToken);
             await SyncNexusImagesAsync(cancellationToken);
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: true, cancellationToken);
             var battlegroundResult = await SyncBattlegroundsAsync(cancellationToken);
@@ -114,6 +115,7 @@ public sealed partial class GitHubSyncService(
             var heroResult = await SyncHeroesAsync(cancellationToken);
             var nexusResult = await SyncPatchesFromNexusAsync(cancellationToken);  // cheap: 1 listing call, imports only new files
             await BackfillNexusSectionsAsync(cancellationToken);   // no-op once backfilled
+            await ClassifyUnclassifiedSectionsAsync(cancellationToken);
             await SyncNexusImagesAsync(cancellationToken);          // no-op once mapped
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: false, cancellationToken);
             await PushPatchDigestAsync(cancellationToken);

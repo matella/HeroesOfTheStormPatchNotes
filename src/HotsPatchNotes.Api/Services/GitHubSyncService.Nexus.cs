@@ -214,6 +214,27 @@ public sealed partial class GitHubSyncService
         return done;
     }
 
+    /// <summary>
+    /// Classify any section that predates the classifier (e.g. BlueTracker-parsed ones) —
+    /// idempotent: only touches rows with an empty Classification and some content.
+    /// </summary>
+    public async Task<int> ClassifyUnclassifiedSectionsAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await dbContext.PatchSections
+            .Where(s => s.Classification == "" && s.Content != "")
+            .ToListAsync(cancellationToken);
+        foreach (var s in rows)
+        {
+            var text = Regex.Replace(s.Content, "<[^>]+>", " ");
+            var verdict = PatchClassifier.Classify(HtmlEntity.DeEntitize(text));
+            s.Classification = verdict.Classification;
+            s.ShortSummary = verdict.ShortSummary;
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Classified {Count} legacy sections", rows.Count);
+        return rows.Count;
+    }
+
     // ── Images héros + battlegrounds depuis le repo Nexus ────────────────────────────────────
 
     private const string NexusImagesApi =

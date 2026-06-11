@@ -127,6 +127,16 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HotsDbContext>();
     db.Database.EnsureCreated();
+    // EnsureCreated never ALTERs an existing DB — add post-v1 columns idempotently.
+    foreach (var ddl in new[]
+    {
+        "ALTER TABLE PatchSections ADD COLUMN Classification TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE PatchSections ADD COLUMN ShortSummary TEXT NOT NULL DEFAULT ''",
+    })
+    {
+        try { db.Database.ExecuteSqlRaw(ddl); }
+        catch (Exception) { /* duplicate column = already applied */ }
+    }
 }
 
 // Global exception handling (must be first middleware to catch all exceptions)

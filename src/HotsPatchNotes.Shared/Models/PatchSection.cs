@@ -67,4 +67,14 @@ public class PatchSection
     /// Patch notes content for this section as markdown (without the heading line).
     /// </summary>
     public string Content { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Heuristic verdict: BUFF / NERF / MIXED / REWORK / BUGFIX / "" (neutral).
+    /// </summary>
+    public string Classification { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One-line summary of the largest change ("Q damage 96 → 110 (+15%)").
+    /// </summary>
+    public string ShortSummary { get; set; } = string.Empty;
 }

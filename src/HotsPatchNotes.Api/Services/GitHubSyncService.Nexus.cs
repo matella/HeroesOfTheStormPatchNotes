@@ -63,6 +63,8 @@ public sealed partial class GitHubSyncService
             {
                 var html = await httpClient.GetStringAsync(file.DownloadUrl, cancellationToken);
                 var patch = ParseNexusPatch(internalId, match, html);
+                foreach (var section in ParseNexusSections(html, await HeroIdLookupAsync(cancellationToken)))
+                    patch.Sections.Add(section);
                 dbContext.Patches.Add(patch);
                 added++;
                 if (added % 25 == 0)
@@ -125,6 +127,166 @@ public sealed partial class GitHubSyncService
             LastSyncedAt = DateTime.UtcNow,
         };
     }
+
+
+    // ── Sections par héros / carte (le pont patches↔héros du Codex) ──────────────────────────
+
+    private Dictionary<string, int>? _heroIdCache;
+
+    private async Task<Dictionary<string, int>> HeroIdLookupAsync(CancellationToken ct)
+    {
+        return _heroIdCache ??= (await dbContext.Heroes
+                .Select(h => new { h.Id, h.Name })
+                .ToListAsync(ct))
+            .GroupBy(h => h.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Extract per-hero / per-map / general sections from a Nexus patch page. Each
+    /// div.section-block carries a label (icon + h2 name) and a div.section-html body.
+    /// </summary>
+    internal static List<PatchSection> ParseNexusSections(string html, Dictionary<string, int> heroIds)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        var blocks = doc.DocumentNode.SelectNodes("//div[contains(@class,'section-block')]");
+        var sections = new List<PatchSection>();
+        if (blocks is null)
+            return sections;
+
+        var order = 0;
+        foreach (var block in blocks)
+        {
+            var cls = block.GetAttributeValue("class", "");
+            var type = cls.Contains("heroes-section") ? "Hero"
+                     : cls.Contains("battleground") ? "Map"
+                     : "General";
+            var name = HtmlEntity.DeEntitize(
+                block.SelectSingleNode(".//h2")?.InnerText
+                ?? block.SelectSingleNode(".//img")?.GetAttributeValue("alt", "") ?? "").Trim();
+            var body = block.SelectSingleNode(".//div[contains(@class,'section-html')]");
+            var content = body?.InnerHtml?.Trim() ?? "";
+            if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(content))
+                continue;
+
+            var verdict = PatchClassifier.Classify(
+                HtmlEntity.DeEntitize(body?.InnerText ?? ""));
+            sections.Add(new PatchSection
+            {
+                Order = order++,
+                HeadingLevel = 2,
+                SectionType = type,
+                EntityName = name,
+                HeroId = type == "Hero" && heroIds.TryGetValue(name, out var id) ? id : null,
+                Content = content,
+                Classification = verdict.Classification,
+                ShortSummary = verdict.ShortSummary,
+            });
+        }
+        return sections;
+    }
+
+    /// <summary>
+    /// One-shot/idempotent: build sections for already-imported Nexus patches that have none
+    /// (the 310-patch backfill). ContentHtml was stored at import, so no re-download is needed.
+    /// </summary>
+    public async Task<int> BackfillNexusSectionsAsync(CancellationToken cancellationToken = default)
+    {
+        var lookup = await HeroIdLookupAsync(cancellationToken);
+        var patches = await dbContext.Patches
+            .Where(p => p.Source == "nexus" && !p.Sections.Any() && p.ContentHtml != null)
+            .ToListAsync(cancellationToken);
+        var done = 0;
+        foreach (var patch in patches)
+        {
+            foreach (var section in ParseNexusSections(patch.ContentHtml!, lookup))
+            {
+                section.PatchId = patch.Id;
+                dbContext.PatchSections.Add(section);
+            }
+            done++;
+            if (done % 25 == 0)
+                await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Nexus backfill: sections built for {Count} patches", done);
+        return done;
+    }
+
+    // ── Images héros + battlegrounds depuis le repo Nexus ────────────────────────────────────
+
+    private const string NexusImagesApi =
+        "https://api.github.com/repos/nexus-patch-notes/nexus-patch-notes.github.io/contents/images";
+
+    public async Task<int> SyncNexusImagesAsync(CancellationToken cancellationToken = default)
+    {
+        var updated = 0;
+        updated += await SyncImageCategoryAsync("heroes", cancellationToken);
+        updated += await SyncImageCategoryAsync("battlegrounds", cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Nexus images: {Count} entity images mapped", updated);
+        return updated;
+    }
+
+    private async Task<int> SyncImageCategoryAsync(string category, CancellationToken ct)
+    {
+        List<NexusFileEntry> files;
+        try
+        {
+            var json = await httpClient.GetStringAsync($"{NexusImagesApi}/{category}", ct);
+            using var doc = JsonDocument.Parse(json);
+            files = doc.RootElement.EnumerateArray()
+                .Select(e => new NexusFileEntry(
+                    e.GetProperty("name").GetString() ?? "",
+                    e.GetProperty("download_url").GetString() ?? ""))
+                .Where(f => f.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Nexus images: listing {Category} failed", category);
+            return 0;
+        }
+
+        var updated = 0;
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+            var slug = file.Name[..^".png".Length];
+            var local = await imageDownloadService.DownloadImageAsync(file.DownloadUrl, category, slug, ct);
+            if (local is null)
+                continue;
+
+            if (category == "heroes")
+            {
+                var hero = await dbContext.Heroes.FirstOrDefaultAsync(
+                    h => h.ShortName == slug, ct);
+                if (hero is not null && string.IsNullOrEmpty(hero.Icon))
+                {
+                    hero.Icon = local;
+                    updated++;
+                }
+            }
+            else
+            {
+                var normalized = slug.Replace("-", "");
+                var bg = await dbContext.Battlegrounds.FirstOrDefaultAsync(
+                    b => b.ShortName == slug || b.ShortName == normalized, ct);
+                bg ??= (await dbContext.Battlegrounds.ToListAsync(ct)).FirstOrDefault(
+                    b => Slugify(b.Name) == slug);
+                if (bg is not null && string.IsNullOrEmpty(bg.ImageUrl))
+                {
+                    bg.ImageUrl = local;
+                    updated++;
+                }
+            }
+        }
+        return updated;
+    }
+
+    private static string Slugify(string name) =>
+        Regex.Replace(name.ToLowerInvariant().Replace("'", ""), @"[^a-z0-9]+", "-").Trim('-');
 
     private static string? NormalizeWhitespace(string? text) =>
         text is null ? null : Regex.Replace(HtmlEntity.DeEntitize(text), @"[ \t]*\n[ \t\n]*", "\n").Trim();

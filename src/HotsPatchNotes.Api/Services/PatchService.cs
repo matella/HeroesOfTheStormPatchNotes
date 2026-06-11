@@ -65,6 +65,8 @@ public sealed partial class PatchService(IPatchRepository patchRepository) : IPa
         var sections = patch.Sections
             .Select(s => new PatchSectionDto
             {
+                Classification = s.Classification,
+                ShortSummary = s.ShortSummary,
                 Id = s.Id,
                 Order = s.Order,
                 HeadingLevel = s.HeadingLevel,
@@ -113,6 +115,8 @@ public sealed partial class PatchService(IPatchRepository patchRepository) : IPa
 
         return sections.Select(s => new PatchSectionDto
         {
+            Classification = s.Classification,
+            ShortSummary = s.ShortSummary,
             Id = s.Id,
             Order = s.Order,
             HeadingLevel = s.HeadingLevel,

@@ -61,6 +61,8 @@ public sealed partial class HeroService(
             LiveDate = s.Patch.LiveDate,
             OfficialLink = s.Patch.OfficialLink,
             Content = s.Content,
+            Classification = s.Classification,
+            ShortSummary = s.ShortSummary,
             SectionType = s.SectionType,
             HeadingLevel = s.HeadingLevel,
             Order = s.Order

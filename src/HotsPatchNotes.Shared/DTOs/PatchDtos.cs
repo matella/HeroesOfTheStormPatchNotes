@@ -22,6 +22,8 @@ public class PatchSummaryDto
 /// </summary>
 public class HeroPatchDto
 {
+    public string Classification { get; set; } = string.Empty;
+    public string ShortSummary { get; set; } = string.Empty;
     public int PatchId { get; set; }
     public string InternalId { get; set; } = string.Empty;
     public string? PatchName { get; set; }
@@ -39,6 +41,8 @@ public class HeroPatchDto
 /// </summary>
 public class PatchSectionDto
 {
+    public string Classification { get; set; } = string.Empty;
+    public string ShortSummary { get; set; } = string.Empty;
     public int Id { get; set; }
     public int Order { get; set; }
     public int HeadingLevel { get; set; }

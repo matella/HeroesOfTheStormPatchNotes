@@ -42,19 +42,25 @@
     else
     {
         <div class="patches-list">
+            @{ int? yearCursor = null; }
             @foreach (var patch in patches.Items)
             {
+                var patchYear = patch.LiveDate?.Year;
+                if (patchYear != yearCursor)
+                {
+                    yearCursor = patchYear;
+                    <div class="year-sep">@(patchYear?.ToString() ?? "Undated")</div>
+                }
                 <div class="patch-card" @onclick="() => ViewPatch(patch.InternalId)">
                     <div class="patch-header">
                         <h3>@(patch.PatchName ?? patch.InternalId)</h3>
                         <div class="patch-badges">
                             <span class="patch-type type-@(patch.PatchType?.ToLower().Replace(" ", "-"))">
-                                <span class="patch-type-icon">@GetPatchTypeIcon(patch.PatchType)</span>
                                 @patch.PatchType
                             </span>
                             @if (patch.HasContent)
                             {
-                                <span class="has-content" title="Full patch notes available">📄</span>
+                                
                             }
                         </div>
                     </div>
@@ -65,7 +71,7 @@
                         }
                         @if (patch.LiveDate.HasValue)
                         {
-                            <span class="date">📅 @patch.LiveDate.Value.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</span>
+                            <span class="date">@patch.LiveDate.Value.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</span>
                         }
                         @if (!string.IsNullOrEmpty(patch.Source))
                         {
@@ -76,13 +82,13 @@
                         @if (!string.IsNullOrEmpty(patch.OfficialLink))
                         {
                             <a href="@patch.OfficialLink" target="_blank" rel="noopener" class="link-btn">
-                                📄 Official Notes
+                                Official notes ↗
                             </a>
                         }
                         @if (!string.IsNullOrEmpty(patch.AlternateLink))
                         {
                             <a href="@patch.AlternateLink" target="_blank" rel="noopener" class="link-btn secondary">
-                                🔗 Alternate Source
+                                Alternate ↗
                             </a>
                         }
                         <button class="link-btn view-btn" @onclick="() => ViewPatch(patch.InternalId)">

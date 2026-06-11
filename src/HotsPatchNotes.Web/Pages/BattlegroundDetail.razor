@@ -68,7 +68,7 @@ else
             @if (!string.IsNullOrEmpty(battleground.Objective))
             {
                 <div class="section">
-                    <h2>🎯 Objective</h2>
+                    <h2 class="kick">OBJECTIVE</h2>
                     <p>@battleground.Objective</p>
                     @if (!string.IsNullOrEmpty(battleground.ObjectiveTiming))
                     {
@@ -80,7 +80,7 @@ else
             @if (!string.IsNullOrEmpty(battleground.MercCamps))
             {
                 <div class="section">
-                    <h2>⚔️ Mercenary Camps</h2>
+                    <h2 class="kick">MERCENARY CAMPS</h2>
                     <div class="formatted-content">@((MarkupString)FormatContent(battleground.MercCamps))</div>
                 </div>
             }
@@ -88,7 +88,7 @@ else
             @if (!string.IsNullOrEmpty(battleground.BossInfo))
             {
                 <div class="section">
-                    <h2>👹 Boss</h2>
+                    <h2 class="kick">BOSS</h2>
                     <div class="formatted-content">@((MarkupString)FormatContent(battleground.BossInfo))</div>
                 </div>
             }
@@ -96,7 +96,7 @@ else
             @if (!string.IsNullOrEmpty(battleground.Tips))
             {
                 <div class="section">
-                    <h2>💡 Tips & Strategy</h2>
+                    <h2 class="kick">TIPS &amp; STRATEGY</h2>
                     <div class="formatted-content">@((MarkupString)FormatContent(battleground.Tips))</div>
                 </div>
             }
@@ -104,7 +104,7 @@ else
             @if (battleground.RecentPatches.Any())
             {
                 <div class="section patch-history">
-                    <h2>📋 Patch History</h2>
+                    <h2 class="kick">MAP CHANGES</h2>
                     <div class="patches-list">
                         @foreach (var patch in battleground.RecentPatches)
                         {

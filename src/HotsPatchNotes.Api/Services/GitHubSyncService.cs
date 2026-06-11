@@ -116,6 +116,7 @@ public sealed partial class GitHubSyncService(
             var nexusResult = await SyncPatchesFromNexusAsync(cancellationToken);  // cheap: 1 listing call, imports only new files
             await BackfillNexusSectionsAsync(cancellationToken);   // no-op once backfilled
             await ClassifyUnclassifiedSectionsAsync(cancellationToken);
+            await SyncBattlegroundsAsync(cancellationToken);        // wiki enrichment is ??= idempotent
             await SyncNexusImagesAsync(cancellationToken);          // no-op once mapped
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: false, cancellationToken);
             await PushPatchDigestAsync(cancellationToken);

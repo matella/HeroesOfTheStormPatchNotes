@@ -23,6 +23,9 @@ santé teal `#1D9E75`, dégâts coral `#D85A30`, difficulté violet. Typo : Inte
 valeurs chiffrées en mono (`--font-mono` existant). Flat — pas de glow/gradients ; la couleur
 d'univers est le seul « éclat ».
 
+**Maquette de référence :** ouvrir  dans un
+navigateur — les 7 écrans cibles avec les tokens exacts.
+
 ## Matière première (vérifiée)
 - Le repo `nexus-patch-notes/nexus-patch-notes.github.io` contient `images/heroes/*.png`
   (portraits), `images/battlegrounds/*.png` (15 cartes), `images/icons/`.

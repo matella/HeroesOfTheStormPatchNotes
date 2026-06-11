@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nexus Codex — maquette de référence</title>
+<style>
+body{background:#06070b;color:#e8eaf2;font-family:Inter,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:0 auto;padding:24px;}
+.cap{font-size:13px;color:#9aa0b4;margin:26px 0 6px;}
+.mk{background:#0e1016;border-radius:10px;overflow:hidden;border:1px solid #232636;}
+.hd{display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #232636;}
+.brand{color:#e8eaf2;font-size:13px;font-weight:500;letter-spacing:.05em;}
+.nl{color:#8d93a8;font-size:12px;}.nl.on{color:#e8eaf2;border-bottom:2px solid #7F77DD;padding-bottom:2px;}
+.srch{margin-left:auto;color:#5d6275;font-size:11px;border:1px solid #232636;border-radius:6px;padding:4px 10px;}
+.pill{font-size:11px;color:#8d93a8;border:1px solid #232636;border-radius:12px;padding:3px 10px;display:inline-block;}
+.pill.on{color:#0e1016;background:#7F77DD;border-color:#7F77DD;}
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:500;}
+.bdg{font-size:9px;padding:2px 7px;border-radius:4px;}
+.b-buff{background:#173404;color:#C0DD97;}.b-nerf{background:#501313;color:#F7C1C1;}
+.b-rw{background:#26215C;color:#CECBF6;}.b-bug{background:#1a1d2a;color:#8d93a8;}
+.b-live{background:#16202c;color:#85B7EB;}.b-ptr{background:#2b2416;color:#FAC775;}.b-hf{background:#2b1f16;color:#F0997B;}
+.mono{font-family:"JetBrains Mono",Consolas,monospace;}
+.kick{color:#5d6275;font-size:10px;letter-spacing:.08em;margin:0 0 8px;}
+.old{color:#8d93a8;}.up{color:#C0DD97;}.upp{color:#5DCAA5;}.dn{color:#F09595;}.dnp{color:#E24B4A;}
+.row{display:flex;align-items:center;gap:10px;padding:9px 18px;border-bottom:1px solid #1a1d2a;}
+.gauge{height:5px;background:#1a1d2a;border-radius:3px;margin-bottom:7px;}
+.gauge>div{height:5px;border-radius:3px;}
+h1{font-size:18px;font-weight:500;}
+p.note{font-size:12px;color:#9aa0b4;}
+</style>
+</head>
+<body>
+<h1>Nexus Codex — maquette de référence (spec 2026-06-11)</h1>
+<p class="note">Tokens : fond #0e1016 · surfaces #16181f · hairlines #1a1d2a/#232636 · texte #e8eaf2/#8d93a8/#5d6275 · accent #7F77DD ·
+univers : Warcraft #EF9F27, StarCraft #378ADD, Diablo #E24B4A, Overwatch #D85A30, Nexus #AFA9EC.
+Les avatars initiales seront remplacés par les portraits du repo Nexus ; les blocs gris par les vraies images.</p>
+
+<p class="cap">1 · Accueil — sélection de héros</p>
+<div class="mk">
+  <div class="hd"><span class="brand">NEXUS CODEX</span><span class="nl on">Héros</span><span class="nl">Patchs</span><span class="nl">Battlegrounds</span><span class="srch">⌕ rechercher…</span></div>
+  <div style="display:flex;gap:6px;padding:10px 18px 2px;flex-wrap:wrap;">
+    <span class="pill on">Tous</span><span class="pill">Tank</span><span class="pill">Healer</span><span class="pill">Assassin</span><span class="pill">Bruiser</span><span class="pill">Support</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(62px,1fr));gap:10px;padding:14px 18px 16px;">
+    <div style="text-align:center;"><div class="av" style="width:50px;height:50px;background:#2b2416;border:2.5px solid #EF9F27;color:#FAC775;font-size:12px;margin:0 auto 4px;">MU</div><span style="font-size:10px;color:#8d93a8;">Muradin</span></div>
+    <div style="text-align:center;"><div class="av" style="width:50px;height:50px;background:#16202c;border:2.5px solid #378ADD;color:#85B7EB;font-size:12px;margin:0 auto 4px;">KE</div><span style="font-size:10px;color:#8d93a8;">Kerrigan</span></div>
+    <div style="text-align:center;"><div class="av" style="width:50px;height:50px;background:#2a1c1c;border:2.5px solid #E24B4A;color:#F09595;font-size:12px;margin:0 auto 4px;">DI</div><span style="font-size:10px;color:#8d93a8;">Diablo</span></div>
+    <div style="text-align:center;"><div class="av" style="width:50px;height:50px;background:#2b1f16;border:2.5px solid #D85A30;color:#F0997B;font-size:12px;margin:0 auto 4px;">TR</div><span style="font-size:10px;color:#8d93a8;">Tracer</span></div>
+    <div style="text-align:center;"><div class="av" style="width:50px;height:50px;background:#221c2e;border:2.5px solid #AFA9EC;color:#CECBF6;font-size:12px;margin:0 auto 4px;">OR</div><span style="font-size:10px;color:#8d93a8;">Orphea</span></div>
+    <div style="text-align:center;"><div class="av" style="width:50px;height:50px;background:#1a1d2a;border:2.5px dashed #232636;color:#5d6275;font-size:11px;margin:0 auto 4px;">+85</div><span style="font-size:10px;color:#5d6275;">…</span></div>
+  </div>
+</div>
+
+<p class="cap">2 · Fiche héros — timeline de 12 ans (le différenciateur)</p>
+<div class="mk" style="display:grid;grid-template-columns:185px minmax(0,1fr);">
+  <div style="padding:16px 18px;border-right:1px solid #1a1d2a;border-left:3px solid #EF9F27;">
+    <div class="av" style="width:58px;height:58px;background:#2b2416;border:3px solid #EF9F27;color:#FAC775;font-size:17px;margin-bottom:8px;">MU</div>
+    <p style="font-size:15px;font-weight:500;margin:0;">Muradin</p>
+    <p style="color:#EF9F27;font-size:10px;margin:2px 0 12px;letter-spacing:.06em;">TANK · WARCRAFT</p>
+    <div style="font-size:10px;color:#8d93a8;margin-bottom:3px;">Santé</div><div class="gauge"><div style="width:86%;background:#1D9E75;"></div></div>
+    <div style="font-size:10px;color:#8d93a8;margin-bottom:3px;">Dégâts</div><div class="gauge"><div style="width:38%;background:#D85A30;"></div></div>
+    <div style="font-size:10px;color:#8d93a8;margin-bottom:3px;">Difficulté</div><div class="gauge"><div style="width:25%;background:#7F77DD;"></div></div>
+    <p style="font-size:10px;color:#5d6275;margin:10px 0 0;">31 changements depuis 2014</p>
+  </div>
+  <div style="padding:16px 18px;">
+    <p class="kick">HISTORIQUE DES CHANGEMENTS</p>
+    <div style="border-left:2px solid #232636;padding-left:13px;">
+      <div style="margin-bottom:11px;"><span class="bdg b-buff">BUFF</span><span style="color:#8d93a8;font-size:10px;margin-left:6px;">11 mai 2026 · Balance</span>
+        <p class="mono" style="color:#cfd3e0;font-size:12px;margin:3px 0 0;">Coup de tonnerre : dégâts <span class="old">96</span> → <span class="up">110</span> <span class="upp">(+15%)</span></p></div>
+      <div style="margin-bottom:11px;"><span class="bdg b-nerf">NERF</span><span style="color:#8d93a8;font-size:10px;margin-left:6px;">20 avr. 2026 · Hotfix</span>
+        <p class="mono" style="color:#cfd3e0;font-size:12px;margin:3px 0 0;">Santé de base <span class="old">2890</span> → <span class="dn">2760</span> <span class="dnp">(−4,5%)</span></p></div>
+      <div style="margin-bottom:11px;"><span class="bdg b-rw">REWORK</span><span style="color:#8d93a8;font-size:10px;margin-left:6px;">14 août 2018 · refonte des talents niv. 7</span></div>
+      <div><span class="bdg b-bug">BUGFIX</span><span style="color:#8d93a8;font-size:10px;margin-left:6px;">2017 · Avatar n'interrompait plus les canalisations</span></div>
+    </div>
+    <p style="font-size:10px;color:#7F77DD;margin:11px 0 0;">Voir les 31 changements →</p>
+  </div>
+</div>
+
+<p class="cap">3 · Patchs — liste chronologique groupée par année</p>
+<div class="mk">
+  <div style="display:flex;gap:6px;padding:11px 18px;border-bottom:1px solid #232636;align-items:center;">
+    <span class="pill on">Tous</span><span class="pill" style="color:#85B7EB;background:#16202c;border-color:#16202c;">Live</span><span class="pill">PTR</span><span class="pill">Hotfix</span><span class="pill">Alpha/Beta</span>
+    <span style="margin-left:auto;font-size:10px;color:#5d6275;">312 patchs</span>
+  </div>
+  <div style="padding:9px 18px 3px;"><span style="color:#5d6275;font-size:10px;letter-spacing:.1em;">2026</span></div>
+  <div class="row"><span class="mono" style="color:#8d93a8;font-size:11px;min-width:60px;">11 mai</span><span class="bdg b-live">LIVE</span><span style="font-size:12.5px;font-weight:500;">Balance Patch</span><span style="margin-left:auto;color:#5d6275;font-size:10.5px;">13 héros · 1 carte ›</span></div>
+  <div class="row"><span class="mono" style="color:#8d93a8;font-size:11px;min-width:60px;">21 avr.</span><span class="bdg b-hf">HOTFIX</span><span style="font-size:12.5px;font-weight:500;">Correctif serveur</span><span style="margin-left:auto;color:#5d6275;font-size:10.5px;">2 héros ›</span></div>
+  <div class="row" style="border-bottom:none;"><span class="mono" style="color:#8d93a8;font-size:11px;min-width:60px;">9 avr.</span><span class="bdg b-ptr">PTR</span><span style="font-size:12.5px;font-weight:500;">PTR — avril 2026</span><span style="margin-left:auto;color:#5d6275;font-size:10.5px;">9 héros · 2 cartes ›</span></div>
+</div>
+
+<p class="cap">4 · Détail d'un patch — changelog scannable, sections repliables</p>
+<div class="mk">
+  <div style="padding:14px 18px;border-bottom:1px solid #232636;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:15px;font-weight:500;">Balance Patch — 11 mai 2026</span><span class="bdg b-live">LIVE</span>
+      <span style="margin-left:auto;color:#7F77DD;font-size:10.5px;">notes officielles Blizzard ↗</span>
+    </div>
+    <p style="color:#5d6275;font-size:10.5px;margin:4px 0 0;">13 héros · 1 carte · v2.55.4 · sommaire : Général · Héros · Battlegrounds · Bug fixes</p>
+  </div>
+  <div style="padding:10px 18px;border-bottom:1px solid #1a1d2a;">
+    <p class="kick" style="margin:0 0 5px;">GÉNÉRAL</p>
+    <p style="color:#cfd3e0;font-size:11.5px;margin:0;">Temps de draft réduit <span class="mono"><span class="old">45s</span> → <span class="up">30s</span></span> en partie classée.</p>
+  </div>
+  <div style="padding:11px 18px;border-bottom:1px solid #1a1d2a;display:flex;gap:10px;align-items:flex-start;">
+    <div class="av" style="width:32px;height:32px;background:#2b2416;border:2px solid #EF9F27;color:#FAC775;font-size:10px;flex-shrink:0;">AR</div>
+    <div style="flex:1;">
+      <p style="font-size:12px;font-weight:500;margin:0 0 3px;">Arthas <span class="bdg b-buff" style="margin-left:4px;">BUFF</span></p>
+      <p class="mono" style="color:#cfd3e0;font-size:11.5px;margin:0;">Frappe mortelle : refroidissement <span class="old">8s</span> → <span class="up">7s</span> · goules : santé <span class="old">730</span> → <span class="up">790</span> <span class="upp">(+8%)</span></p>
+    </div><span style="color:#5d6275;">⌃</span>
+  </div>
+  <div style="padding:11px 18px;border-bottom:1px solid #1a1d2a;display:flex;gap:10px;align-items:center;">
+    <div class="av" style="width:32px;height:32px;background:#16202c;border:2px solid #378ADD;color:#85B7EB;font-size:10px;flex-shrink:0;">NO</div>
+    <p style="font-size:12px;font-weight:500;margin:0;">Nova <span class="bdg b-nerf" style="margin-left:4px;">NERF</span></p>
+    <span style="margin-left:auto;color:#5d6275;font-size:10px;">replié ⌄</span>
+  </div>
+  <div style="padding:11px 18px;display:flex;gap:10px;align-items:center;">
+    <div style="width:32px;height:24px;border-radius:5px;background:#1c2433;border:1px solid #232636;"></div>
+    <p style="font-size:12px;font-weight:500;margin:0;">Cursed Hollow <span class="bdg b-rw" style="margin-left:4px;">REWORK</span></p>
+    <span style="margin-left:auto;color:#5d6275;font-size:10px;">replié ⌄</span>
+  </div>
+</div>
+
+<p class="cap">5 · Battlegrounds — grille illustrée (15 images via Nexus)</p>
+<div class="mk" style="padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:12px;">
+  <div><div style="height:60px;border-radius:7px;background:#1c2433;border:1px solid #232636;"></div><p style="font-size:11.5px;font-weight:500;margin:6px 0 0;">Cursed Hollow</p><p style="color:#5d6275;font-size:10px;margin:1px 0 0;">3 voies · 7 changements</p></div>
+  <div><div style="height:60px;border-radius:7px;background:#241c2e;border:1px solid #232636;"></div><p style="font-size:11.5px;font-weight:500;margin:6px 0 0;">Alterac Pass</p><p style="color:#5d6275;font-size:10px;margin:1px 0 0;">3 voies · 4 changements</p></div>
+  <div><div style="height:60px;border-radius:7px;background:#2b2018;border:1px solid #232636;"></div><p style="font-size:11.5px;font-weight:500;margin:6px 0 0;">Battlefield of Eternity</p><p style="color:#5d6275;font-size:10px;margin:1px 0 0;">2 voies · 6 changements</p></div>
+  <div><div style="height:60px;border-radius:7px;background:#16242c;border:1px solid #232636;"></div><p style="font-size:11.5px;font-weight:500;margin:6px 0 0;">Braxis Holdout</p><p style="color:#5d6275;font-size:10px;margin:1px 0 0;">2 voies · 5 changements</p></div>
+</div>
+
+<p class="cap">6 · Fiche battleground — infos complètes + timeline de la carte</p>
+<div class="mk">
+  <div style="height:80px;background:#1c2433;position:relative;border-bottom:1px solid #232636;display:flex;align-items:flex-end;">
+    <div style="padding:0 18px 11px;">
+      <p style="font-size:17px;font-weight:500;margin:0;">Cursed Hollow</p>
+      <p style="color:#AFA9EC;font-size:10px;letter-spacing:.07em;margin:2px 0 0;">ROYAUME DU SEIGNEUR CORBEAU · 2014</p>
+    </div>
+    <div style="margin-left:auto;padding:0 18px 11px;display:flex;gap:6px;"><span class="bdg b-buff">EN ROTATION</span><span class="bdg b-bug">3 VOIES</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);">
+    <div style="padding:13px 18px;border-right:1px solid #1a1d2a;">
+      <p class="kick">OBJECTIF</p>
+      <p style="color:#cfd3e0;font-size:11.5px;line-height:1.5;margin:0 0 3px;"><span style="color:#FAC775;">Tributs du Seigneur Corbeau</span> — 3 tributs = malédiction (sbires à 1 PV, forts sans attaque).</p>
+      <p style="color:#5d6275;font-size:10px;margin:0 0 12px;">premier ~3:00, puis ~2:00</p>
+      <p class="kick">MERCENAIRES &amp; BOSS</p>
+      <p style="color:#cfd3e0;font-size:11px;margin:0 0 12px;"><span class="old">2×</span> siège · <span class="old">2×</span> bruisers · <span class="dn">1× boss golem</span></p>
+      <p class="kick">CONSEIL</p>
+      <p style="color:#8d93a8;font-size:11px;line-height:1.45;margin:0;">Échangez un tribut perdu contre un fort ou le boss.</p>
+    </div>
+    <div style="padding:13px 18px;">
+      <p class="kick">CHANGEMENTS DE LA CARTE</p>
+      <div style="border-left:2px solid #232636;padding-left:12px;">
+        <div style="margin-bottom:9px;"><span class="bdg b-rw">REWORK</span><span style="color:#8d93a8;font-size:10px;margin-left:5px;">2025 · camps repositionnés</span></div>
+        <div style="margin-bottom:9px;"><span class="bdg b-nerf">NERF</span><span style="color:#8d93a8;font-size:10px;margin-left:5px;">2023 · malédiction</span>
+          <p class="mono" style="color:#cfd3e0;font-size:11px;margin:2px 0 0;"><span class="old">60s</span> → <span class="dn">45s</span> <span class="dnp">(−25%)</span></p></div>
+        <div><span class="bdg b-bug">BUGFIX</span><span style="color:#8d93a8;font-size:10px;margin-left:5px;">2021 · vision tribut nord</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="cap">7 · À propos</p>
+<div class="mk" style="padding:16px 18px;">
+  <p style="font-size:14px;font-weight:500;margin:0 0 8px;">Nexus Codex</p>
+  <p style="color:#8d93a8;font-size:11.5px;line-height:1.55;margin:0 0 12px;">L'encyclopédie des patchs de Heroes of the Storm — 312 patchs archivés depuis l'alpha 2014, l'historique de chaque héros et de chaque champ de bataille.</p>
+  <span class="pill" style="color:#cfd3e0;">données : heroespatchnotes ↗</span>
+  <span class="pill" style="color:#cfd3e0;">archive : Nexus Patch Notes ↗</span>
+  <span class="pill" style="color:#cfd3e0;">veille : BlueTracker ↗</span>
+  <p style="color:#5d6275;font-size:10px;margin:12px 0 0;">Projet non affilié à Blizzard Entertainment. Heroes of the Storm™ est une marque de Blizzard.</p>
+</div>
+</body>
+</html>

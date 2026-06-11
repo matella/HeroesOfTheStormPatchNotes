@@ -60,11 +60,14 @@ d'univers est le seul « éclat ».
 - **F4 — Fiche héros.** Bandeau teinté univers : portrait 64px, nom, rôle·univers ; jauges
   santé/dégâts/difficulté ; **timeline des changements** (B4) avec badges et diffs mono ;
   bouton « voir le patch complet ».
-- **F5 — Patches.** Liste chronologique avec badges de type, filtre par type (comme nexus),
-  résumé : nb de héros touchés. Détail (F5b) : sections par héros repliables, icônes, diffs
-  colorés, lien officiel Blizzard.
-- **F6 — Battlegrounds.** Grille de cartes AVEC images (B1) ; détail = info + timeline des
-  changements de la carte.
+- **F5 — Patches.** Liste chronologique groupée PAR ANNÉE (jusqu'à l'alpha 2014), pills de
+  filtre par type (Tous/Live/PTR/Hotfix/Alpha-Beta), chaque ligne : date mono + badge type + nom
+  + résumé « N héros · M cartes » (compté depuis les PatchSections). Détail (F5b) : sections par
+  héros repliables avec portraits, badges buff/nerf, diffs colorés, lien officiel Blizzard.
+- **F6 — Battlegrounds.** Grille de cartes AVEC images (B1). Détail (maquette validée) : bandeau
+  image + nom + royaume/univers + badges (EN ROTATION, nb voies) ; colonne gauche = Objective +
+  ObjectiveTiming, MercCamps + BossInfo, Tips (champs existants du modèle) ; colonne droite =
+  timeline des changements de la carte (PatchSections type Map, badges + diffs).
 - **F7 — About.** Crédits sources (heroespatchnotes, Nexus Patch Notes, BlueTracker) + Blizzard
   disclaimer.
 

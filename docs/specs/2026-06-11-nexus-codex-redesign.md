@@ -99,6 +99,17 @@ navigateur — les 7 écrans cibles avec les tokens exacts.
    patch→carte sans page « brute ».
 Chaque phase : build conteneur + déploiement box + vérification live avant la suivante.
 
+## Phase 5 (extension validée) — panneau patch dans HotS Overlay
+Le stream-overlay (repo Hots-Overlay, Node :8086) consomme l'API Codex (même box, :5001) :
+- **En match** : vignette ~320px croisant les héros de la partie en cours avec le dernier patch —
+  n'affiche QUE les héros concernés (avatar + badge BUFF/NERF + résumé mono ultra-court, ex.
+  « Q dégâts +15% ») + la carte si changée. Mention « N autres héros : aucun changement ».
+- **Hors match** : une ligne compacte « PATCH <date> · 7 BUFFS · 5 NERFS · 1 REWORK » avec noms en
+  rotation. Mêmes tokens visuels que le Codex.
+- Dépend de P2 (classification + endpoints) ; côté overlay = un composant + un fetch. Résumé court
+  par héros : nouvelle donnée `short_summary` calculée en B3 (la plus grosse variation de la
+  section, formatée « <capacité> <delta%> »).
+
 ## Hors scope (plus tard)
 Winrates/pick rates (pas de source de stats live fiable post-maintenance) · comparateur de héros ·
 mode clair · i18n FR de l'UI (les contenus patch restent en anglais source).

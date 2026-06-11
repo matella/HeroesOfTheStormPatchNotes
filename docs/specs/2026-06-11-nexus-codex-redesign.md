@@ -65,8 +65,14 @@ navigateur — les 7 écrans cibles avec les tokens exacts.
   bouton « voir le patch complet ».
 - **F5 — Patches.** Liste chronologique groupée PAR ANNÉE (jusqu'à l'alpha 2014), pills de
   filtre par type (Tous/Live/PTR/Hotfix/Alpha-Beta), chaque ligne : date mono + badge type + nom
-  + résumé « N héros · M cartes » (compté depuis les PatchSections). Détail (F5b) : sections par
-  héros repliables avec portraits, badges buff/nerf, diffs colorés, lien officiel Blizzard.
+  + résumé « N héros · M cartes » (compté depuis les PatchSections). Détail (F5b, maquette 4b) :
+  **sommaire collant** à gauche (Général · héros avec un point de couleur par classification ·
+  cartes · bug fixes) ; section héros dépliée structurée : STATS (diffs) → CAPACITÉS (keycap
+  Q/W/E/R) → TALENTS par niveau (badges NOUVEAU/RETIRÉ/ajusté) → **commentaire développeurs** en
+  citation (bordure violette) ; bug fixes groupés par catégorie, repliés au-delà de 2 lignes ;
+  lien « voir la fiche & son historique » par héros. **Fallback robustesse** : si une section ne se
+  découpe pas proprement (HTML irrégulier), rendre son HTML source stylé + diffs `X → Y` colorisés
+  par regex — beau mais moins sémantique, jamais cassé.
 - **F6 — Battlegrounds.** Grille de cartes AVEC images (B1). Détail (maquette validée) : bandeau
   image + nom + royaume/univers + badges (EN ROTATION, nb voies) ; colonne gauche = Objective +
   ObjectiveTiming, MercCamps + BossInfo, Tips (champs existants du modèle) ; colonne droite =

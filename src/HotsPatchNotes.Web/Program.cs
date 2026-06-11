@@ -8,7 +8,11 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Configure HttpClient to point to API
-var apiBaseAddress = builder.Configuration["ApiBaseAddress"] ?? "http://localhost:5001";
+// Empty/missing ApiBaseAddress → same-origin (the page URL): nginx proxies /api to the API
+// container, so the app works from any host (LAN, Tailscale, domain) with zero baked-in URL.
+var apiBaseAddress = builder.Configuration["ApiBaseAddress"];
+if (string.IsNullOrWhiteSpace(apiBaseAddress))
+    apiBaseAddress = builder.HostEnvironment.BaseAddress;
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseAddress) });
 
 // Register services

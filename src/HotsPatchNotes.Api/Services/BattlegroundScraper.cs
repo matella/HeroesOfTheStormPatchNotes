@@ -150,7 +150,7 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
             }
 
             // Extract objective details
-            var objectiveSection = doc.DocumentNode.SelectSingleNode("//span[@id='Primary_Objectives' or @id='Objectives']/parent::*/following-sibling::*[1]");
+            var objectiveSection = doc.DocumentNode.SelectSingleNode("//span[contains(@class,'mw-headline')][contains(@id,'bjective')]/parent::*/following-sibling::*[1]");
             if (objectiveSection != null)
             {
                 details.ObjectiveDetails = CleanWikiText(objectiveSection.InnerText);
@@ -164,7 +164,7 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
             }
 
             // Extract mercenary camps info
-            var mercSection = doc.DocumentNode.SelectSingleNode("//span[@id='Mercenary_Camps']/parent::*/following-sibling::*");
+            var mercSection = doc.DocumentNode.SelectSingleNode("//span[contains(@class,'mw-headline')][contains(@id,'ercenar')]/parent::*/following-sibling::*");
             if (mercSection != null)
             {
                 var mercContent = new System.Text.StringBuilder();

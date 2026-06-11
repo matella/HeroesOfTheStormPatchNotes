@@ -33,14 +33,21 @@ public sealed class BackgroundSyncService : BackgroundService
         // database already has data (it persists in the volume), so a restart doesn't re-fetch
         // everything. The periodic sync below still keeps it fresh.
         await Task.Delay(_initialDelay, stoppingToken);
-        if (await HasExistingDataAsync(stoppingToken))
-        {
-            _logger.LogInformation("Existing data found — skipping initial sync; periodic sync still runs.");
-        }
-        else
+        if (!await HasExistingDataAsync(stoppingToken))
         {
             _logger.LogInformation("No data yet — performing initial sync.");
             await PerformSyncAsync(stoppingToken);
+        }
+        else if (await IsDataStaleAsync(stoppingToken))
+        {
+            // The server only runs evenings: the 24h periodic timer below rarely fires before
+            // shutdown, so a boot-time freshness check IS the daily refresh.
+            _logger.LogInformation("Data is stale — performing boot-time refresh sync.");
+            await PerformSyncAsync(stoppingToken);
+        }
+        else
+        {
+            _logger.LogInformation("Data present and fresh — skipping initial sync.");
         }
 
         // Periodic sync
@@ -71,12 +78,34 @@ public sealed class BackgroundSyncService : BackgroundService
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<HotsDbContext>();
-            return await db.Heroes.AnyAsync(cancellationToken);
+            // Both families must exist — heroes-only (an earlier partial sync) must NOT skip the
+            // initial sync, or patch notes never get fetched.
+            return await db.Heroes.AnyAsync(cancellationToken)
+                && await db.Patches.AnyAsync(cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not check existing data; will sync to be safe.");
             return false;
+        }
+    }
+
+    private async Task<bool> IsDataStaleAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var staleHoursEnv = Environment.GetEnvironmentVariable("SYNC_STALE_HOURS");
+            var staleAfter = TimeSpan.FromHours(
+                int.TryParse(staleHoursEnv, out var h) && h > 0 ? h : 12);
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<HotsDbContext>();
+            var last = await db.Patches.MaxAsync(p => (DateTime?)p.LastSyncedAt, cancellationToken);
+            return last is null || DateTime.UtcNow - last.Value > staleAfter;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not check data freshness; refreshing to be safe.");
+            return true;
         }
     }
 

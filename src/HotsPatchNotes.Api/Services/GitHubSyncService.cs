@@ -91,6 +91,7 @@ public sealed partial class GitHubSyncService(
             // Initial sync: GitHub (archive) → BlueTracker (all pages) → Battlegrounds
             var heroResult = await SyncHeroesAsync(cancellationToken);
             var patchResult = await SyncPatchesFromGitHubAsync(cancellationToken);
+            var nexusResult = await SyncPatchesFromNexusAsync(cancellationToken);
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: true, cancellationToken);
             var battlegroundResult = await SyncBattlegroundsAsync(cancellationToken);
 
@@ -99,15 +100,16 @@ public sealed partial class GitHubSyncService(
                 Success = heroResult.Success && patchResult.Success && webPatchResult.Success && battlegroundResult.Success,
                 Message = $"Initial sync complete: {heroResult.HeroesUpdated} heroes, {patchResult.PatchesUpdated + webPatchResult.PatchesUpdated} patches, {battlegroundResult.HeroesUpdated} battlegrounds",
                 HeroesUpdated = heroResult.HeroesUpdated,
-                PatchesUpdated = patchResult.PatchesUpdated + webPatchResult.PatchesUpdated,
+                PatchesUpdated = patchResult.PatchesUpdated + nexusResult.PatchesUpdated + webPatchResult.PatchesUpdated,
                 SyncedAt = DateTime.UtcNow,
-                Errors = heroResult.Errors.Concat(patchResult.Errors).Concat(webPatchResult.Errors).Concat(battlegroundResult.Errors).ToList()
+                Errors = heroResult.Errors.Concat(patchResult.Errors).Concat(nexusResult.Errors).Concat(webPatchResult.Errors).Concat(battlegroundResult.Errors).ToList()
             };
         }
         else
         {
             // Subsequent sync: BlueTracker (page 1 only) - no GitHub needed
             var heroResult = await SyncHeroesAsync(cancellationToken);
+            var nexusResult = await SyncPatchesFromNexusAsync(cancellationToken);  // cheap: 1 listing call, imports only new files
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: false, cancellationToken);
 
             return new SyncResultDto
@@ -115,9 +117,9 @@ public sealed partial class GitHubSyncService(
                 Success = heroResult.Success && webPatchResult.Success,
                 Message = $"Sync complete: {heroResult.HeroesUpdated} heroes, {webPatchResult.PatchesUpdated} patches updated",
                 HeroesUpdated = heroResult.HeroesUpdated,
-                PatchesUpdated = webPatchResult.PatchesUpdated,
+                PatchesUpdated = nexusResult.PatchesUpdated + webPatchResult.PatchesUpdated,
                 SyncedAt = DateTime.UtcNow,
-                Errors = heroResult.Errors.Concat(webPatchResult.Errors).ToList()
+                Errors = heroResult.Errors.Concat(nexusResult.Errors).Concat(webPatchResult.Errors).ToList()
             };
         }
     }

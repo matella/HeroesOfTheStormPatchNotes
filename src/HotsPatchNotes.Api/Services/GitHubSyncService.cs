@@ -96,6 +96,7 @@ public sealed partial class GitHubSyncService(
             await SyncNexusImagesAsync(cancellationToken);
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: true, cancellationToken);
             var battlegroundResult = await SyncBattlegroundsAsync(cancellationToken);
+            await PushPatchDigestAsync(cancellationToken);
 
             return new SyncResultDto
             {
@@ -115,6 +116,7 @@ public sealed partial class GitHubSyncService(
             await BackfillNexusSectionsAsync(cancellationToken);   // no-op once backfilled
             await SyncNexusImagesAsync(cancellationToken);          // no-op once mapped
             var webPatchResult = await SyncPatchesFromBlueTrackerAsync(isInitialSync: false, cancellationToken);
+            await PushPatchDigestAsync(cancellationToken);
 
             return new SyncResultDto
             {

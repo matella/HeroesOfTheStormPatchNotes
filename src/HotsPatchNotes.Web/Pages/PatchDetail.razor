@@ -60,7 +60,7 @@
                     <nav class="toc">
                         @foreach (var item in patch.TableOfContents.Where(t => t.HeadingLevel <= 2))
                         {
-                            @{ var tocCls = patch.Sections.FirstOrDefault(s => s.Anchor == item.Anchor)?.Classification; }
+                            var tocCls = patch.Sections.FirstOrDefault(s => s.Anchor == item.Anchor)?.Classification;
                             <a href="#@item.Anchor" class="toc-item level-@item.HeadingLevel @GetTocTypeClass(item.SectionType)">
                                 @if (!string.IsNullOrEmpty(tocCls))
                                 {

@@ -61,7 +61,7 @@
                         @foreach (var item in patch.TableOfContents.Where(t => t.HeadingLevel <= 2))
                         {
                             var tocCls = patch.Sections.FirstOrDefault(s => s.Anchor == item.Anchor)?.Classification;
-                            <a href="#@item.Anchor" class="toc-item level-@item.HeadingLevel @GetTocTypeClass(item.SectionType)">
+                            <a href="javascript:void(0)" @onclick="() => ScrollToAsync(item.Anchor)" class="toc-item level-@item.HeadingLevel @GetTocTypeClass(item.SectionType)">
                                 @if (!string.IsNullOrEmpty(tocCls))
                                 {
                                     <span class="toc-dot dot-@tocCls.ToLower()"></span>
@@ -141,6 +141,9 @@
 </div>
 
 @code {
+    private async Task ScrollToAsync(string anchor)
+        => await JSRuntime.InvokeVoidAsync("scrollToId", anchor);
+
     [Parameter]
     public string InternalId { get; set; } = string.Empty;
 

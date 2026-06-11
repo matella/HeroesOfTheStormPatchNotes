@@ -732,3 +732,7 @@
 
 ::deep .timeline-inline-summary { color: #cfd3e0; font-size: .78rem; margin-left: 8px; }
 .hero-portrait img { width: 84px; height: 84px; }
+
+.hero-portrait { background: none; border: none; padding: 0; border-radius: 50%;
+    overflow: visible; box-shadow: none; }
+.hero-portrait img { border-radius: 50%; }

@@ -12,14 +12,33 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
     private const string BattlegroundListUrl = "https://heroesofthestorm.fandom.com/wiki/Battleground";
 
     /// <summary>
+    /// Fandom now serves an anti-bot challenge on plain /wiki/ HTML; the MediaWiki API still
+    /// returns the fully parsed article HTML. Page title = the /wiki/&lt;Title&gt; segment.
+    /// </summary>
+    private async Task<string> FetchWikiHtmlAsync(string pageTitle, CancellationToken ct)
+    {
+        var url = $"{FandomBaseUrl}/api.php?action=parse&page={Uri.EscapeDataString(pageTitle)}"
+                  + "&format=json&prop=text";
+        var json = await httpClient.GetStringAsync(url, ct);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("parse").GetProperty("text").GetProperty("*").GetString() ?? "";
+    }
+
+    private static string PageTitleFromUrl(string wikiUrl)
+    {
+        var idx = wikiUrl.LastIndexOf("/wiki/", StringComparison.Ordinal);
+        return idx >= 0 ? Uri.UnescapeDataString(wikiUrl[(idx + 6)..]) : wikiUrl;
+    }
+
+    /// <summary>
     /// Gets the list of all battlegrounds from the main Battleground wiki page.
     /// </summary>
     public async Task<List<BattlegroundBasicInfo>> GetBattlegroundListAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            logger.LogInformation("Fetching battleground list from Fandom wiki");
-            var html = await httpClient.GetStringAsync(BattlegroundListUrl, cancellationToken);
+            logger.LogInformation("Fetching battleground list from Fandom wiki (MediaWiki API)");
+            var html = await FetchWikiHtmlAsync("Battleground", cancellationToken);
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -116,8 +135,8 @@ public sealed class BattlegroundScraper(HttpClient httpClient, ILogger<Battlegro
     {
         try
         {
-            logger.LogInformation("Fetching battleground details from {Url}", wikiUrl);
-            var html = await httpClient.GetStringAsync(wikiUrl, cancellationToken);
+            logger.LogInformation("Fetching battleground details for {Url} via MediaWiki API", wikiUrl);
+            var html = await FetchWikiHtmlAsync(PageTitleFromUrl(wikiUrl), cancellationToken);
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 

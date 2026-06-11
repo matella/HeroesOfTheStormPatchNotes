@@ -14,5 +14,8 @@
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="js/scroll.js"></script>
     <script src="js/tooltip.js"></script>
-  </body>
+      <script>
+      window.scrollToId = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    </script>
+</body>
 </html>

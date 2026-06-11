@@ -1267,6 +1267,14 @@ public sealed partial class GitHubSyncService(
                     {
                         // Enrich existing record with wiki-only fields (never overwrite Gamedata fields)
                         existing.ObjectiveTiming ??= details.ObjectiveTiming;
+                        // Gamedata only carries a stub ("Battling Immortals") — upgrade it to the
+                        // wiki's detailed objective when we have one.
+                        if (!string.IsNullOrWhiteSpace(details.ObjectiveDetails)
+                            && (existing.Objective?.Length ?? 0) < 60)
+                            existing.Objective = htmlContentService.SanitizeHtml(details.ObjectiveDetails);
+                        if (!string.IsNullOrWhiteSpace(details.Description)
+                            && (existing.Description?.Length ?? 0) < 120)
+                            existing.Description = htmlContentService.SanitizeHtml(details.Description);
                         existing.MercCamps ??= htmlContentService.SanitizeHtml(details.MercCamps ?? "");
                         existing.BossInfo ??= htmlContentService.SanitizeHtml(details.BossInfo ?? "");
                         existing.Tips ??= htmlContentService.SanitizeHtml(details.Tips ?? "");

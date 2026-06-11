@@ -260,11 +260,14 @@ public sealed partial class GitHubSyncService
 
             if (category == "heroes")
             {
-                var normalizedSlug = slug.Replace("-", "");
-                var hero = await dbContext.Heroes.FirstOrDefaultAsync(
-                    h => h.ShortName == slug || h.ShortName == normalizedSlug, ct);
-                hero ??= (await dbContext.Heroes.ToListAsync(ct)).FirstOrDefault(
-                    h => Slugify(h.Name) == slug);
+                // Normalize both sides (nexus: thelostvikings / cho+gall; DB: the-lost-vikings /
+                // chogall). cho.png is used for the merged Cho'gall hero.
+                var norm = slug.Replace("-", "");
+                if (norm == "cho") norm = "chogall";
+                var heroes = await dbContext.Heroes.ToListAsync(ct);
+                var hero = heroes.FirstOrDefault(h =>
+                    h.ShortName.Replace("-", "").Equals(norm, StringComparison.OrdinalIgnoreCase)
+                    || Slugify(h.Name) == slug);
                 if (hero is not null && string.IsNullOrEmpty(hero.Icon))
                 {
                     hero.Icon = local;

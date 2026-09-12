@@ -26,11 +26,15 @@ services:
       context: ./src
       dockerfile: HotsPatchNotes.Api/Dockerfile
     container_name: hotspatchnotes-api
+    extra_hosts:
+      - host.docker.internal:host-gateway
     ports:
       - "5001:5001"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5001
+      DIGEST_PUSH_URLS: http://host.docker.internal:8086/api/patch-digest,https://hots-overlay.azurewebsites.net/api/patch-digest
+      DIGEST_PUSH_TOKEN: 
       # SQLite configuration (default)
       DatabaseProvider: SQLite
       ConnectionStrings__DefaultConnection: Data Source=/app/data/hots.db
@@ -39,6 +43,7 @@ services:
       # ConnectionStrings__DefaultConnection: Host=postgres;Database=hots;Username=postgres;Password=postgres
     volumes:
       - hots-data:/app/data
+      - hots-images:/app/wwwroot/images
     networks:
       - hotspatchnotes-network
     # For PostgreSQL, add:
@@ -62,7 +67,7 @@ services:
       context: ./src
       dockerfile: HotsPatchNotes.Web/Dockerfile
       args:
-        API_BASE_URL: http://api:5001
+        API_BASE_URL: ""
     container_name: hotspatchnotes-web
     ports:
       - "5100:80"
@@ -89,4 +94,5 @@ networks:
 
 volumes:
   hots-data:
+  hots-images:
   # postgres-data:

@@ -9,3 +9,6 @@
 
 __pycache__/
 *.pyc
+
+# Developer-specific Claude permissions belong outside version control.
+.claude/settings.local.json

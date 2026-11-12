@@ -26,7 +26,7 @@ approval does not verify an actual production GitHub publication.
   identity controls no-op publication. Verify both identities before promotion.
 - Skip unextracted latest versions and correct the audited 2020 legacy date typo.
 
-## Independently executed checks
+## Independently executed checks at initial handoff
 
 - `cargo fmt --check`: passed.
 - `cargo clippy --locked --all-targets -- -D warnings`: passed.
@@ -38,3 +38,18 @@ approval does not verify an actual production GitHub publication.
 The Reviewer did not execute a second live acquisition or publish anything. The
 primary developer owns the live-generation/JSON-Schema/no-op evidence recorded in
 verification.md. Synthetic test fixtures contain no copied Nexus material.
+
+## Hosted publication follow-up — 2026-11-12
+
+The first real nightly exposed a draft-release visibility defect missed by the
+initial fake API and static review: an unpublished draft could not be retrieved
+through its tag. PR #3 corrected discovery through paginated authenticated release
+listing and final verification through the numeric release ID.
+
+**[Reviewer]** approved the focused correction after independently passing all
+12 publication tests, including draft discovery, retry reuse and unavailable final
+verification. The reviewer subsequently confirmed both successful hosted runs,
+the published release identity and the consistent before/after release snapshots.
+The primary developer verified all public downloads, JSON Schemas and the Rust
+validator. See [hosted verification](nightly-verification.md) for exact run links,
+artifact hashes, unchanged-run proof and the distinction from future cron events.

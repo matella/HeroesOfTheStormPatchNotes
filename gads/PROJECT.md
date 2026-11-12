@@ -24,7 +24,19 @@ local development.
 
 Commands: `cargo fmt --check`; `cargo clippy --locked --all-targets -- -D warnings`;
 `cargo test --locked`; `python3 -m unittest discover -s scripts -p 'test_*.py'`;
-`cargo run --release -- build`; `cargo run --release -- validate dist`.
+`cargo run --locked --release -- build`; `cargo run --locked --release -- validate dist`.
+
+## Agent onboarding and memory
+
+CLAUDE.md imports these project rules. Read `.claude/memory/MEMORY.md` for current
+project context and follow its architecture, command and gotcha references as
+needed. Keep project memories aligned with the Rust implementation; dated test
+counts and release evidence belong in `docs/verification.md` and
+`docs/nightly-verification.md`. Memories do not override AGENTS.md or these rules.
+
+`.claude/settings.json` contains the shared GADS hook and protections. Personal
+`.claude/settings.local.json` is ignored and must not be committed or used to
+distribute developer-specific permission grants.
 
 ## Data and identity rules
 

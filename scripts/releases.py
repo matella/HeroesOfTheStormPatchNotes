@@ -40,7 +40,22 @@ class GitHub:
         return self.request('GET', 'releases/latest')
 
     def tag(self, tag):
-        return self.request('GET', 'releases/tags/' + urllib.parse.quote(tag, safe=''))
+        release = self.request('GET', 'releases/tags/' + urllib.parse.quote(tag, safe=''))
+        if release is not None:
+            return release
+        # Unpublished drafts may not have a Git tag yet and are absent from the
+        # tag endpoint. The authenticated release list includes those drafts.
+        page = 1
+        while True:
+            releases = self.request('GET', f'releases?per_page=100&page={page}')
+            if releases is None:
+                raise RuntimeError('Unable to inspect staged releases')
+            for release in releases:
+                if release['tag_name'] == tag:
+                    return release
+            if len(releases) < 100:
+                return None
+            page += 1
 
     def asset_json(self, release, name):
         asset = next((a for a in release['assets'] if a['name'] == name), None)
@@ -128,7 +143,9 @@ def publish(client, directory):
             asset = client.request('POST', upload, data, binary=True)
         if asset.get('digest') != checksum:
             raise RuntimeError(f'Asset {path.name} not verified; latest remains unchanged')
-    verified = client.tag(tag)
+    verified = client.request('GET', f"releases/{release['id']}")
+    if verified is None:
+        raise RuntimeError('Staged release unavailable; latest remains unchanged')
     actual = {a['name']: a.get('digest') for a in verified['assets']}
     if any(actual.get(name) != checksum for name, checksum in expected.items()):
         raise RuntimeError('Incomplete staged release; latest remains unchanged')

@@ -116,8 +116,8 @@ new notes can accompany the last fully extracted live dataset. Mutable official
 articles are revalidated so corrections are detected. Old fixed archive captures
 and commit-pinned game inputs use an immutable cache.
 
-After the workflow is merged/enabled and its **first release is approved/published**,
-the producer repository's download convention is:
+The workflow is active on `main` and its first validated release is published.
+The producer repository's download URLs are:
 
 ```text
 https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/manifest.json
@@ -127,7 +127,8 @@ https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/p
 https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/frfr.json
 ```
 
-These are planned producer URLs, not a claim that a release already exists.
+The first hosted publication and public downloads were independently verified;
+see [nightly verification](docs/nightly-verification.md) for the run and integrity evidence.
 Individual language release assets are named `{locale}.json`; inside the archive
 (and when statically hosted), they live under `locales/`. Schemas are also separate
 release assets; images are included in the bulk archive. The suite's old

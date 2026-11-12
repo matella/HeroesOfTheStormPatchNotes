@@ -5,7 +5,8 @@
 - `cargo fmt --check`: passed.
 - `cargo clippy --locked --all-targets -- -D warnings`: passed.
 - `cargo test --locked`: 22 passed.
-- `python3 -m unittest discover -s scripts -p 'test_*.py'`: 6 passed.
+- `python3 -m unittest discover -s scripts -p 'test_*.py'`: 12 passed after the
+  hosted-publication regression fix (6 at the initial implementation handoff).
 - `git diff --check` and staged equivalent: passed.
 - Independent GADS Skeptic and Reviewer: see review-issue-1.md.
 - Dependency metadata: 249 resolved registry packages, all with license declarations;
@@ -36,8 +37,10 @@ claims, tampering, and unchanged input without promoting a partial release.
 ## Limits and release gate
 
 No GitHub Actions production run, release publication, merge, or deployed API change
-was performed during local verification. A PR run verifies the quality workflow;
-a manual artifact-only run and first reviewed release verify the hosting pipeline.
+was performed during the initial local verification. Subsequent owner-authorized
+hosted publication, its corrected draft lookup, public-download verification and
+unchanged-run checks are recorded in [nightly verification](nightly-verification.md).
+No deployed API change is part of those checks.
 
 Patch article discovery is US English; twelve game-data locales do not imply twelve
 article translations. PTR cycle association can be inferred and is labeled candidate.
@@ -49,7 +52,7 @@ Legacy code can be recovered from commit 015c3776940364d5643af29fbf8cb8fddad73c4
 Rollback a published dataset by promoting a previous fully validated immutable
 release. Do not delete the currently working latest asset before replacement.
 
-## Final generated artifact
+## Final local generated artifact
 
 - Dataset version: `bf6c543f34733ad61811f6b4dc635908892e2949b9284f683e577cd3d4c9c0c9`.
 - Game version: `2.57.0.98348`.

@@ -29,10 +29,12 @@ The active schedule is `17 3 * * *` (03:17 UTC, 04:17 Brussels in winter and
 05:17 in summer). GitHub schedules are best-effort. The checks below use manual
 dispatch of the same workflow; a future cron event has not yet been observed.
 
-**[Reviewer]** independently approved the workflow and publisher at the merge
-commit: publication is limited to `main`, unchanged semantic data creates no
-release, and every staged asset is verified before latest is promoted. Failed
-staging preserves the previous latest release. No material defect was found.
+**[Reviewer]** initially approved the workflow but missed the draft visibility
+defect that the first real run exposed. A focused review approved the correction
+and independently passed all 12 publication tests. Publication remains limited to
+`main`, unchanged semantic data creates no release, and every staged asset is
+verified before latest is promoted. Failed staging preserves the previous latest
+release. Hosted verification of the correction is still pending below.
 
 ## Recovery
 

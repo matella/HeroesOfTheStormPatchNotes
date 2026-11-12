@@ -38,6 +38,11 @@ cleanup is explicitly authorized and reversible through Git history.
 
 ## Handoff state
 
-Implementation and local quality/data gates passed; independent GADS review approves
-handoff. Production publication and consumer migration remain separate release/consumer
-actions. See ../verification.md and ../review-issue-1.md for evidence and limits.
+Implementation and local quality/data gates passed. After the owner authorized
+hosted publication, the first real nightly exposed a draft-lookup defect; the
+reviewed correction and its 12 publication tests are merged. A complete nightly
+published the validated release, all 24 public assets were independently verified,
+and a second publication-enabled nightly reported unchanged without creating any
+release or draft. The nightly schedule is active on `main`. Consumer migration
+remains separate. See ../nightly-verification.md, ../verification.md and
+../review-issue-1.md for evidence and limits.

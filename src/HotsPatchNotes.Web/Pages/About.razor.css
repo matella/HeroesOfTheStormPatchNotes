@@ -1,7 +1,0 @@
-.about-page { max-width: 620px; padding: 16px 0 60px; }
-.about-page h1 { font-size: 15px; font-weight: 500; margin: 0 0 8px; }
-.about-lede { color: var(--text-secondary); font-size: 12.5px; line-height: 1.6;
-    margin: 0 0 14px; }
-.source-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-.source-pills .pill-filter { color: #cfd3e0; text-decoration: none; }
-.disclaimer { color: var(--text-muted); font-size: 10.5px; margin: 16px 0 0; }

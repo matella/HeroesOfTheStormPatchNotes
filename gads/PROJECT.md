@@ -1,149 +1,75 @@
-# Project Rules
+# Project rules
 
-This file is project-owned. GADS creates it once and never overwrites or removes it. Put
-project-specific rules here instead of editing the GADS-managed files, so upgrades stay clean.
+## Purpose and scope
 
-These rules rank as repository-specific approved policy in the `AGENTS.md` precedence order. They may
-tighten GADS defaults; they must not weaken organizational safety controls.
+A Rust CLI producing a canonical Heroes of the Storm reference dataset and static
+JSON releases. Issue #1 authorizes replacing the .NET API, database and Blazor app,
+removing obsolete sources/configuration, and breaking Storm Codex compatibility.
+The existing consumer will adapt later. Git history preserves the old application.
+Do not modify deployed services or publish production assets as a side effect of
+local development.
 
-## Project overview
+## Layout and commands
 
-Heroes of the Storm Patch Notes — a full-stack .NET 10.0 application that aggregates hero data, patch notes, and battleground info from GitHub repositories and web scraping. Blazor WebAssembly frontend, ASP.NET Core Web API backend, SQLite (default) or PostgreSQL database.
+- `src/model.rs`: canonical typed records and JSON Schema definitions.
+- `src/upstream.rs`: pinned v5 full/JSON Patch reconstruction.
+- `src/normalize.rs`: game structures, localized text, map overrides and asset references.
+- `src/patches.rs`: official discovery, historical metadata and section relationships.
+- `src/http.rs`: bounded acquisition, allowlisted HTTPS origins, immutable cache.
+- `src/export.rs`: integrity validation and deterministic packaging.
+- `data/`: historical source registry, license inventory and attributions.
+- `scripts/releases.py`: stage/verify/promote immutable GitHub releases.
+- `.github/workflows/`: quality checks and nightly/manual generation.
+- `docs/adr/`, `docs/tasks/`: architectural decisions and verification evidence.
 
-```
-GitHub Repos + Web Scraping → API (ASP.NET Core) → Shared Models → Web (Blazor WASM)
-```
+Commands: `cargo fmt --check`; `cargo clippy --locked --all-targets -- -D warnings`;
+`cargo test --locked`; `python3 -m unittest discover -s scripts -p 'test_*.py'`;
+`cargo run --release -- build`; `cargo run --release -- validate dist`.
 
-## Stack and layout
+## Data and identity rules
 
-- Languages and frameworks: C# / .NET 10.0, ASP.NET Core Web API, Blazor WebAssembly (no npm/Node.js), EF Core (SQLite or PostgreSQL), xUnit + Moq + EF Core InMemory.
-- Main directories:
-  - `src/HotsPatchNotes.Api/` — REST API with EF Core, background sync service (6-hour interval), GitHub data fetching, web scraping (HtmlAgilityPack/HtmlSanitizer)
-    - `Controllers/` → REST endpoints
-    - `Services/` → Business logic (GitHubSyncService, HeroService, PatchService, BattlegroundService)
-    - `Repositories/` → Data access layer (repository pattern with interfaces)
-    - `Data/` → EF Core DbContext
-  - `src/HotsPatchNotes.Web/` — Blazor WebAssembly SPA
-    - `Pages/` → Razor page components
-    - `Services/` → HTTP clients calling the API
-    - API base URL configured in `wwwroot/appsettings.json`
-  - `src/HotsPatchNotes.Shared/` — Domain models (`Models/`) and DTOs (`DTOs/`) shared between API and Web
-  - `tests/HotsPatchNotes.Api.Tests/` — Unit tests inheriting from `TestBase`, which provides `CreateContextWithData()` for in-memory DB seeding with 3 test heroes (Abathur, Arthas, Valla)
+- Data quality precedes consumer adapters. No legacy database-generated primary IDs.
+- Hero IDs are native upstream hero keys; `attributeId` and `hyperlinkId` are aliases.
+- Map IDs use `normalizedId`: native `mapId` can be blank or shared by variants.
+- Ability/talent relationships retain upstream `linkId` and talent tiers.
+- Keep all 12 upstream game-data locales. Missing translations must be reported;
+  no silent English substitution or invented official translations.
+- Keep live history and only the newest active/candidate PTR cycle. Reconstruct
+  obsolete PTR dependencies internally where required, without exporting PTR history.
+- Preserve source authority and identity. Do not merge different builds by date or
+  article URL alone. Missing historical note content may remain metadata-only;
+  this exception is explicitly approved by the owner.
+- Keep native structural fields and map-specific overrides; do not silently drop
+  sub-abilities, hero units, summoned units or scaling data.
 
-## Commands
+## Source and redistribution boundaries
 
-| Purpose | Command |
-|---|---|
-| Build | `dotnet build` |
-| Test | `dotnet test` |
-| Lint | None configured (no analyzers or `.editorconfig` rules enforced beyond the compiler) |
-| Format | None configured (`dotnet format` is available but not enforced) |
-| Run API | `cd src/HotsPatchNotes.Api && dotnet run` (https://localhost:7001, http://localhost:5001) |
-| Run Web | `cd src/HotsPatchNotes.Web && dotnet run` (https://localhost:7000, http://localhost:5100) |
-| Initial data sync | `curl -k -X POST https://localhost:7001/api/sync` (after starting the API) |
-| Docker | `docker-compose up -d` |
+Primary sources: HeroesToolChest/heroes-data2 and heroes-images (repository MIT
+licenses, Blizzard game/asset attribution retained); heroespatchnotes/heroes-patch-data
+(MIT historical metadata); existing BlueTracker/Blizzard official-note path.
+Fixed archives of existing official posts may repair broken source URLs.
 
-Both API and Web must run simultaneously for local development.
+Nexus Patch Notes is All Rights Reserved (Elitesparkle). Written redistribution
+permission is still outstanding. Do not copy its notes/images into runtime inputs,
+fixtures or released data. Prior read-only inspection only discovered underlying
+source links. The baseline suite archive contains Nexus records and is NOT a
+blanket content-reuse permission. New external sources need confirmed reuse terms.
+The source registry defaults uncertain community content to metadata/link-only;
+enabling `allowContent` requires a documented source/attribution decision.
 
-## Data sources
+## Engineering and release rules
 
-- Hero data synced from `HeroesToolChest/heroes-data` (primary), enriched from `jamiephan/HeroesOfTheStorm_Gamedata`
-- Patch data synced from `heroespatchnotes/heroes-patch-data`
-- Battleground info scraped from the Fandom wiki
-- Patch notes scraped from Blizzard's BlueTracker
-- Patch archive, per-hero/map change sections, and images synced from Nexus Patch Notes (`nexus-patch-notes.github.io`). **License flag:** that site is "All Rights Reserved" (Elitesparkle). The sync is kept for now, but written permission from the author is still outstanding. Do not widen what is copied from it (new data, images, or redistribution such as the issue #1 snapshot) until permission is recorded here.
+Use focused modules, checked errors, BTreeMap for stable canonical ordering, and
+fixture tests for upstream formats and failure cases. Pin Cargo dependencies with
+Cargo.lock. Treat scraped text and URLs as untrusted. Do not log tokens or embed
+machine-specific paths in artifacts. Never disable TLS verification.
 
-## Conventions
+Validate a staging dataset before replacing output. Use fixed archive metadata,
+content digests and no run timestamps. No-op runs do not publish. Create immutable
+release assets, verify their hashes, then promote latest. Never delete the working
+latest asset first. GitHub release publication/merge/deployed-service changes need
+the applicable release gate; preparing code and workflow definitions is allowed.
 
-### Domain
-
-- **ShortName** is the URL-friendly hero identifier (e.g., "abathur", "li-ming")
-- **JSON-in-DB columns** — `TagsJson`, `CountersJson`, `AbilityLinksJson` store serialized `List<string>` as strings in the database
-- **Build code format** — `[T1331221,heroname]` where the 7-digit string represents one talent choice per tier (levels 1/4/7/10/13/16/20)
-- **API endpoints** follow REST: `GET /api/heroes`, `GET /api/heroes/{shortName}`, `POST /api/sync`, query params for filtering (`?role=Tank&type=Melee&search=term`)
-- **Database provider** switchable via `appsettings.json` `DatabaseProvider` setting ("SQLite" or "PostgreSQL")
-
-### Design principles
-
-Strictly follow these principles in all code:
-- **SOLID** — Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
-- **DRY** — Don't repeat yourself; extract shared logic into reusable methods or constants
-- **KISS** — Keep it simple; prefer straightforward solutions over clever ones
-- **YAGNI** — Don't build for hypothetical future requirements
-- **Separation of Concerns** — Controllers handle HTTP, services handle business logic, repositories handle data access
-- **Dependency Injection** — All dependencies injected via constructor; never use `new` for services/repos
-- **Composition over Inheritance** — Favor interfaces and composition; avoid deep class hierarchies
-- **Fail Fast** — Validate inputs early and return meaningful errors immediately
-- **Immutability** — Prefer read-only properties and records for DTOs; minimize mutable state
-- **Least Privilege** — Classes are `sealed` by default; expose only what is necessary via interfaces
-
-### C#
-
-- **Primary constructors** on all services, repositories, and controllers (e.g., `public sealed class HeroService(IHeroRepository heroRepository, ...) : IHeroService`)
-- **`sealed`** on all concrete service/repository/controller implementations
-- **`partial` classes** when using `[GeneratedRegex]` source generators
-- **File-scoped namespaces** (`namespace Foo.Bar;` not block-scoped)
-- **Collection expressions** for empty collections (`return [];` not `return new List<T>()`)
-- **Pattern matching for null checks** (`if (hero is null)` not `if (hero == null)`)
-
-### File organization
-
-- **One class per file** — each public class, record, or struct in its own file named after the class (services, repositories, controllers, models, background workers)
-- **Exception: DTOs grouped by domain** — `HeroDtos.cs`, `PatchDtos.cs`, `BattlegroundDtos.cs`, `CommonDtos.cs`
-- **Exception: nested classes** within a parent class are acceptable
-
-### Async
-
-- All async methods take `CancellationToken cancellationToken = default` as final parameter
-- All async methods suffixed with `Async`
-- Pass `cancellationToken` through to all EF Core and downstream calls
-
-### API layer
-
-- Controllers use `ActionResult<T>` return types
-- Errors returned via `ErrorResponseDto` with message from `Constants.ErrorMessages`
-- Use `[ResponseCache(Duration = N)]` on GET endpoints (3600s for data, 300s for builds)
-- Route pattern: `[Route("api/[controller]")]` with `[ApiController]`
-
-### Repository layer
-
-- Interface + sealed implementation (e.g., `IHeroRepository` / `HeroRepository`)
-- Use EF Core `.Include()` for eager loading navigation properties
-- Use `.ToListAsync(cancellationToken)` for materialization
-- All registered as `AddScoped<>` in DI
-
-### DTO mapping
-
-- Manual mapping in service layer (no AutoMapper) — static `MapToXxxDto` methods in the service class
-- JSON-stored lists deserialized via `JsonSerializer.Deserialize<List<string>>()` with empty-list fallback
-
-### Blazor / frontend
-
-- Pages use `@inject` for service dependencies, `@code { }` block at bottom
-- Loading state pattern: `bool loading = true` → set to `false` in `finally` block of `OnInitializedAsync`
-- Web services silently catch `HttpRequestException` and return empty/null (no error propagation to UI)
-- Use `Constants.ApiRoutes` for base route strings
-
-### Testing
-
-- Test classes extend `TestBase` (provides `CreateContext()`, `CreateContextWithData()`, `CreateXxxService(context)`)
-- Naming: `MethodName_Condition_ExpectedResult` (e.g., `GetHero_NonExistingHero_ReturnsNotFound`)
-- Arrange/Act/Assert with explicit comments
-- Real repositories + in-memory DB (not mocked repos); Moq used only for external dependencies
-- Assert with xUnit: `Assert.IsType<T>`, `Assert.Equal`, `Assert.Single`, `Assert.NotEmpty`
-
-### Constants
-
-- All magic strings/numbers go in `Shared/Constants.cs` nested static classes
-- Error messages: `Constants.ErrorMessages.XxxNotFound`
-- Route prefixes: `Constants.ApiRoutes.Xxx`
-- Talent constants: `Constants.Talents.TierCount`, `Constants.Talents.TierLevels`
-
-## Additional approval requirements
-
-- Adding a new external data source requires confirming its license permits reuse.
-- Expanding use of Nexus Patch Notes data requires human approval until the author's written permission is recorded (see Data sources).
-
-## Out of bounds for agents
-
-- Editing GADS-managed files (`AGENTS.md`, `CLAUDE.md`, `gads/standard/`, `gads/agents/`, `gads/templates/`, `gads/hooks/`, `.claude/agents/gads-*`); upgrade them with the GADS installer instead.
+Do not edit GADS-managed files (AGENTS.md, CLAUDE.md, gads/standard/, gads/agents/,
+gads/templates/, gads/hooks/, .claude/agents/gads-*). Use independent Skeptic and
+Reviewer roles as required by CLAUDE.md, and retain their role labels in reports.

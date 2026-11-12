@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "Battleground": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "mapId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceKey": {
+          "type": "string"
+        },
+        "structure": true
+      },
+      "required": [
+        "id",
+        "sourceKey",
+        "structure"
+      ],
+      "type": "object"
+    },
+    "Hero": {
+      "properties": {
+        "attributeId": {
+          "type": "string"
+        },
+        "hyperlinkId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "structure": {
+          "description": "Native v5 structure, including subAbilities, heroUnits and scalingLinkIds."
+        },
+        "unitId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "attributeId",
+        "hyperlinkId",
+        "unitId",
+        "structure"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "battlegrounds": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Battleground"
+      },
+      "type": "object"
+    },
+    "documentMeta": {
+      "additionalProperties": true,
+      "description": "Native document metadata required to apply per-map patches losslessly.",
+      "type": "object"
+    },
+    "heroes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Hero"
+      },
+      "type": "object"
+    },
+    "mapOverrides": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "description": "RFC 6902 patches against the base tables for each battleground.",
+      "type": "object"
+    },
+    "units": {
+      "description": "Unit/scaling tables referenced by hero structures."
+    },
+    "version": {
+      "type": "string"
+    },
+    "veterancy": true
+  },
+  "required": [
+    "version",
+    "documentMeta",
+    "heroes",
+    "battlegrounds",
+    "units",
+    "veterancy",
+    "mapOverrides"
+  ],
+  "title": "GameData",
+  "type": "object"
+}

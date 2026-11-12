@@ -1,0 +1,198 @@
+{
+  "$defs": {
+    "Availability": {
+      "enum": [
+        "available",
+        "partial",
+        "metadataOnly"
+      ],
+      "type": "string"
+    },
+    "Channel": {
+      "enum": [
+        "live",
+        "ptr"
+      ],
+      "type": "string"
+    },
+    "Patch": {
+      "properties": {
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "availability": {
+          "$ref": "#/$defs/Availability"
+        },
+        "build": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "contents": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PatchContent"
+          },
+          "type": "object"
+        },
+        "cycleVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "date": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "patchType": {
+          "$ref": "#/$defs/PatchType"
+        },
+        "ptrState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "aliases",
+        "name",
+        "channel",
+        "patchType",
+        "date",
+        "sources",
+        "availability",
+        "contents"
+      ],
+      "type": "object"
+    },
+    "PatchContent": {
+      "properties": {
+        "html": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/PatchSection"
+          },
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "locale",
+        "html",
+        "text",
+        "sections"
+      ],
+      "type": "object"
+    },
+    "PatchSection": {
+      "properties": {
+        "battlegroundId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "heading": {
+          "type": "string"
+        },
+        "heroId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "html": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "heading",
+        "level",
+        "html",
+        "text"
+      ],
+      "type": "object"
+    },
+    "PatchType": {
+      "enum": [
+        "live",
+        "balance",
+        "hotfix",
+        "ptr",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "Source": {
+      "properties": {
+        "authority": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "authority",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "items": {
+    "$ref": "#/$defs/Patch"
+  },
+  "title": "Array_of_Patch",
+  "type": "array"
+}

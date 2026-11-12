@@ -1,255 +1,158 @@
-# Heroes of the Storm Patch Notes
+# HotS Reference Data
 
-A modern rewrite of [heroespatchnotes.com](https://heroespatchnotes.com/) - a comprehensive database for Heroes of the Storm heroes, abilities, talents, battlegrounds, and patch history.
+A Rust producer for reusable Heroes of the Storm reference data: heroes, abilities,
+talents, battlegrounds, localized game text, images, and patch history. No web server,
+.NET runtime, database, or Storm Codex installation is needed.
 
-## 🎮 Overview
+The dataset has its own versioned contract. **It intentionally breaks the former
+HotsPatchNotes API/snapshot contract.** Storm Codex adaptation is separate work.
 
-This project provides a web application to browse and search Heroes of the Storm game data, including:
+## Generate and validate
 
-- **90+ Heroes** with complete ability and talent information
-- **Always-Current Talent Descriptions** - Parsed directly from game files (gamestrings), updated with every game patch
-- **228+ Patches** with version history and official links
-- **Battlegrounds** with objectives, mercenary camps, and strategies
-- **Hero Builds** - Create and share talent builds with build codes
-- **Talent Trees** organized by tier (levels 1, 4, 7, 10, 13, 16, 20)
-- **Patch History** - View changes to specific heroes across patches
-- **Search & Filter** by hero name, role, type, and universe
+Install Rust using rustup (the pinned toolchain file includes rustfmt and clippy), then:
 
-## 🏗️ Architecture
-
-The solution consists of three projects:
-
-```
-HeroesOfTheStormPatchNotes/
-├── src/
-│   ├── HotsPatchNotes.Api/      # ASP.NET Core Web API (Backend)
-│   ├── HotsPatchNotes.Web/      # Blazor WebAssembly (Frontend)
-│   └── HotsPatchNotes.Shared/   # Shared models and DTOs
-└── tests/
-    ├── HotsPatchNotes.Api.Tests/
-    └── HotsPatchNotes.Web.Tests/
+```sh
+cargo run --locked --release -- build
+cargo run --locked --release -- validate dist
+cargo run --locked -- schemas schemas
 ```
 
-### Data Flow
+`build` reconstructs the latest **extracted live** HeroesToolChest v5 dataset and
+its dependencies, normalizes all twelve locales, discovers official notes, fetches
+shared assets, validates the result, and writes a deterministic bulk archive.
+`--output`, `--cache`, `--history-sources` select task-specific directories/files.
+`--previous /path/to/patches.json` supplies previously published identities and PTR
+cycle evidence when starting in a fresh CI workspace. An existing output also
+provides this state and must pass validation before it can be replaced.
 
-```
-GitHub Repositories + Web Sources ──► API (Sync Service) ──► SQLite Database
-                                                                      │
-                                                                      ▼
-                                        Blazor WebAssembly ◄── API Endpoints
-```
+Use `GITHUB_TOKEN` for authenticated GitHub metadata requests in CI. It is optional
+locally; anonymous API limits may apply. No credential is embedded in the output.
+HTTPS uses the operating system trust store, including explicitly configured CA
+certificates. Required acquisition/validation failures fail the build and preserve
+the previous successful output. Unavailable historical text is an approved exception:
+its release metadata survives with a reason and provenance.
 
-**Data Sources**:
-- **[heroespatchnotes/heroes-talents](https://github.com/heroespatchnotes/heroes-talents)** - Hero structural data (abilities, talents, icons)
-- **[HeroesToolChest/heroes-data](https://github.com/HeroesToolChest/heroes-data)** - Comprehensive hero stats and **gamestrings** (talent descriptions directly from game files - always current)
-- **[jamiephan/HeroesOfTheStorm_S2MA](https://github.com/jamiephan/HeroesOfTheStorm_S2MA)** - Battleground map files (authoritative metadata)
-- **[heroespatchnotes/heroes-patch-data](https://github.com/heroespatchnotes/heroes-patch-data)** - Patch version tracking
-- **Fandom Wiki** - Fallback for battleground descriptions
-- **BlueTracker** - Official Blizzard patch notes
+## Output contract (schema version 1)
 
-The sync process combines multiple sources for the most accurate and up-to-date information:
-1. **heroes-talents** provides the base structure (hero roster, talent trees)
-2. **heroes-data gamestrings** provide talent names and descriptions (updated with every game patch)
-3. **S2MA map files** provide battleground metadata
-4. **BlueTracker** provides official patch notes content
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
-- A modern web browser
-
-> **Note for macOS users:** The Web app uses port 5100 (HTTP) instead of 5000 to avoid conflicts with macOS Control Center (AirPlay Receiver).
-
-### First-Time Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/HeroesOfTheStormPatchNotes.git
-   cd HeroesOfTheStormPatchNotes
-   ```
-
-2. **Restore dependencies**
-   ```bash
-   dotnet restore
-   ```
-
-3. **Start the API** (Terminal 1)
-   ```bash
-   cd src/HotsPatchNotes.Api
-   dotnet run
-   ```
-   The API will start at `https://localhost:7001`
-
-4. **Trigger initial data sync**
-   
-   On first run, the database is empty. Sync data from GitHub:
-   ```bash
-   # Using PowerShell
-   Invoke-RestMethod -Uri "https://localhost:7001/api/sync" -Method Post -SkipCertificateCheck
-   
-   # Using curl
-   curl -k -X POST https://localhost:7001/api/sync
-   ```
-   This fetches all heroes and patches from GitHub (~30 seconds).
-
-5. **Start the Web App** (Terminal 2)
-   ```bash
-   cd src/HotsPatchNotes.Web
-   dotnet run
-   ```
-   The web app will start at `https://localhost:7000`
-
-6. **Open in browser**
-   
-   Navigate to `https://localhost:7000` to use the application.
-
-### Running with Docker
-
-The easiest way to run the entire application stack:
-
-1. **Build and start all services**
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **Trigger initial data sync**
-   ```bash
-   # Using PowerShell
-   Invoke-RestMethod -Uri "http://localhost:5001/api/sync" -Method Post
-   
-   # Using curl
-   curl -X POST http://localhost:5001/api/sync
-   ```
-   This fetches all heroes and patches from GitHub (~30 seconds).
-
-3. **Access the application**
-   - Web App: `http://localhost:5100`
-   - API: `http://localhost:5001`
-   - API Swagger: `http://localhost:5001/swagger`
-
-4. **View logs**
-   ```bash
-   # All services
-   docker-compose logs -f
-   
-   # Specific service
-   docker-compose logs -f api
-   docker-compose logs -f web
-   ```
-
-5. **Stop services**
-   ```bash
-   docker-compose down
-   ```
-
-6. **Remove data and rebuild**
-   ```bash
-   docker-compose down -v
-   docker-compose up -d --build
-   ```
-
-**Note**: The database is persisted in a Docker volume. To reset data, use `docker-compose down -v`.
-
-## 📖 API Documentation
-
-The API includes Swagger documentation at `https://localhost:7001/swagger`
-
-### Key Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/heroes` | List all heroes (supports filtering) |
-| GET | `/api/heroes/{shortName}` | Get hero details with abilities/talents |
-| GET | `/api/heroes/{shortName}/patches` | Get patch history for a hero |
-| GET | `/api/heroes/{shortName}/builds` | Get builds for a hero |
-| POST | `/api/heroes/{shortName}/builds` | Create a new build |
-| GET | `/api/heroes/roles` | List available roles |
-| GET | `/api/battlegrounds` | List all battlegrounds |
-| GET | `/api/battlegrounds/{shortName}` | Get battleground details |
-| GET | `/api/patches` | List patches (paginated) |
-| GET | `/api/patches/{internalId}` | Get patch details |
-| POST | `/api/sync` | Trigger full data sync from GitHub |
-| POST | `/api/sync/heroes` | Sync heroes only |
-| POST | `/api/sync/patches` | Sync patches only |
-
-### Query Parameters
-
-**Heroes List** (`/api/heroes`):
-- `role` - Filter by role (e.g., "Assassin", "Tank", "Healer")
-- `type` - Filter by type ("Melee" or "Ranged")
-- `search` - Search by hero name
-
-**Patches List** (`/api/patches`):
-- `page` - Page number (default: 1)
-- `pageSize` - Items per page (default: 20, max: 100)
-- `type` - Filter by patch type
-
-## 🔄 Data Synchronization
-
-The API automatically syncs data from multiple sources every **6 hours** via a background service. The sync process:
-
-1. Fetches hero data from **heroes-talents** (base structure)
-2. Enriches with **heroes-data** stats and **gamestrings** (talent descriptions from game files)
-3. Parses battleground data from **S2MA map files**
-4. Scrapes official patch notes from **BlueTracker**
-
-You can also trigger a manual sync:
-
-```bash
-# Full sync (heroes + patches + battlegrounds)
-POST /api/sync
-
-# Heroes only (includes heroes-data enrichment and gamestrings)
-POST /api/sync/heroes
-
-# Patches only
-POST /api/sync/patches
+```text
+dist/
+  game.json                  # neutral hero/map records, unit/scaling data, overrides
+  locales/{locale}.json      # localized fields keyed by stable native IDs
+  patches.json               # canonical releases, aliases, sources, content and sections
+  assets.json                # category/filename → path, SHA-256 and byte count
+  images/{category}/*.png     # shared assets, including talent/ability icons
+  schemas/*.schema.json      # generated JSON Schemas
+  licenses/*.txt
+  SOURCES.md
+  manifest.json              # schema/dataset/build identity, coverage and file hashes
+  dataset.tar.gz
+  dataset.tar.gz.sha256
 ```
 
-## 🛠️ Development
+- Hero dictionary keys are upstream hero keys, such as `Amazon`. Display names
+  (such as Cassia) are translations, not identifiers. `attributeId`, `hyperlinkId`
+  and `unitId` remain available.
+- Battleground keys are upstream `normalizedId`. Native `mapId` is an optional
+  alias because it can be blank or shared by normal/heroic variants.
+- Native v5 hero structures retain abilities, sub-abilities, talent `linkId`,
+  tiers (`Level1`, `Level4`, `Level7`, `Level10`, `Level13`, `Level16`, `Level20`),
+  hero units, summoned-unit and level-scaling references. Unit/veterancy tables
+  and per-map native patches allow readers to resolve map-specific stats.
+- Localized fields expose sanitized `html` and plain `text`; array-valued fields
+  remain arrays. HDP styling tags are formatting, not HTML strikethrough. Native
+  gamestring growth notation may be retained; clients should not interpret it as
+  executable markup. Map objective titles/descriptions are game-derived.
+- A localization's `mapOverrides` contains per-table RFC 6902 patches against its
+  hero/ability/talent/unit dictionaries; apply them to a copy for that battleground.
+  Override table keys match `heroes`, `abilities`, `talents`, and `units`.
+  Native `game.mapOverrides` instead target v5 documents: reconstruct each with
+  `meta: game.documentMeta[table]` and its native `items` (hero `structure` values,
+  `game.units`, or `game.veterancy`) before applying the patch.
+- Use `assets.json` to resolve images. Preserve original category/filename identity;
+  do not derive asset names from translated names. Bundled core assets are hero
+  loading portraits, battleground loading art, and hero ability/talent icons;
+  other image names retained in native metadata are not a promise of bundled files.
+  Paths are relative to the extracted dataset root. Hosting an extracted archive gives a static JSON/image API.
+- A patch has a stable ID and source aliases, channel, date/build when known,
+  sources/authority, availability, and locale-keyed article content/sections.
+  Strong build identity and recorded source relationships reconcile mirrors;
+  different same-day builds are not collapsed by date alone. Community notes
+  must not be presented as official.
+- `metadataOnly` means no validated/reusable content was acquired, not an empty
+  patch. `reason` and sources explain the limitation. A legacy placeholder anchor
+  is not content. Known old index date mistakes are corrected in the registry.
+- Only the newest PTR announcement cycle is exported. Where extraction evidence
+  provides nearby release-line evidence, `cycleVersion` records the inferred line.
+  Announcements are explicitly `candidate`, not a claim of confirmed activity.
+  Date inference is bounded to three days of the first extracted PTR snapshot;
+  older announcements are not relabeled as a newer cycle. A corresponding live
+  release retires an associated cycle; unrelated hotfixes do not.
 
-### Building
+## Languages and completeness
 
-```bash
-dotnet build
+All upstream game-data locales are generated: German `dede`, English `enus`,
+Spanish `eses`, Latin American Spanish `esmx`, French `frfr`, Italian `itit`, Korean
+`kokr`, Polish `plpl`, Brazilian Portuguese `ptbr`, Russian `ruru`, Simplified Chinese
+`zhcn`, and Traditional Chinese `zhtw`.
+
+Each locale records missing required names/descriptions. The manifest reports this
+coverage; missing text is never silently replaced with English. Complete locale
+source files are mandatory. **These twelve locales do not imply twelve translations
+of every historical patch article.** The current article-discovery adapter acquires
+US English official content; further official translations need verified discovery.
+
+The output is a current game-reference dataset plus historical release notes, not
+a complete reconstruction of game state at every historical patch. The archived
+v4 `heroes-data` repository starts in August 2019; it cannot recreate undocumented
+2014–2018 prose. The approved fallback retains known release metadata. Read
+[data/SOURCES.md](data/SOURCES.md) and the [historical source registry](data/history-sources.json).
+No Nexus notes/images are ingested or redistributed.
+
+## Nightly delivery and downloads
+
+The nightly workflow runs at **03:17 UTC**, plus manual dispatch. GitHub schedules
+are best-effort. It checks note content independently of game-data availability;
+new notes can accompany the last fully extracted live dataset. Mutable official
+articles are revalidated so corrections are detected. Old fixed archive captures
+and commit-pinned game inputs use an immutable cache.
+
+After the workflow is merged/enabled and its **first release is approved/published**,
+the producer repository's download convention is:
+
+```text
+https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/manifest.json
+https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/dataset.tar.gz
+https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/game.json
+https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/patches.json
+https://github.com/matella/HeroesOfTheStormPatchNotes/releases/latest/download/frfr.json
 ```
 
-### Running Tests
+These are planned producer URLs, not a claim that a release already exists.
+Individual language release assets are named `{locale}.json`; inside the archive
+(and when statically hosted), they live under `locales/`. Schemas are also separate
+release assets; images are included in the bulk archive. The suite's old
+`referential.tar.gz` remains a legacy artifact and is not modified by this workflow.
 
-```bash
-dotnet test
+The build job has read-only repository access. Only the publication job receives
+`contents: write`. A manual run defaults to building an artifact without publication;
+scheduled publication and explicit manual publication are restricted to `main`.
+Publication stages a digest-named draft release, uploads and verifies every asset,
+and only then promotes latest. Identical dataset content does not create a release.
+A failed stage leaves the previous latest release intact and can be retried without
+deleting assets. Keep old releases; rollback promotes a previous validated release.
+Never use an ephemeral Actions cache as the sole successful-publication state.
+
+## Development and verification
+
+```sh
+cargo fmt --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
-The project includes **173 passing tests** covering:
-- Repository layer (data access)
-- Service layer (business logic)
-- Controller layer (API endpoints)
-- Gamestrings parsing and HTML sanitization
-- Multi-source data integration
-
-### Project Structure
-
-- **HotsPatchNotes.Shared** - Domain models (`Hero`, `Ability`, `Talent`, `Patch`) and DTOs
-- **HotsPatchNotes.Api** - REST API with EF Core SQLite database
-- **HotsPatchNotes.Web** - Blazor WebAssembly SPA with dark theme UI
-
-### Configuration
-
-**API** (`src/HotsPatchNotes.Api/appsettings.json`):
-- Database connection string (default: SQLite file `hots.db`)
-- Logging settings
-
-**Web** (`src/HotsPatchNotes.Web/wwwroot/appsettings.json`):
-- `ApiBaseAddress` - URL of the API (default: `https://localhost:7001`)
-
-## 📝 License
-
-This project is for educational purposes. Heroes of the Storm and all related content are trademarks of Blizzard Entertainment.
-
-## 🙏 Credits
-
-- Original website: [heroespatchnotes.com](https://heroespatchnotes.com/)
-- Data sources: [heroespatchnotes GitHub](https://github.com/heroespatchnotes)
-- Game: [Heroes of the Storm](https://heroesofthestorm.com/) by Blizzard Entertainment
+Read [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md), and [project rules](gads/PROJECT.md).
+The [ADR](docs/adr/0001-canonical-rust-dataset.md) and
+[task record](docs/tasks/issue-1.md) describe the scope, evidence and release gate.
+The previous .NET/Blazor application is preserved in Git history at
+`015c3776940364d5643af29fbf8cb8fddad73c4d`. Its removal does not shut down a deployed API.

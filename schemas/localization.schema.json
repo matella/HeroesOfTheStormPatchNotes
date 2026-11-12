@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "TextValue": {
+      "anyOf": [
+        {
+          "properties": {
+            "html": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text",
+            "html"
+          ],
+          "type": "object"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/TextValue"
+          },
+          "type": "array"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "abilities": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "$ref": "#/$defs/TextValue"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "battlegrounds": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "$ref": "#/$defs/TextValue"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "heroes": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "$ref": "#/$defs/TextValue"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "locale": {
+      "type": "string"
+    },
+    "mapOverrides": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "missing": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "talents": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "$ref": "#/$defs/TextValue"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "units": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "$ref": "#/$defs/TextValue"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "locale",
+    "version",
+    "heroes",
+    "abilities",
+    "talents",
+    "battlegrounds",
+    "units",
+    "mapOverrides",
+    "missing"
+  ],
+  "title": "Localization",
+  "type": "object"
+}

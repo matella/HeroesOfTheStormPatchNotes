@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "counts": {
+      "additionalProperties": {
+        "format": "uint",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "datasetVersion": {
+      "type": "string"
+    },
+    "files": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "gameVersion": {
+      "type": "string"
+    },
+    "locales": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "missingTranslations": {
+      "additionalProperties": {
+        "format": "uint",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "schemaVersion": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sources": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "datasetVersion",
+    "gameVersion",
+    "locales",
+    "counts",
+    "missingTranslations",
+    "sources",
+    "files"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

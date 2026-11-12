@@ -51,6 +51,7 @@ Both API and Web must run simultaneously for local development.
 - Patch data synced from `heroespatchnotes/heroes-patch-data`
 - Battleground info scraped from the Fandom wiki
 - Patch notes scraped from Blizzard's BlueTracker
+- Patch archive, per-hero/map change sections, and images synced from Nexus Patch Notes (`nexus-patch-notes.github.io`). **License flag:** that site is "All Rights Reserved" (Elitesparkle). The sync is kept for now, but written permission from the author is still outstanding. Do not widen what is copied from it (new data, images, or redistribution such as the issue #1 snapshot) until permission is recorded here.
 
 ## Conventions
 
@@ -140,7 +141,8 @@ Strictly follow these principles in all code:
 
 ## Additional approval requirements
 
-- Adding a new external data source requires confirming its license permits reuse (e.g. `nexus-patch-notes.github.io` is "All Rights Reserved" and must not be scraped or copied without written permission from its author).
+- Adding a new external data source requires confirming its license permits reuse.
+- Expanding use of Nexus Patch Notes data requires human approval until the author's written permission is recorded (see Data sources).
 
 ## Out of bounds for agents
 

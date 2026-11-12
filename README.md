@@ -153,6 +153,9 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
 Read [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md), and [project rules](gads/PROJECT.md).
+The [project memory](.claude/memory/MEMORY.md) links the current architecture,
+commands and known pitfalls. Personal Claude settings belong in the ignored
+`.claude/settings.local.json`; shared GADS instructions and hooks remain versioned.
 The [ADR](docs/adr/0001-canonical-rust-dataset.md) and
 [task record](docs/tasks/issue-1.md) describe the scope, evidence and release gate.
 The previous .NET/Blazor application is preserved in Git history at

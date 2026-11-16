@@ -375,8 +375,13 @@ pub fn validate(root: &Path) -> Result<Manifest> {
         assets.keys().cloned().collect::<BTreeSet<_>>() == crate::normalize::asset_paths(&game)?,
         "required asset references differ from inventory"
     );
+    let mut folded = BTreeSet::new();
     for (key, a) in &assets {
         safe_path(&a.path)?;
+        ensure!(
+            folded.insert(key.to_lowercase()),
+            "asset names differ only by case: {key}"
+        );
         ensure!(
             key.split('/').all(crate::normalize::is_os_safe_name),
             "asset name is not valid on every OS: {key}"

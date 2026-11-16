@@ -65,16 +65,27 @@ fn required<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
         .with_context(|| format!("missing {key}"))
 }
 
-/// True when every character is portable in a file name on every OS: `[A-Za-z0-9-_.()]`.
 /// True when a file name is valid on Windows, macOS and Linux: no control characters, none of
-/// `<>:"/\|?*`, and no trailing dot or space. Upstream names such as `kel'thuzad` stay valid.
+/// `<>:"/\|?*`, no trailing dot or space, and no Windows device name (`CON`, `NUL`, `COM1`…)
+/// as the stem. Upstream names such as `kel'thuzad` stay valid.
 pub fn is_os_safe_name(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let device = ["CON", "PRN", "AUX", "NUL"].contains(&stem.as_str())
+        || ((stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.len() == 4
+            && stem.as_bytes()[3].is_ascii_digit());
     !name.is_empty()
+        && !device
         && !name.ends_with(['.', ' '])
         && !name
             .chars()
             .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
 }
+/// True when every character is in the strict portable set `[A-Za-z0-9-_.()]`.
 pub fn is_portable_name(name: &str) -> bool {
     !name.is_empty()
         && name
@@ -413,7 +424,15 @@ mod slug_tests {
         assert!(!is_portable_name("checkpoint:-hanamura"));
         assert!(!is_portable_name(""));
         assert!(is_os_safe_name("storm_ui_icon_kel'thuzad_armor.png"));
-        for bad in ["a:b.png", "a?.png", "a\\b", "trailing.", ""] {
+        for bad in [
+            "a:b.png",
+            "a?.png",
+            "a\\b",
+            "trailing.",
+            "",
+            "con.png",
+            "COM1.png",
+        ] {
             assert!(!is_os_safe_name(bad), "{bad}");
         }
     }

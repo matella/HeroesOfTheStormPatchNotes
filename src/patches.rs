@@ -50,30 +50,33 @@ pub fn apply_legacy_aliases(patches: &mut [Patch], legacy: &Value) -> Result<()>
     let entries = legacy
         .as_object()
         .context("legacy aliases must be a JSON object")?;
-    let known: BTreeSet<String> = patches
-        .iter()
-        .flat_map(|p| p.aliases.iter().chain(std::iter::once(&p.id)).cloned())
-        .collect();
+    let holders = |name: &str| -> Vec<usize> {
+        patches
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.id == name || p.aliases.iter().any(|a| a == name))
+            .map(|(i, _)| i)
+            .collect()
+    };
     let mut additions = Vec::new();
     for (old, entry) in entries {
-        ensure!(
-            !known.contains(old),
-            "legacy alias {old} collides with an existing patch identity"
-        );
         let target = entry["patch"]
             .as_str()
             .with_context(|| format!("legacy alias {old} names no patch"))?;
-        let matches: Vec<usize> = patches
-            .iter()
-            .enumerate()
-            .filter(|(_, p)| p.id == target || p.aliases.iter().any(|a| a == target))
-            .map(|(i, _)| i)
-            .collect();
-        match matches.as_slice() {
-            [i] => additions.push((*i, old.clone())),
-            [] if entry["ifPresent"] == true => {}
+        let found = holders(target);
+        let owner = holders(old);
+        let target = match found.as_slice() {
+            [i] => *i,
+            [] if entry["ifPresent"] == true => continue,
             [] => bail!("legacy alias {old}: patch {target} not found"),
             _ => bail!("legacy alias {old}: patch {target} is ambiguous"),
+        };
+        // An upstream source may later publish the same identifier for the same patch:
+        // that is redundant, not a conflict. Another patch holding it is a conflict.
+        match owner.as_slice() {
+            [] => additions.push((target, old.clone())),
+            [i] if *i == target => {}
+            _ => bail!("legacy alias {old} collides with another patch identity"),
         }
     }
     // Applied after resolution: a legacy alias never names another legacy alias.
@@ -171,6 +174,8 @@ pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
                 existing.build = p.build.clone();
             }
             // Mirror text never replaces official text, whatever order the records arrive in.
+            // The rank is per record (its best source), not per text; equal ranks keep the
+            // input order, which is deterministic.
             let replace = authority_rank(&p) >= authority_rank(existing);
             existing.aliases.append(&mut p.aliases);
             existing.aliases.sort();
@@ -672,7 +677,37 @@ fn reconcile(records: Vec<Patch>, previous: &[Patch]) -> Result<Vec<Patch>> {
             p.id = id.clone();
         }
     }
-    merge(merged)
+    let mut out = merge(merged)?;
+    // Published IDs absorbed by a merge stay resolvable as aliases of the surviving patch,
+    // now (`remap`) and in later runs (carried from the previous release's aliases).
+    let mut forwards: Vec<(String, String)> = remap
+        .iter()
+        .filter(|(old, _)| published_ids.contains(old.as_str()))
+        .map(|(old, new)| (old.clone(), new.clone()))
+        .collect();
+    for p in previous {
+        for a in p.aliases.iter().filter(|a| is_patch_id(a)) {
+            forwards.push((a.clone(), remap.get(&p.id).unwrap_or(&p.id).clone()));
+        }
+    }
+    let ids: BTreeSet<String> = out.iter().map(|p| p.id.clone()).collect();
+    for (old, new) in forwards {
+        if ids.contains(&old) {
+            continue;
+        }
+        if let Some(p) = out.iter_mut().find(|p| p.id == new) {
+            p.aliases.push(old);
+            p.aliases.sort();
+            p.aliases.dedup();
+        }
+    }
+    Ok(out)
+}
+/// Dataset patch IDs (`live:…`, `ptr:…`, `source:…`), as opposed to source aliases.
+fn is_patch_id(s: &str) -> bool {
+    ["live:", "ptr:", "source:"]
+        .iter()
+        .any(|p| s.starts_with(p))
 }
 fn release_line(version: &str) -> Vec<u32> {
     version
@@ -862,13 +897,27 @@ mod canonical_identity_tests {
             "https://news.blizzard.com/en-us/article/23667537",
             "official",
         );
-        let out = reconcile(vec![blog.clone(), forum.clone()], &[blog, forum]).unwrap();
+        let out = reconcile(
+            vec![blog.clone(), forum.clone()],
+            &[blog.clone(), forum.clone()],
+        )
+        .unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "source:bluetracker:us-en:23667537");
-        assert_eq!(
-            out[0].aliases,
-            vec!["bluetracker:us-en:23667537", "bluetracker:us-en:51582"]
-        );
+        // The absorbed published ID still resolves, and keeps resolving in the next run.
+        let expected = vec![
+            "bluetracker:us-en:23667537",
+            "bluetracker:us-en:51582",
+            "source:bluetracker:us-en:51582",
+        ];
+        assert_eq!(out[0].aliases, expected);
+        let mut blog_again = blog;
+        blog_again.id = out[0].id.clone();
+        let mut forum_again = forum;
+        forum_again.id = out[0].id.clone();
+        let next = reconcile(vec![blog_again, forum_again], &out).unwrap();
+        assert_eq!(next.len(), 1);
+        assert_eq!(next[0].aliases, expected);
         assert_eq!(out[0].sources.len(), 2);
         // A build identity wins over a source identity for the same article.
         let build = mirror(
@@ -965,7 +1014,7 @@ mod canonical_identity_tests {
         for bad in [
             serde_json::json!({"x": {"patch": "live:404"}}),
             serde_json::json!({"x": {}}),
-            serde_json::json!({"old-by-id": {"patch": "live:10"}}),
+            serde_json::json!({"old-by-id": {"patch": "bluetracker:us-en:2"}}),
             serde_json::json!({"x": {"patch": "live:10"}, "y": {"patch": "x"}}),
         ] {
             let mut copy = patches.clone();
@@ -976,6 +1025,22 @@ mod canonical_identity_tests {
         shared[1].aliases.push("live:10".into());
         let one = serde_json::json!({"x": {"patch": "live:10"}});
         assert!(apply_legacy_aliases(&mut shared, &one).is_err());
+        // An upstream alias equal to the legacy ID on the same patch is redundant, not an error;
+        // on another patch it is a conflict.
+        let mut same = patches.clone();
+        same[0].aliases.push("upstream-id".into());
+        let redundant = serde_json::json!({"upstream-id": {"patch": "live:10"}});
+        apply_legacy_aliases(&mut same, &redundant).unwrap();
+        assert_eq!(
+            same[0]
+                .aliases
+                .iter()
+                .filter(|a| *a == "upstream-id")
+                .count(),
+            1
+        );
+        let conflict = serde_json::json!({"upstream-id": {"patch": "bluetracker:us-en:2"}});
+        assert!(apply_legacy_aliases(&mut same, &conflict).is_err());
     }
     #[test]
     fn new_build_mirror_cannot_replace_a_published_source_id() {

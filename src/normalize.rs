@@ -65,6 +65,24 @@ fn required<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
         .with_context(|| format!("missing {key}"))
 }
 
+/// True when every character is portable in a file name on every OS: `[A-Za-z0-9-_.()]`.
+pub fn is_portable_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-_.()".contains(c))
+}
+/// File-name-safe battleground slug derived from the English map name (see `Battleground::slug`).
+pub fn map_slug(name: &str) -> String {
+    name.to_lowercase()
+        .replace(['\'', '\u{2019}'], "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || "-_.()".contains(*c))
+        .collect()
+}
 pub fn game(up: &mut Upstream, version: &str) -> Result<GameData> {
     let native = up.document(version, "[data]", "herodata")?;
     let maps = up.document(version, "[data]", "mapdata")?;
@@ -102,6 +120,7 @@ pub fn game(up: &mut Upstream, version: &str) -> Result<GameData> {
                     .filter(|s| !s.is_empty())
                     .map(str::to_owned),
                 source_key: source.clone(),
+                slug: map_slug(source),
                 structure: v.clone(),
             },
         );
@@ -109,6 +128,11 @@ pub fn game(up: &mut Upstream, version: &str) -> Result<GameData> {
     ensure!(
         !heroes.is_empty() && !battlegrounds.is_empty(),
         "empty game inventory"
+    );
+    let slugs: BTreeSet<_> = battlegrounds.values().map(|m| m.slug.as_str()).collect();
+    ensure!(
+        slugs.len() == battlegrounds.len(),
+        "battleground slugs are not unique"
     );
     Ok(GameData {
         version: version.into(),
@@ -320,10 +344,13 @@ pub fn asset_paths(game: &GameData) -> Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
     for h in game.heroes.values() {
         icon_refs(&h.structure, None, &mut out)?;
-        let portrait = required(&h.structure["portraits"], "loading")?;
-        crate::http::safe_path(portrait)?;
-        ensure!(!portrait.contains('/'), "unexpected portrait path");
-        out.insert(format!("heroportraits/{portrait}"));
+        // Loading portraits and the square hero-select icons share the heroportraits folder.
+        for kind in ["loading", "heroSelect"] {
+            let portrait = required(&h.structure["portraits"], kind)?;
+            crate::http::safe_path(portrait)?;
+            ensure!(!portrait.contains('/'), "unexpected portrait path");
+            out.insert(format!("heroportraits/{portrait}"));
+        }
     }
     for m in game.battlegrounds.values() {
         let image = required(&m.structure, "loadingScreenImage")?;
@@ -353,6 +380,41 @@ mod tests {
         let data = section(&raw, "hero").unwrap();
         assert!(data.contains_key("Amazon"));
         assert!(!data.contains_key("Cassia"));
+    }
+}
+
+#[cfg(test)]
+mod slug_tests {
+    use super::*;
+    #[test]
+    fn map_slugs_are_portable_and_keep_existing_names() {
+        assert_eq!(map_slug("Checkpoint: Hanamura"), "checkpoint-hanamura");
+        assert_eq!(map_slug("Blackheart's Bay"), "blackhearts-bay");
+        assert_eq!(
+            map_slug("Deadman\u{2019}s Stand (Heroic)"),
+            "deadmans-stand-(heroic)"
+        );
+        assert_eq!(
+            map_slug("Sandbox (Cursed Hollow)"),
+            "sandbox-(cursed-hollow)"
+        );
+        for name in ["Checkpoint: Hanamura", "a/b\\c*?\"<>|", "Ünïcode Map"] {
+            assert!(is_portable_name(&map_slug(name)), "{name}");
+        }
+        assert!(!is_portable_name("checkpoint:-hanamura"));
+        assert!(!is_portable_name(""));
+    }
+    #[test]
+    fn hero_select_icons_are_required_assets() {
+        let mut game = crate::fixtures::game();
+        let paths = asset_paths(&game).unwrap();
+        assert!(paths.contains("heroportraits/hero.png"));
+        assert!(paths.contains("heroportraits/hero_select.png"));
+        game.heroes.get_mut("Hero").unwrap().structure["portraits"]
+            .as_object_mut()
+            .unwrap()
+            .remove("heroSelect");
+        assert!(asset_paths(&game).is_err());
     }
 }
 

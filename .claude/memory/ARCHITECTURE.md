@@ -28,6 +28,7 @@ Paths in this table are relative to the repository root.
 4. Reconcile historical metadata with official Blizzard news/forum discoveries via
    BlueTracker and approved archived official sources. Retain prior published
    identities and explicit metadata-only records when text is unavailable.
+   Attach the retired service's patch IDs from `data/legacy-aliases.json` as aliases.
 5. Acquire referenced shared images, generate schemas, validate coverage and file
    closure, then package stable JSON and a deterministic archive in staging.
 6. Replace a validated existing output transactionally; unchanged semantic output

@@ -11,6 +11,10 @@
             "null"
           ]
         },
+        "slug": {
+          "description": "File-name-safe slug of the English map name: lowercase, apostrophes dropped, whitespace\nruns joined by `-`, then every character outside `[a-z0-9-_.()]` removed\n(\"Checkpoint: Hanamura\" -> `checkpoint-hanamura`). Unique across battlegrounds.",
+          "type": "string"
+        },
         "sourceKey": {
           "type": "string"
         },
@@ -19,6 +23,7 @@
       "required": [
         "id",
         "sourceKey",
+        "slug",
         "structure"
       ],
       "type": "object"

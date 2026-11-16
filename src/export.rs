@@ -309,10 +309,17 @@ pub fn validate(root: &Path) -> Result<Manifest> {
             }
         }
     }
+    let mut slugs = BTreeSet::new();
     for (id, map) in &game.battlegrounds {
         ensure!(
             *id == map.id && !map.source_key.is_empty(),
             "invalid map identity"
+        );
+        ensure!(
+            map.slug == crate::normalize::map_slug(&map.source_key)
+                && crate::normalize::is_portable_name(&map.slug)
+                && slugs.insert(&map.slug),
+            "invalid or duplicate battleground slug: {id}"
         );
     }
     for locale in &m.locales {
@@ -370,6 +377,10 @@ pub fn validate(root: &Path) -> Result<Manifest> {
     );
     for (key, a) in &assets {
         safe_path(&a.path)?;
+        ensure!(
+            key.split('/').all(crate::normalize::is_portable_name),
+            "asset name is not portable: {key}"
+        );
         ensure!(a.path == format!("images/{key}"), "asset key/path mismatch");
         let bytes = fs::read(root.join(&a.path))?;
         ensure!(

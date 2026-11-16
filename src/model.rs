@@ -25,6 +25,10 @@ pub struct Battleground {
     pub id: String,
     pub map_id: Option<String>,
     pub source_key: String,
+    /// File-name-safe slug of the English map name: lowercase, apostrophes dropped, whitespace
+    /// runs joined by `-`, then every character outside `[a-z0-9-_.()]` removed
+    /// ("Checkpoint: Hanamura" -> `checkpoint-hanamura`). Unique across battlegrounds.
+    pub slug: String,
     pub structure: Value,
 }
 

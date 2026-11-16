@@ -31,6 +31,9 @@ enum Command {
         cache: PathBuf,
         #[arg(long, default_value = "data/history-sources.json")]
         history_sources: PathBuf,
+        /// Retired HotsPatchNotes service patch IDs to keep as aliases.
+        #[arg(long, default_value = "data/legacy-aliases.json")]
+        legacy_aliases: PathBuf,
         /// Previously published patches.json, used to preserve established IDs and PTR cycles.
         #[arg(long)]
         previous: Option<PathBuf>,
@@ -52,8 +55,9 @@ fn main() -> Result<()> {
             output,
             cache,
             history_sources,
+            legacy_aliases,
             previous,
-        } => build(output, cache, history_sources, previous),
+        } => build(output, cache, history_sources, legacy_aliases, previous),
         Command::Validate { directory } => {
             let m = export::validate(&directory)?;
             println!("valid {}", m.dataset_version);
@@ -76,6 +80,7 @@ fn build(
     output: PathBuf,
     cache: PathBuf,
     history_sources: PathBuf,
+    legacy_aliases: PathBuf,
     previous_file: Option<PathBuf>,
 ) -> Result<()> {
     ensure!(
@@ -96,6 +101,8 @@ fn build(
     let history: serde_json::Value = serde_json::from_slice(
         &fs::read(history_sources).context("read historical source registry")?,
     )?;
+    let legacy: serde_json::Value =
+        serde_json::from_slice(&fs::read(legacy_aliases).context("read legacy patch aliases")?)?;
     let previous: Vec<Patch> = if output.join("patches.json").exists() {
         serde_json::from_slice(&fs::read(output.join("patches.json"))?)?
     } else if let Some(path) = previous_file {
@@ -113,7 +120,7 @@ fn build(
         );
     }
     eprintln!("acquire patch history and current official notes");
-    let patches = patches::acquire(
+    let mut patches = patches::acquire(
         &http,
         &index_sha,
         &game,
@@ -122,6 +129,7 @@ fn build(
         &previous,
         &ptr,
     )?;
+    patches::apply_legacy_aliases(&mut patches, &legacy)?;
     // All acquisition occurs before touching the last successful output directory.
     if output.exists() {
         ensure!(

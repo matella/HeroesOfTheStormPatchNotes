@@ -144,6 +144,19 @@ fn metadata(row: &Value) -> Result<Patch> {
     })
 }
 
+/// Highest source authority of a record: official > officialArchive > officialMirror > other.
+fn authority_rank(p: &Patch) -> u8 {
+    p.sources
+        .iter()
+        .map(|s| match s.authority.as_str() {
+            "official" => 3,
+            "officialArchive" => 2,
+            "officialMirror" => 1,
+            _ => 0,
+        })
+        .max()
+        .unwrap_or(0)
+}
 /// Reconcile strong build identity or an explicitly recorded source alias only.
 pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
     let mut result: BTreeMap<String, Patch> = BTreeMap::new();
@@ -157,6 +170,8 @@ pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
             if existing.build.is_none() {
                 existing.build = p.build.clone();
             }
+            // Mirror text never replaces official text, whatever order the records arrive in.
+            let replace = authority_rank(&p) >= authority_rank(existing);
             existing.aliases.append(&mut p.aliases);
             existing.aliases.sort();
             existing.aliases.dedup();
@@ -165,7 +180,11 @@ pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
                     existing.sources.push(s);
                 }
             }
-            existing.contents.extend(p.contents);
+            for (locale, content) in p.contents {
+                if replace || !existing.contents.contains_key(&locale) {
+                    existing.contents.insert(locale, content);
+                }
+            }
             if !existing.contents.is_empty() {
                 existing.availability = Availability::Available;
                 existing.reason = None;
@@ -868,6 +887,36 @@ mod canonical_identity_tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "live:83632");
         assert_eq!(out[0].build.as_deref(), Some("83632"));
+    }
+    #[test]
+    fn official_text_wins_over_mirror_text_in_any_order() {
+        let text = |t: &str| PatchContent {
+            locale: "enus".into(),
+            html: t.into(),
+            text: t.into(),
+            sections: Vec::new(),
+        };
+        let mut official = mirror(
+            "live:83632",
+            Some("83632"),
+            "https://news.blizzard.com/en-us/article/23591147",
+            "official",
+        );
+        official.contents.insert("enus".into(), text("official"));
+        let mut forum = mirror(
+            "live:83632",
+            None,
+            "https://www.bluetracker.gg/heroes/topic/us-en/23591147-x/",
+            "officialMirror",
+        );
+        forum.contents.insert("enus".into(), text("mirror"));
+        for records in [
+            vec![official.clone(), forum.clone()],
+            vec![forum.clone(), official.clone()],
+        ] {
+            let out = merge(records).unwrap();
+            assert_eq!(out[0].contents["enus"].text, "official");
+        }
     }
     #[test]
     fn forum_mirrors_on_different_dates_stay_apart() {

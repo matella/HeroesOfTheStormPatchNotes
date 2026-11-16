@@ -378,8 +378,8 @@ pub fn validate(root: &Path) -> Result<Manifest> {
     for (key, a) in &assets {
         safe_path(&a.path)?;
         ensure!(
-            key.split('/').all(crate::normalize::is_portable_name),
-            "asset name is not portable: {key}"
+            key.split('/').all(crate::normalize::is_os_safe_name),
+            "asset name is not valid on every OS: {key}"
         );
         ensure!(a.path == format!("images/{key}"), "asset key/path mismatch");
         let bytes = fs::read(root.join(&a.path))?;

@@ -66,6 +66,15 @@ fn required<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
 }
 
 /// True when every character is portable in a file name on every OS: `[A-Za-z0-9-_.()]`.
+/// True when a file name is valid on Windows, macOS and Linux: no control characters, none of
+/// `<>:"/\|?*`, and no trailing dot or space. Upstream names such as `kel'thuzad` stay valid.
+pub fn is_os_safe_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.ends_with(['.', ' '])
+        && !name
+            .chars()
+            .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
+}
 pub fn is_portable_name(name: &str) -> bool {
     !name.is_empty()
         && name
@@ -403,6 +412,10 @@ mod slug_tests {
         }
         assert!(!is_portable_name("checkpoint:-hanamura"));
         assert!(!is_portable_name(""));
+        assert!(is_os_safe_name("storm_ui_icon_kel'thuzad_armor.png"));
+        for bad in ["a:b.png", "a?.png", "a\\b", "trailing.", ""] {
+            assert!(!is_os_safe_name(bad), "{bad}");
+        }
     }
     #[test]
     fn hero_select_icons_are_required_assets() {

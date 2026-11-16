@@ -75,8 +75,8 @@ dist/
 - Use `assets.json` to resolve images. Preserve original category/filename identity;
   do not derive asset names from translated names. Bundled core assets are hero
   loading portraits, square hero-select icons (`portraits.heroSelect`), battleground
-  loading art, and hero ability/talent icons. Every bundled file name uses only
-  `[A-Za-z0-9-_.()]`;
+  loading art, and hero ability/talent icons. Bundled file names keep their upstream
+  spelling and are checked to be valid on Windows, macOS and Linux;
   other image names retained in native metadata are not a promise of bundled files.
   Paths are relative to the extracted dataset root. Hosting an extracted archive gives a static JSON/image API.
 - A patch has a stable ID and source aliases, channel, date/build when known,

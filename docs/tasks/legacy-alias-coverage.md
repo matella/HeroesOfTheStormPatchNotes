@@ -59,3 +59,24 @@ different official patch is a separate event, not that patch.
   "only the newest PTR cycle".
 - The 25 Nexus-only IDs need an official source (Blizzard forum posts are not
   discovered today) or stay missing; Nexus content cannot be ingested.
+
+## Verification (local, 2026-11-16)
+
+- `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`: passed.
+- `cargo test --locked`: 29 passed. `python3 -m unittest discover -s scripts -p 'test_*.py'`: 12 passed.
+- `cargo run --locked --release -- build --previous <published data-c8d8ff8f… patches.json>`
+  into a scratch directory: built and validated `071d251b…` (game 2.57.0.98348).
+  260 patches (276 − 16 merged mirrors), 157 of the 203 old IDs present as aliases,
+  no previously published alias lost, 1321 assets (91 new `heroSelect` icons),
+  35 battleground slugs, schema version 1. Two further builds from that output
+  reported `unchanged`.
+- The 16 IDs merged away are the BlueTracker-only duplicates (`source:bluetracker:us-en:…`
+  of 2021–2024); their source aliases (`bluetracker:us-en:…`) remain on the merged patch.
+- The first real build failed validation on `storm_ui_icon_kel'thuzad_…`: upstream
+  names may contain apostrophes, which every OS accepts. Asset names are now checked
+  against OS-reserved characters only; the strict set applies to `slug`.
+- The first build seeded from the old release kept mirror text for two merged patches,
+  while later builds kept the official text. Merging now never lets lower-authority
+  text replace official text, and the first build matches every later one.
+
+Not run: the hosted nightly workflow and publication (out of scope; needs the release gate).

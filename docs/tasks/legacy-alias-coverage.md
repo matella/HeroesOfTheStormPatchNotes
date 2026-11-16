@@ -1,0 +1,87 @@
+# Legacy patch IDs, mirror duplicates, hero icons and map slugs — 2026-11-16
+
+## Scope
+
+Storm Codex moved from the retired HotsPatchNotes API to this dataset and is on hold
+because release `data-c8d8ff8f…` covered only 97 of the 300 patch IDs the old API
+served (276 patches against 300). Old `/patch/<id>` links would break. Requested:
+
+1. cover the 203 missing old IDs (aliases, or include the patches that are dropped);
+2. bundle the square hero icons (`portraits.heroSelect`) and list them in `assets.json`;
+3. give every battleground a file-name-safe image name ("Checkpoint: Hanamura" has a `:`).
+
+Not in scope: publishing a release, changing the Storm Codex consumer.
+
+## Changes
+
+- `patches.rs` — `article_key`: a BlueTracker forum topic with a 7+ digit number
+  mirrors the Blizzard news article with that number. Reconciliation now uses it, so
+  the 16 articles of 2021–2024 that appeared twice (forum mirror + blog mirror, or
+  forum mirror + heroes-patch-data build record) become one patch each.
+- `patches.rs` — `apply_legacy_aliases` + `data/legacy-aliases.json` (new
+  `--legacy-aliases` build option): old ID → dataset patch, by ID or existing alias.
+  A missing or ambiguous target, or an old ID that collides with an existing identity,
+  fails the build; `ifPresent` entries (the current PTR) may be absent.
+- `normalize.rs`/`export.rs` — `heroSelect` icons are required assets; battlegrounds
+  carry a `slug` (only `[a-z0-9-_.()]`, unique); validation rejects asset names with
+  OS-reserved characters, Windows device names, or a case-only clash.
+- Published IDs absorbed by a mirror merge stay as aliases of the surviving patch
+  (e.g. `source:bluetracker:us-en:51582`), and are carried forward in later runs.
+
+`Battleground.slug` is a new required field in `game.json`. It is additive, so the
+schema version stays 1; a consumer that rejects unknown fields would need updating.
+The slug equals Storm Codex's current `map_slug` for every map except
+`checkpoint-hanamura` (previously `checkpoint:-hanamura`), so the consumer should
+read `slug` instead of deriving the name (and its front-end must drop `:` the same way).
+
+## Coverage of the 203 old IDs
+
+| Result | Count | Detail |
+| --- | ---: | --- |
+| Aliased | 157 | 119 "unique", 28 "ambiguous", 10 "absent" (dated 1–14 days off) |
+| Still missing: old PTR notes | 19 | Dropped by the project rule that exports only the newest PTR cycle |
+| Still missing: no official source | 25 | Hotfixes/patches known only from Nexus Patch Notes |
+| Still missing: Nexus-only same-day hotfix | 2 | `nexus-2025-12-12-revert`, `nexus-2026-04-20-hotfix` |
+
+One alias, `ptr-patch-notes-november-9-2026`, targets the current PTR and is marked
+`ifPresent`; it disappears when the next PTR cycle replaces it, like the other PTRs.
+
+Matching rules: same date and compatible type ("unique"); for 2018-06-12 by type
+(patch vs. hotfix); the other "ambiguous" pairs were one article seen twice, now
+merged; "absent" slug IDs whose old date was the EU repost date map to the article
+named by their title date; `nexus-2018-07-25-live` maps to `live:66810`, whose
+heroes-patch-data ID is `balance-update-notes-july-25-2018`.
+
+Not aliased on purpose: an old Nexus "hotfix" or "revert" on the same day as a
+different official patch is a separate event, not that patch.
+
+## Decisions
+
+- The 19 historical PTR IDs stay out under the existing project rule "only the
+  newest PTR cycle". Exporting PTR history needs the operator to change that rule;
+  the question has been put to them.
+- The 27 Nexus-only IDs stay missing: no allowed source has them, and the Nexus source
+  ban stands. An official source (such as Blizzard forum posts, not discovered today)
+  would be needed to include them.
+
+## Verification (local, 2026-11-16)
+
+- `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`: passed.
+- `cargo test --locked`: 29 passed. `python3 -m unittest discover -s scripts -p 'test_*.py'`: 12 passed.
+- `cargo run --locked --release -- build --previous <published data-c8d8ff8f… patches.json>`
+  into a scratch directory: built and validated `a3260220…` (game 2.57.0.98348).
+  260 patches (276 − 16 merged mirrors), 157 of the 203 old IDs present as aliases,
+  every previously published ID and alias still resolves, 1321 assets (91 new `heroSelect` icons),
+  35 battleground slugs, schema version 1. Two further builds from that output
+  reported `unchanged`.
+- The 16 IDs merged away are the BlueTracker-only duplicates (`source:bluetracker:us-en:…`
+  of 2021–2024). After independent review they remain resolvable: each is an alias of
+  the merged patch, as are their source aliases (`bluetracker:us-en:…`).
+- The first real build failed validation on `storm_ui_icon_kel'thuzad_…`: upstream
+  names may contain apostrophes, which every OS accepts. Asset names are now checked
+  against OS-reserved characters only; the strict set applies to `slug`.
+- The first build seeded from the old release kept mirror text for two merged patches,
+  while later builds kept the official text. Merging now never lets lower-authority
+  text replace official text, and the first build matches every later one.
+
+Not run: the hosted nightly workflow and publication (out of scope; needs the release gate).

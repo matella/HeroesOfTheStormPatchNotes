@@ -34,8 +34,8 @@ never silently replace them with English. Official patch-article discovery curre
 acquires US English and does not supply 12 article translations. HDP `<s>` styling
 is not HTML strikethrough; sanitize formatting while retaining plain text.
 
-Bundled images cover loading portraits, battleground loading art and hero
-ability/talent icons. Additional image names in native structures do not guarantee
+Bundled images cover loading portraits, square hero-select icons, battleground
+loading art and hero ability/talent icons. Additional image names in native structures do not guarantee
 bundled cosmetic assets. Resolve included paths through `assets.json`.
 
 ## Source trust and caching

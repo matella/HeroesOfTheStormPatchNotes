@@ -3,7 +3,7 @@ use crate::{
     model::*,
     normalize::{clean_html, plain},
 };
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use regex::Regex;
 use scraper::{ElementRef, Html, Selector};
 use serde_json::Value;
@@ -28,6 +28,66 @@ fn canonical(url: &str) -> Option<String> {
     let r = Regex::new(r"/(?:blog|article|heroes-of-the-storm)/(\d+)").expect("regex");
     r.captures(url)
         .map(|c| format!("https://news.blizzard.com/en-us/article/{}", &c[1]))
+}
+/// Blizzard article identity of a source URL. Besides official URLs, a BlueTracker topic whose
+/// number has at least seven digits mirrors the Blizzard news article with that same number
+/// (e.g. `topic/us-en/23667537-...` and `news.blizzard.com/en-us/article/23667537`); its
+/// shorter-numbered topics are BlueTracker's own blog mirror IDs and carry no article identity.
+fn article_key(url: &str) -> Option<String> {
+    canonical(url).or_else(|| {
+        let r =
+            Regex::new(r"^https://www\.bluetracker\.gg/heroes/topic/[a-z]{2}-[a-z]{2}/(\d{7,})-")
+                .expect("regex");
+        r.captures(url)
+            .map(|c| format!("https://news.blizzard.com/en-us/article/{}", &c[1]))
+    })
+}
+/// Attach the retired HotsPatchNotes service's patch IDs (`data/legacy-aliases.json`) as aliases,
+/// so links built on those IDs keep resolving. Each entry names its patch by dataset ID or by an
+/// existing alias. An unknown or ambiguous target fails the build, except entries marked
+/// `ifPresent` (targets that rotate out by design, such as the current PTR announcement).
+pub fn apply_legacy_aliases(patches: &mut [Patch], legacy: &Value) -> Result<()> {
+    let entries = legacy
+        .as_object()
+        .context("legacy aliases must be a JSON object")?;
+    let holders = |name: &str| -> Vec<usize> {
+        patches
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.id == name || p.aliases.iter().any(|a| a == name))
+            .map(|(i, _)| i)
+            .collect()
+    };
+    let mut additions = Vec::new();
+    for (old, entry) in entries {
+        let target = entry["patch"]
+            .as_str()
+            .with_context(|| format!("legacy alias {old} names no patch"))?;
+        let found = holders(target);
+        let owner = holders(old);
+        let target = match found.as_slice() {
+            [i] => *i,
+            [] if entry["ifPresent"] == true => continue,
+            [] => bail!("legacy alias {old}: patch {target} not found"),
+            _ => bail!("legacy alias {old}: patch {target} is ambiguous"),
+        };
+        // An upstream source may later publish the same identifier for the same patch:
+        // that is redundant, not a conflict. Another patch holding it is a conflict.
+        match owner.as_slice() {
+            [] => additions.push((target, old.clone())),
+            [i] if *i == target => {}
+            _ => bail!("legacy alias {old} collides with another patch identity"),
+        }
+    }
+    // Applied after resolution: a legacy alias never names another legacy alias.
+    for (i, old) in additions {
+        patches[i].aliases.push(old);
+    }
+    for p in patches {
+        p.aliases.sort();
+        p.aliases.dedup();
+    }
+    Ok(())
 }
 fn identity(build: Option<&str>, channel: &Channel, fallback: &str) -> String {
     match build {
@@ -87,6 +147,19 @@ fn metadata(row: &Value) -> Result<Patch> {
     })
 }
 
+/// Highest source authority of a record: official > officialArchive > officialMirror > other.
+fn authority_rank(p: &Patch) -> u8 {
+    p.sources
+        .iter()
+        .map(|s| match s.authority.as_str() {
+            "official" => 3,
+            "officialArchive" => 2,
+            "officialMirror" => 1,
+            _ => 0,
+        })
+        .max()
+        .unwrap_or(0)
+}
 /// Reconcile strong build identity or an explicitly recorded source alias only.
 pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
     let mut result: BTreeMap<String, Patch> = BTreeMap::new();
@@ -100,6 +173,10 @@ pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
             if existing.build.is_none() {
                 existing.build = p.build.clone();
             }
+            // Mirror text never replaces official text, whatever order the records arrive in.
+            // The rank is per record (its best source), not per text; equal ranks keep the
+            // input order, which is deterministic.
+            let replace = authority_rank(&p) >= authority_rank(existing);
             existing.aliases.append(&mut p.aliases);
             existing.aliases.sort();
             existing.aliases.dedup();
@@ -108,7 +185,11 @@ pub fn merge(records: Vec<Patch>) -> Result<Vec<Patch>> {
                     existing.sources.push(s);
                 }
             }
-            existing.contents.extend(p.contents);
+            for (locale, content) in p.contents {
+                if replace || !existing.contents.contains_key(&locale) {
+                    existing.contents.insert(locale, content);
+                }
+            }
             if !existing.contents.is_empty() {
                 existing.availability = Availability::Available;
                 existing.reason = None;
@@ -564,7 +645,8 @@ pub fn acquire(
     reconcile(records, previous)
 }
 fn reconcile(records: Vec<Patch>, previous: &[Patch]) -> Result<Vec<Patch>> {
-    // Blog/forum mirror aliases of the same article/date are reconciled explicitly.
+    // Blog/forum mirror aliases of the same article/date are reconciled explicitly, including
+    // BlueTracker forum mirrors that never link to the official article (see `article_key`).
     let mut merged = merge(records)?;
     let mut aliases: BTreeMap<(String, String, ChannelKey), String> = BTreeMap::new();
     let mut remap = BTreeMap::new();
@@ -573,7 +655,7 @@ fn reconcile(records: Vec<Patch>, previous: &[Patch]) -> Result<Vec<Patch>> {
     preferred.sort_by_key(|p| (!published_ids.contains(p.id.as_str()), p.id.clone()));
     for p in preferred {
         for s in &p.sources {
-            if let Some(article) = canonical(&s.url) {
+            if let Some(article) = article_key(&s.url) {
                 let key = (
                     article,
                     p.date.clone(),
@@ -595,7 +677,37 @@ fn reconcile(records: Vec<Patch>, previous: &[Patch]) -> Result<Vec<Patch>> {
             p.id = id.clone();
         }
     }
-    merge(merged)
+    let mut out = merge(merged)?;
+    // Published IDs absorbed by a merge stay resolvable as aliases of the surviving patch,
+    // now (`remap`) and in later runs (carried from the previous release's aliases).
+    let mut forwards: Vec<(String, String)> = remap
+        .iter()
+        .filter(|(old, _)| published_ids.contains(old.as_str()))
+        .map(|(old, new)| (old.clone(), new.clone()))
+        .collect();
+    for p in previous {
+        for a in p.aliases.iter().filter(|a| is_patch_id(a)) {
+            forwards.push((a.clone(), remap.get(&p.id).unwrap_or(&p.id).clone()));
+        }
+    }
+    let ids: BTreeSet<String> = out.iter().map(|p| p.id.clone()).collect();
+    for (old, new) in forwards {
+        if ids.contains(&old) {
+            continue;
+        }
+        if let Some(p) = out.iter_mut().find(|p| p.id == new) {
+            p.aliases.push(old);
+            p.aliases.sort();
+            p.aliases.dedup();
+        }
+    }
+    Ok(out)
+}
+/// Dataset patch IDs (`live:…`, `ptr:…`, `source:…`), as opposed to source aliases.
+fn is_patch_id(s: &str) -> bool {
+    ["live:", "ptr:", "source:"]
+        .iter()
+        .any(|p| s.starts_with(p))
 }
 fn release_line(version: &str) -> Vec<u32> {
     version
@@ -740,6 +852,196 @@ mod ptr_tests {
 #[cfg(test)]
 mod canonical_identity_tests {
     use super::*;
+    fn mirror(id: &str, build: Option<&str>, url: &str, authority: &str) -> Patch {
+        let mut p = crate::fixtures::patch();
+        p.id = id.into();
+        p.build = build.map(str::to_owned);
+        p.aliases = vec![id.trim_start_matches("source:").into()];
+        p.sources = vec![Source {
+            url: url.into(),
+            authority: authority.into(),
+            status: "available".into(),
+        }];
+        p
+    }
+    const FORUM_MAY: &str = "https://www.bluetracker.gg/heroes/topic/us-en/23667537-heroes-of-the-storm-live-patch-notes-may-18-2021/";
+    #[test]
+    fn forum_mirror_topic_number_is_the_official_article() {
+        assert_eq!(
+            article_key(FORUM_MAY),
+            Some("https://news.blizzard.com/en-us/article/23667537".into())
+        );
+        // BlueTracker blog-mirror numbers are not Blizzard article IDs.
+        assert_eq!(
+            article_key(
+                "https://www.bluetracker.gg/heroes/topic/us-en/51582-heroes-of-the-storm-live-patch-notes-may-18-2021/"
+            ),
+            None
+        );
+        assert_eq!(
+            article_key("https://evil.test/heroes/topic/us-en/23667537-x/"),
+            None
+        );
+    }
+    #[test]
+    fn blog_and_forum_mirrors_of_one_article_become_one_patch() {
+        let forum = mirror(
+            "source:bluetracker:us-en:23667537",
+            None,
+            FORUM_MAY,
+            "officialMirror",
+        );
+        let blog = mirror(
+            "source:bluetracker:us-en:51582",
+            None,
+            "https://news.blizzard.com/en-us/article/23667537",
+            "official",
+        );
+        let out = reconcile(
+            vec![blog.clone(), forum.clone()],
+            &[blog.clone(), forum.clone()],
+        )
+        .unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, "source:bluetracker:us-en:23667537");
+        // The absorbed published ID still resolves, and keeps resolving in the next run.
+        let expected = vec![
+            "bluetracker:us-en:23667537",
+            "bluetracker:us-en:51582",
+            "source:bluetracker:us-en:51582",
+        ];
+        assert_eq!(out[0].aliases, expected);
+        let mut blog_again = blog;
+        blog_again.id = out[0].id.clone();
+        let mut forum_again = forum;
+        forum_again.id = out[0].id.clone();
+        let next = reconcile(vec![blog_again, forum_again], &out).unwrap();
+        assert_eq!(next.len(), 1);
+        assert_eq!(next[0].aliases, expected);
+        assert_eq!(out[0].sources.len(), 2);
+        // A build identity wins over a source identity for the same article.
+        let build = mirror(
+            "live:83632",
+            Some("83632"),
+            "https://news.blizzard.com/en-us/article/23591147",
+            "official",
+        );
+        let forum = mirror(
+            "source:bluetracker:us-en:23591147",
+            None,
+            "https://www.bluetracker.gg/heroes/topic/us-en/23591147-heroes-of-the-storm-balance-patch-notes-january-19-2021/",
+            "officialMirror",
+        );
+        let out = reconcile(vec![forum, build], &[]).unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, "live:83632");
+        assert_eq!(out[0].build.as_deref(), Some("83632"));
+    }
+    #[test]
+    fn official_text_wins_over_mirror_text_in_any_order() {
+        let text = |t: &str| PatchContent {
+            locale: "enus".into(),
+            html: t.into(),
+            text: t.into(),
+            sections: Vec::new(),
+        };
+        let mut official = mirror(
+            "live:83632",
+            Some("83632"),
+            "https://news.blizzard.com/en-us/article/23591147",
+            "official",
+        );
+        official.contents.insert("enus".into(), text("official"));
+        let mut forum = mirror(
+            "live:83632",
+            None,
+            "https://www.bluetracker.gg/heroes/topic/us-en/23591147-x/",
+            "officialMirror",
+        );
+        forum.contents.insert("enus".into(), text("mirror"));
+        for records in [
+            vec![official.clone(), forum.clone()],
+            vec![forum.clone(), official.clone()],
+        ] {
+            let out = merge(records).unwrap();
+            assert_eq!(out[0].contents["enus"].text, "official");
+        }
+    }
+    #[test]
+    fn forum_mirrors_on_different_dates_stay_apart() {
+        let forum = mirror(
+            "source:bluetracker:us-en:23667537",
+            None,
+            FORUM_MAY,
+            "officialMirror",
+        );
+        let mut blog = mirror(
+            "source:bluetracker:us-en:51582",
+            None,
+            "https://news.blizzard.com/en-us/article/23667537",
+            "official",
+        );
+        blog.date = "2020-01-02".into();
+        assert_eq!(reconcile(vec![forum, blog], &[]).unwrap().len(), 2);
+    }
+    #[test]
+    fn legacy_aliases_resolve_by_id_or_alias_and_fail_loudly() {
+        let a = mirror(
+            "live:10",
+            Some("10"),
+            "https://news.blizzard.com/en-us/article/1",
+            "official",
+        );
+        let mut b = mirror(
+            "source:bluetracker:us-en:2",
+            None,
+            "https://news.blizzard.com/en-us/article/2",
+            "official",
+        );
+        b.date = "2020-02-02".into();
+        let mut patches = vec![a, b];
+        let legacy = serde_json::json!({
+            "old-by-id": {"patch": "live:10"},
+            "old-by-alias": {"patch": "bluetracker:us-en:2"},
+            "old-ptr": {"patch": "bluetracker:us-en:99", "ifPresent": true}
+        });
+        apply_legacy_aliases(&mut patches, &legacy).unwrap();
+        assert_eq!(patches[0].aliases, vec!["live:10", "old-by-id"]);
+        assert_eq!(
+            patches[1].aliases,
+            vec!["bluetracker:us-en:2", "old-by-alias"]
+        );
+        for bad in [
+            serde_json::json!({"x": {"patch": "live:404"}}),
+            serde_json::json!({"x": {}}),
+            serde_json::json!({"old-by-id": {"patch": "bluetracker:us-en:2"}}),
+            serde_json::json!({"x": {"patch": "live:10"}, "y": {"patch": "x"}}),
+        ] {
+            let mut copy = patches.clone();
+            assert!(apply_legacy_aliases(&mut copy, &bad).is_err(), "{bad}");
+        }
+        // Two patches sharing an alias make the target ambiguous.
+        let mut shared = patches.clone();
+        shared[1].aliases.push("live:10".into());
+        let one = serde_json::json!({"x": {"patch": "live:10"}});
+        assert!(apply_legacy_aliases(&mut shared, &one).is_err());
+        // An upstream alias equal to the legacy ID on the same patch is redundant, not an error;
+        // on another patch it is a conflict.
+        let mut same = patches.clone();
+        same[0].aliases.push("upstream-id".into());
+        let redundant = serde_json::json!({"upstream-id": {"patch": "live:10"}});
+        apply_legacy_aliases(&mut same, &redundant).unwrap();
+        assert_eq!(
+            same[0]
+                .aliases
+                .iter()
+                .filter(|a| *a == "upstream-id")
+                .count(),
+            1
+        );
+        let conflict = serde_json::json!({"upstream-id": {"patch": "bluetracker:us-en:2"}});
+        assert!(apply_legacy_aliases(&mut same, &conflict).is_err());
+    }
     #[test]
     fn new_build_mirror_cannot_replace_a_published_source_id() {
         let mut published = crate::fixtures::patch();

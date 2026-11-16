@@ -35,7 +35,7 @@ pub fn game() -> GameData {
                 attribute_id: "Hero".into(),
                 hyperlink_id: "Hero".into(),
                 unit_id: "HeroUnit".into(),
-                structure: json!({"talents":tiers,"portraits":{"loading":"hero.png"}}),
+                structure: json!({"talents":tiers,"portraits":{"loading":"hero.png","heroSelect":"hero_select.png"}}),
             },
         )]),
         battlegrounds: BTreeMap::from([(
@@ -44,6 +44,7 @@ pub fn game() -> GameData {
                 id: "map".into(),
                 map_id: None,
                 source_key: "Map".into(),
+                slug: "map".into(),
                 structure: json!({"loadingScreenImage":"map.png"}),
             },
         )]),

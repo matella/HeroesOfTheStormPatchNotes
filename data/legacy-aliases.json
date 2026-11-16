@@ -1,0 +1,511 @@
+{
+  "balance-patch-notes-august-19-2020": {
+    "patch": "live:81376"
+  },
+  "balance-patch-notes-august-20-2021": {
+    "patch": "bluetracker:us-en:23712194",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "balance-patch-notes-december-12-2025": {
+    "patch": "bluetracker:us-en:24252009"
+  },
+  "balance-patch-notes-february-1-2022": {
+    "patch": "bluetracker:us-en:23761542",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "balance-patch-notes-february-19-2026": {
+    "patch": "bluetracker:us-en:24244471"
+  },
+  "balance-patch-notes-january-19-2021": {
+    "patch": "live:83632",
+    "note": "article dated January 19, 2021; the old service dated it 2021-01-20"
+  },
+  "balance-patch-notes-july-20-2021": {
+    "patch": "bluetracker:us-en:23686848",
+    "note": "article dated July 20, 2021; the old service dated it 2021-07-26"
+  },
+  "balance-patch-notes-june-15-2021": {
+    "patch": "bluetracker:us-en:23685039",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "balance-patch-notes-march-2-2021": {
+    "patch": "live:84200",
+    "note": "article dated March 2, 2021; the old service dated it 2021-03-03"
+  },
+  "balance-patch-notes-march-29-2022": {
+    "patch": "bluetracker:us-en:23787368",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "balance-patch-notes-may-11-2026": {
+    "patch": "bluetracker:us-en:24276959",
+    "note": "article dated May 11, 2026; the old service dated it 2026-05-12"
+  },
+  "balance-patch-notes-november-4-2020": {
+    "patch": "live:82624"
+  },
+  "balance-patch-notes-october-7-2020": {
+    "patch": "live:82169"
+  },
+  "balance-patch-notes-september-27-2021": {
+    "patch": "bluetracker:us-en:23725472"
+  },
+  "live-patch-notes-april-20-2026": {
+    "patch": "bluetracker:us-en:24261475"
+  },
+  "live-patch-notes-august-12-2024": {
+    "patch": "bluetracker:us-en:24126146",
+    "note": "article dated August 12, 2024; the old service dated it 2024-08-14"
+  },
+  "live-patch-notes-december-1-2020": {
+    "patch": "live:83004",
+    "note": "article dated December 1, 2020; the old service dated it 2020-12-02"
+  },
+  "live-patch-notes-december-1-2025": {
+    "patch": "bluetracker:us-en:24246292"
+  },
+  "live-patch-notes-december-7-2021": {
+    "patch": "bluetracker:us-en:23754896",
+    "note": "article dated December 7, 2021; the old service dated it 2021-12-21"
+  },
+  "live-patch-notes-december-9-2024": {
+    "patch": "bluetracker:us-en:24161534"
+  },
+  "live-patch-notes-february-10-2026": {
+    "patch": "bluetracker:us-en:24244446"
+  },
+  "live-patch-notes-february-6-2024": {
+    "patch": "bluetracker:us-en:24061887",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "live-patch-notes-january-27-2025": {
+    "patch": "bluetracker:us-en:24173974"
+  },
+  "live-patch-notes-july-20-2026": {
+    "patch": "bluetracker:us-en:24291432"
+  },
+  "live-patch-notes-july-29-2025": {
+    "patch": "bluetracker:us-en:24224135"
+  },
+  "live-patch-notes-june-2-2025": {
+    "patch": "bluetracker:us-en:24206703"
+  },
+  "live-patch-notes-march-12-2025": {
+    "patch": "bluetracker:us-en:24185887"
+  },
+  "live-patch-notes-may-15-2025": {
+    "patch": "bluetracker:us-en:24205005"
+  },
+  "live-patch-notes-may-18-2021": {
+    "patch": "bluetracker:us-en:23667537",
+    "note": "article dated May 18, 2021; the old service dated it 2021-05-20"
+  },
+  "live-patch-notes-may-21-2024": {
+    "patch": "bluetracker:us-en:24096021",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "live-patch-notes-october-14-2024": {
+    "patch": "bluetracker:us-en:24145596",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "live-patch-notes-september-28-2026": {
+    "patch": "bluetracker:us-en:24303007"
+  },
+  "live-patch-notes-september-30-2025": {
+    "patch": "bluetracker:us-en:24229032"
+  },
+  "live-patch-notes-september-8-2020": {
+    "patch": "live:81700",
+    "note": "article dated September 8, 2020; the old service dated it 2020-09-09"
+  },
+  "nexus-2017-11-01-live": {
+    "patch": "live:59239"
+  },
+  "nexus-2017-11-14-live": {
+    "patch": "live:59657"
+  },
+  "nexus-2017-11-22-hotfix": {
+    "patch": "live:59799"
+  },
+  "nexus-2017-11-29-live": {
+    "patch": "live:59988"
+  },
+  "nexus-2017-12-12-live": {
+    "patch": "live:60339"
+  },
+  "nexus-2017-12-20-live": {
+    "patch": "live:60632"
+  },
+  "nexus-2018-01-09-live": {
+    "patch": "live:61129"
+  },
+  "nexus-2018-01-16-live": {
+    "patch": "live:61361"
+  },
+  "nexus-2018-01-24-live": {
+    "patch": "live:61552"
+  },
+  "nexus-2018-02-06-live": {
+    "patch": "live:61952"
+  },
+  "nexus-2018-02-09-live": {
+    "patch": "live:62119"
+  },
+  "nexus-2018-02-14-hotfix": {
+    "patch": "live:62212"
+  },
+  "nexus-2018-02-21-live": {
+    "patch": "live:62424"
+  },
+  "nexus-2018-03-06-live": {
+    "patch": "live:62833"
+  },
+  "nexus-2018-03-09-live": {
+    "patch": "live:63070"
+  },
+  "nexus-2018-03-21-live": {
+    "patch": "live:63402"
+  },
+  "nexus-2018-03-27-live": {
+    "patch": "live:63507"
+  },
+  "nexus-2018-03-30-hotfix": {
+    "patch": "live:63635"
+  },
+  "nexus-2018-04-11-live": {
+    "patch": "live:64100"
+  },
+  "nexus-2018-04-12-hotfix": {
+    "patch": "live:64129"
+  },
+  "nexus-2018-04-24-live": {
+    "patch": "live:64455"
+  },
+  "nexus-2018-05-01-hotfix": {
+    "patch": "live:64657"
+  },
+  "nexus-2018-05-09-live": {
+    "patch": "live:64863"
+  },
+  "nexus-2018-05-10-hotfix": {
+    "patch": "live:65006"
+  },
+  "nexus-2018-05-22-live": {
+    "patch": "live:65285"
+  },
+  "nexus-2018-06-06-live": {
+    "patch": "live:65617"
+  },
+  "nexus-2018-06-12-hotfix": {
+    "patch": "live:65846"
+  },
+  "nexus-2018-06-12-live": {
+    "patch": "live:65751"
+  },
+  "nexus-2018-06-15-hotfix": {
+    "patch": "live:65943"
+  },
+  "nexus-2018-06-27-live": {
+    "patch": "live:66182"
+  },
+  "nexus-2018-07-10-live": {
+    "patch": "live:66488"
+  },
+  "nexus-2018-07-25-live": {
+    "patch": "live:66810",
+    "note": "heroes-patch-data dates the July 25, 2018 balance update on July 26; the old service dated it 2018-07-25"
+  },
+  "nexus-2018-07-27-hotfix": {
+    "patch": "live:66946"
+  },
+  "nexus-2018-08-07-live": {
+    "patch": "live:67143"
+  },
+  "nexus-2018-08-16-hotfix": {
+    "patch": "live:67462"
+  },
+  "nexus-2018-08-22-live": {
+    "patch": "live:67621"
+  },
+  "nexus-2018-09-04-live": {
+    "patch": "live:67985"
+  },
+  "nexus-2018-09-19-live": {
+    "patch": "live:68509"
+  },
+  "nexus-2018-09-25-live": {
+    "patch": "live:68740"
+  },
+  "nexus-2018-10-10-live": {
+    "patch": "live:69185"
+  },
+  "nexus-2018-10-16-live": {
+    "patch": "live:69350"
+  },
+  "nexus-2018-10-26-hotfix": {
+    "patch": "live:69790"
+  },
+  "nexus-2018-10-31-live": {
+    "patch": "live:69823"
+  },
+  "nexus-2018-11-13-live": {
+    "patch": "live:70200"
+  },
+  "nexus-2018-11-28-live": {
+    "patch": "live:70616"
+  },
+  "nexus-2018-12-11-live": {
+    "patch": "live:70920"
+  },
+  "nexus-2018-12-13-hotfix": {
+    "patch": "live:71040"
+  },
+  "nexus-2018-12-19-live": {
+    "patch": "live:71138"
+  },
+  "nexus-2019-01-08-live": {
+    "patch": "live:71449"
+  },
+  "nexus-2019-01-23-live": {
+    "patch": "live:71652"
+  },
+  "nexus-2019-02-12-live": {
+    "patch": "live:72191"
+  },
+  "nexus-2019-02-27-live": {
+    "patch": "live:72481"
+  },
+  "nexus-2019-03-26-live": {
+    "patch": "live:73016"
+  },
+  "nexus-2019-04-17-live": {
+    "patch": "live:73493"
+  },
+  "nexus-2019-04-30-live": {
+    "patch": "live:73662"
+  },
+  "nexus-2019-05-22-live": {
+    "patch": "live:74238"
+  },
+  "nexus-2019-06-18-live": {
+    "patch": "live:74739"
+  },
+  "nexus-2019-07-10-live": {
+    "patch": "live:75132"
+  },
+  "nexus-2019-08-06-live": {
+    "patch": "live:75589"
+  },
+  "nexus-2019-08-14-hotfix": {
+    "patch": "live:75792"
+  },
+  "nexus-2019-08-28-live": {
+    "patch": "live:76003"
+  },
+  "nexus-2019-09-05-hotfix": {
+    "patch": "live:76124"
+  },
+  "nexus-2019-09-24-live": {
+    "patch": "live:76389"
+  },
+  "nexus-2019-10-02-hotfix": {
+    "patch": "live:76517"
+  },
+  "nexus-2019-10-15-live": {
+    "patch": "live:76753"
+  },
+  "nexus-2019-10-22-hotfix": {
+    "patch": "live:76893"
+  },
+  "nexus-2019-11-22-live": {
+    "patch": "live:77406"
+  },
+  "nexus-2019-12-03-live": {
+    "patch": "live:77525"
+  },
+  "nexus-2019-12-04-hotfix": {
+    "patch": "live:77548"
+  },
+  "nexus-2019-12-16-live": {
+    "patch": "live:77662"
+  },
+  "nexus-2020-01-22-live": {
+    "patch": "live:77981"
+  },
+  "nexus-2020-02-12-live": {
+    "patch": "live:78256"
+  },
+  "nexus-2020-03-11-live": {
+    "patch": "live:78679"
+  },
+  "nexus-2020-03-17-hotfix": {
+    "patch": "live:78725"
+  },
+  "nexus-2020-04-14-live": {
+    "patch": "live:79155"
+  },
+  "nexus-2020-05-06-live": {
+    "patch": "live:79515"
+  },
+  "nexus-2020-06-03-live": {
+    "patch": "live:80046"
+  },
+  "nexus-2020-06-23-live": {
+    "patch": "live:80333"
+  },
+  "nexus-2020-07-15-live": {
+    "patch": "live:80702"
+  },
+  "nexus-2020-08-19-live": {
+    "patch": "live:81376"
+  },
+  "nexus-2020-09-08-live": {
+    "patch": "live:81700"
+  },
+  "nexus-2020-10-07-live": {
+    "patch": "live:82169"
+  },
+  "nexus-2020-11-04-live": {
+    "patch": "live:82624"
+  },
+  "nexus-2020-12-01-live": {
+    "patch": "live:83004"
+  },
+  "nexus-2020-12-07-hotfix": {
+    "patch": "live:83086"
+  },
+  "nexus-2021-01-19-live": {
+    "patch": "live:83632",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2021-01-21-hotfix": {
+    "patch": "live:83716"
+  },
+  "nexus-2021-03-02-live": {
+    "patch": "live:84200",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2021-03-04-hotfix": {
+    "patch": "live:84249"
+  },
+  "nexus-2021-05-18-live": {
+    "patch": "bluetracker:us-en:23667537",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2021-06-15-live": {
+    "patch": "bluetracker:us-en:23685039",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2021-07-20-live": {
+    "patch": "bluetracker:us-en:23686848",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2021-08-20-live": {
+    "patch": "bluetracker:us-en:23712194",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2021-09-27-live": {
+    "patch": "bluetracker:us-en:23725472"
+  },
+  "nexus-2021-12-07-live": {
+    "patch": "bluetracker:us-en:23754896",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2022-02-01-live": {
+    "patch": "bluetracker:us-en:23761542",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2022-03-29-live": {
+    "patch": "bluetracker:us-en:23787368",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2022-07-12-live": {
+    "patch": "bluetracker:us-en:23814051",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2023-09-20-live": {
+    "patch": "bluetracker:us-en:23999073",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2023-11-16-live": {
+    "patch": "bluetracker:us-en:24031812",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2024-02-06-live": {
+    "patch": "bluetracker:us-en:24061887",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2024-05-21-live": {
+    "patch": "bluetracker:us-en:24096021",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2024-08-12-live": {
+    "patch": "bluetracker:us-en:24126146",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2024-10-14-live": {
+    "patch": "bluetracker:us-en:24145596",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "nexus-2024-12-09-live": {
+    "patch": "bluetracker:us-en:24161534"
+  },
+  "nexus-2025-01-27-live": {
+    "patch": "bluetracker:us-en:24173974"
+  },
+  "nexus-2025-03-12-live": {
+    "patch": "bluetracker:us-en:24185887"
+  },
+  "nexus-2025-05-15-live": {
+    "patch": "bluetracker:us-en:24205005"
+  },
+  "nexus-2025-06-02-live": {
+    "patch": "bluetracker:us-en:24206703"
+  },
+  "nexus-2025-07-29-live": {
+    "patch": "bluetracker:us-en:24224135"
+  },
+  "nexus-2025-09-30-live": {
+    "patch": "bluetracker:us-en:24229032"
+  },
+  "nexus-2025-12-01-live": {
+    "patch": "bluetracker:us-en:24246292"
+  },
+  "nexus-2025-12-12-live": {
+    "patch": "bluetracker:us-en:24252009"
+  },
+  "nexus-2026-02-10-live": {
+    "patch": "bluetracker:us-en:24244446"
+  },
+  "nexus-2026-02-19-live": {
+    "patch": "bluetracker:us-en:24244471"
+  },
+  "nexus-2026-04-20-live": {
+    "patch": "bluetracker:us-en:24261475"
+  },
+  "nexus-2026-05-11-live": {
+    "patch": "bluetracker:us-en:24276959"
+  },
+  "nexus-2026-07-20-live": {
+    "patch": "bluetracker:us-en:24291432"
+  },
+  "nexus-2026-09-28-live": {
+    "patch": "bluetracker:us-en:24303007"
+  },
+  "patch-notes-july-12-2022": {
+    "patch": "bluetracker:us-en:23814051",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "patch-notes-november-16-2023": {
+    "patch": "bluetracker:us-en:24031812",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "patch-notes-september-20-2023": {
+    "patch": "bluetracker:us-en:23999073",
+    "note": "blog/forum mirrors of one article, reconciled by article number"
+  },
+  "ptr-patch-notes-november-9-2026": {
+    "patch": "bluetracker:us-en:24317084",
+    "ifPresent": true,
+    "note": "PTR announcement; only the newest PTR cycle is exported"
+  }
+}

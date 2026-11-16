@@ -14,6 +14,9 @@
 - Archived HeroesPatchNotes/community reports: retain metadata/source links pending
   recorded reuse approval. The registry's allowContent flag must not be enabled
   without a documented source/attribution decision. Missing notes are permitted.
+- data/legacy-aliases.json: patch IDs of the retired HotsPatchNotes service, kept
+  only as aliases for link continuity. Some of those IDs were named after Nexus Patch
+  Notes entries; the file holds identifiers and a matching note, never Nexus content.
 - Nexus Patch Notes: NO runtime ingestion, fixture or redistributed text/images.
   It was used only during investigation to find underlying source URLs; its
   All Rights Reserved restriction in the project policy remains in effect.

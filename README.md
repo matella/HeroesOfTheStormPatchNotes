@@ -20,7 +20,8 @@ cargo run --locked -- schemas schemas
 `build` reconstructs the latest **extracted live** HeroesToolChest v5 dataset and
 its dependencies, normalizes all twelve locales, discovers official notes, fetches
 shared assets, validates the result, and writes a deterministic bulk archive.
-`--output`, `--cache`, `--history-sources` select task-specific directories/files.
+`--output`, `--cache`, `--history-sources` and `--legacy-aliases` select task-specific
+directories/files.
 `--previous /path/to/patches.json` supplies previously published identities and PTR
 cycle evidence when starting in a fresh CI workspace. An existing output also
 provides this state and must pass validation before it can be replaced.
@@ -53,7 +54,11 @@ dist/
   (such as Cassia) are translations, not identifiers. `attributeId`, `hyperlinkId`
   and `unitId` remain available.
 - Battleground keys are upstream `normalizedId`. Native `mapId` is an optional
-  alias because it can be blank or shared by normal/heroic variants.
+  alias because it can be blank or shared by normal/heroic variants. `slug` is a
+  unique, file-name-safe form of the English name (lowercase, apostrophes dropped,
+  whitespace joined by `-`, then only `[a-z0-9-_.()]` kept), for example
+  `checkpoint-hanamura` and `deadmans-stand-(heroic)`. It is additive in schema 1,
+  but required: a `dist/` built before it fails validation, so rebuild it fresh.
 - Native v5 hero structures retain abilities, sub-abilities, talent `linkId`,
   tiers (`Level1`, `Level4`, `Level7`, `Level10`, `Level13`, `Level16`, `Level20`),
   hero units, summoned-unit and level-scaling references. Unit/veterancy tables
@@ -70,14 +75,24 @@ dist/
   `game.units`, or `game.veterancy`) before applying the patch.
 - Use `assets.json` to resolve images. Preserve original category/filename identity;
   do not derive asset names from translated names. Bundled core assets are hero
-  loading portraits, battleground loading art, and hero ability/talent icons;
+  loading portraits, square hero-select icons (`portraits.heroSelect`), battleground
+  loading art, and hero ability/talent icons. Bundled file names keep their upstream
+  spelling; validation rejects OS-reserved characters, Windows device names and names
+  that differ only by case;
   other image names retained in native metadata are not a promise of bundled files.
   Paths are relative to the extracted dataset root. Hosting an extracted archive gives a static JSON/image API.
 - A patch has a stable ID and source aliases, channel, date/build when known,
   sources/authority, availability, and locale-keyed article content/sections.
-  Strong build identity and recorded source relationships reconcile mirrors;
-  different same-day builds are not collapsed by date alone. Community notes
-  must not be presented as official.
+  Strong build identity and recorded source relationships reconcile mirrors; a
+  published ID absorbed by such a merge remains an alias of the surviving patch;
+  different same-day builds are not collapsed by date alone. A BlueTracker forum
+  mirror whose topic number is the Blizzard article ID reconciles with that article.
+  Community notes must not be presented as official.
+- `aliases` also carries the patch IDs of the retired HotsPatchNotes service, from
+  the curated [data/legacy-aliases.json](data/legacy-aliases.json), so old links keep
+  resolving. These are identifiers only (some are named `nexus-…` after the old
+  service's source); no content comes with them. An unresolvable entry fails the build
+  unless it is marked `ifPresent`.
 - `metadataOnly` means no validated/reusable content was acquired, not an empty
   patch. `reason` and sources explain the limitation. A legacy placeholder anchor
   is not content. Known old index date mistakes are corrected in the registry.

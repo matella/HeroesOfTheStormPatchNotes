@@ -4,8 +4,7 @@ A Rust producer for reusable Heroes of the Storm reference data: heroes, abiliti
 talents, battlegrounds, localized game text, images, and patch history. No web server,
 .NET runtime, database, or Storm Codex installation is needed.
 
-The dataset has its own versioned contract. **It intentionally breaks the former
-HotsPatchNotes API/snapshot contract.** Storm Codex adaptation is separate work.
+The versioned dataset replaces the former HotsPatchNotes API and snapshot format. [Storm Codex](https://github.com/matella/storm-codex) already reads schema-v1 dataset releases through its [reference-data adapter](https://github.com/matella/storm-codex/pull/33). You can build and use the dataset without Storm Codex.
 
 ## Generate and validate
 
